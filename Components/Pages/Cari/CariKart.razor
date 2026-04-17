@@ -1,0 +1,1145 @@
+﻿@page "/cari/kart"
+@page "/cari/kart/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@using MACHINEBISS_Web.Db
+@using MACHINEBISS_Web.Models.MachineBiss
+@inject NavigationManager Nav
+@inject IDbContextFactory<FirmaContext> FirmaFactory
+@inject IJSRuntime JS
+
+<PageTitle>Cari Kart</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-id-card"></i> Cari Kart @(Id > 0 ? "- Duzenle" : "- Yeni")
+    </div>
+    <div class="card-body">
+        <!-- Tab Control -->
+        <div class="xtab">
+            <div class="xtab-header">
+                <div class="xtab-header-item @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">
+                    Cari Bilgileri
+                </div>
+                <div class="xtab-header-item @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+                    Ekstre
+                </div>
+                <div class="xtab-header-item @(activeTab == 2 ? "active" : "")" @onclick="() => activeTab = 2">
+                    Teklifler
+                </div>
+                <div class="xtab-header-item @(activeTab == 3 ? "active" : "")" @onclick="() => activeTab = 3">
+                    Calisanlar
+                </div>
+                <div class="xtab-header-item @(activeTab == 4 ? "active" : "")" @onclick="() => activeTab = 4">
+                    Sevk Adresleri
+                </div>
+                <div class="xtab-header-item @(activeTab == 5 ? "active" : "")" @onclick="() => activeTab = 5">
+                    Gorusmeler
+                </div>
+            </div>
+
+            <div class="xtab-body" style="padding:10px;">
+                @if (activeTab == 0)
+                {
+                    <!-- CARI BILGILERI -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <!-- Sol Kolon: Temel Bilgiler -->
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Temel Bilgiler</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Cari Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.CariKodu" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-check" style="margin-left:10px;">
+                                        <input type="checkbox" @bind="model.EFatura" />
+                                        <label style="font-weight:700; color:#dc2626;">E-Fatura</label>
+                                    </div>
+                                    <div class="form-check" style="margin-left:10px;">
+                                        <input type="checkbox" @bind="model.SahisSirketi" />
+                                        <label>Sahis Sirketi</label>
+                                    </div>
+                                    <div class="form-check" style="margin-left:10px;">
+                                        <input type="checkbox" @bind="model.YurtDisi" />
+                                        <label>Yurt Disi</label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Unvan</label>
+                                        <input type="text" class="form-control" @bind="model.Unvani" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ad</label>
+                                        <input type="text" class="form-control" @bind="model.Ad" style="max-width:200px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Soyad</label>
+                                        <input type="text" class="form-control" @bind="model.Soyad" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Tck No</label>
+                                        <input type="text" class="form-control" @bind="model.TckNo" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Yetkili 1</label>
+                                        <input type="text" class="form-control" @bind="model.Yetkili1" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Yetkili 2</label>
+                                        <input type="text" class="form-control" @bind="model.Yetkili2" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>V.D. Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.VdKodu" style="max-width:120px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">V. Dairesi</label>
+                                        <input type="text" class="form-control" @bind="model.Vd" />
+                                        <button class="btn btn-sm btn-outline" title="V.D. Sec">...</button>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Vergi No</label>
+                                        <input type="text" class="form-control" @bind="model.Vn" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Cari Grubu</label>
+                                        <input type="text" class="form-control" @bind="model.CariGrubu" style="max-width:200px;" />
+                                        <button class="btn btn-sm btn-outline" title="Grup Sec">...</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sag Kolon: Iletisim ve Adres -->
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Iletisim Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Gsm No</label>
+                                        <input type="text" class="form-control" @bind="model.GsmNo" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Telefon 1</label>
+                                        <input type="text" class="form-control" @bind="model.Telefon1" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Telefon 2</label>
+                                        <input type="text" class="form-control" @bind="model.Telefon2" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Faks</label>
+                                        <input type="text" class="form-control" @bind="model.Faks" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Email</label>
+                                        <input type="text" class="form-control" @bind="model.Email" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="group-box">
+                                <span class="group-box-title">Adres Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Adres 1</label>
+                                        <input type="text" class="form-control" @bind="model.Adres1" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Adres 2</label>
+                                        <input type="text" class="form-control" @bind="model.Adres2" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Posta Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.PostaKodu" style="max-width:120px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ulke</label>
+                                        <select class="form-control" @bind="model.UlkeId" style="max-width:200px;">
+                                            <option value="">Seciniz</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Sehir</label>
+                                        <select class="form-control" @bind="model.SehirId" style="max-width:200px;">
+                                            <option value="">Seciniz</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Ilce</label>
+                                        <select class="form-control" @bind="model.IlceId" style="max-width:200px;">
+                                            <option value="">Seciniz</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ozel Kodlar ve E-Fatura -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div class="group-box" style="flex:1; min-width:400px;">
+                            <span class="group-box-title">Ozel Kodlar</span>
+                            <div class="form-row">
+                                <div class="form-inline" style="flex:1;">
+                                    <label>Ozel Kod 1</label>
+                                    <input type="text" class="form-control" @bind="model.OzelKod1" />
+                                    <button class="btn btn-sm btn-outline">...</button>
+                                </div>
+                                <div class="form-inline" style="flex:1;">
+                                    <label style="min-width:auto;">Ozel Kod 2</label>
+                                    <input type="text" class="form-control" @bind="model.OzelKod2" />
+                                    <button class="btn btn-sm btn-outline">...</button>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-inline" style="flex:1;">
+                                    <label>Ozel Kod 3</label>
+                                    <input type="text" class="form-control" @bind="model.OzelKod3" />
+                                    <button class="btn btn-sm btn-outline">...</button>
+                                </div>
+                                <div class="form-inline" style="flex:1;">
+                                    <label style="min-width:auto;">Ozel Kod 4</label>
+                                    <input type="text" class="form-control" @bind="model.OzelKod4" />
+                                    <button class="btn btn-sm btn-outline">...</button>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-inline" style="flex:1;">
+                                    <label>Ozel Kod 5</label>
+                                    <input type="text" class="form-control" @bind="model.OzelKod5" />
+                                    <button class="btn btn-sm btn-outline">...</button>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-inline">
+                                    <label>Fiyat Grubu</label>
+                                    <select class="form-control" @bind="model.FiyatGrubu" style="width:200px;">
+                                        <option value="0">-- Secin --</option>
+                                        @foreach (var g in fiyatGruplari)
+                                        {
+                                            <option value="@g.GrupNo">@g.GrupNo - @g.GrupAdi</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="group-box" style="flex:1; min-width:400px;">
+                            <span class="group-box-title">E-Belge Bilgileri</span>
+                            <div class="form-row">
+                                <div class="form-inline" style="flex:1;">
+                                    <label>E-Fatura URN/Mail</label>
+                                    <input type="text" class="form-control" @bind="model.EFaturaUrnMail" />
+                                    <button class="btn btn-sm btn-outline" title="GIB Sorgula">
+                                        <i class="fa fa-search"></i> GIB Sorgula
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-inline" style="flex:1;">
+                                    <label>E-Irsaliye URN/Mail</label>
+                                    <input type="text" class="form-control" @bind="model.EIrsaliyeUrnMail" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 1)
+                {
+                    <!-- EKSTRE -->
+                    <div class="grid-container" style="max-height:400px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Fis No</th>
+                                    <th>Belge No</th>
+                                    <th>Aciklama 1</th>
+                                    <th>Aciklama 2</th>
+                                    <th>Borc</th>
+                                    <th>Alacak</th>
+                                    <th>Bakiye</th>
+                                    <th>Doviz</th>
+                                    <th>Kaynak</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (ekstreList != null)
+                                {
+                                    @foreach (var item in ekstreList)
+                                    {
+                                        <tr>
+                                            <td>@item.TarihSaat.ToString("dd.MM.yyyy HH:mm")</td>
+                                            <td>@item.FisNo</td>
+                                            <td>@item.BelgeNo</td>
+                                            <td>@item.Aciklama1</td>
+                                            <td>@item.Aciklama2</td>
+                                            <td style="text-align:right;">@item.Borc.ToString("N2")</td>
+                                            <td style="text-align:right;">@item.Alacak.ToString("N2")</td>
+                                            <td style="text-align:right;">@item.Bakiye.ToString("N2")</td>
+                                            <td>@item.Doviz</td>
+                                            <td>@item.Kaynak</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 2)
+                {
+                    <!-- TEKLIFLER -->
+                    <div class="grid-container" style="max-height:400px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Teklif No</th>
+                                    <th>Unvan</th>
+                                    <th>Aciklama</th>
+                                    <th>Tutar</th>
+                                    <th>Doviz</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- TODO: Load data from API -->
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 3)
+                {
+                    <!-- CALISANLAR -->
+                    <div class="group-box">
+                        <span class="group-box-title">Calisan Bilgileri</span>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Ad Soyad</label>
+                                <input type="text" class="form-control" @bind="calisanAdSoyad" />
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">Birim</label>
+                                <input type="text" class="form-control" @bind="calisanBirim" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Telefon</label>
+                                <input type="text" class="form-control" @bind="calisanTelefon" />
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">E-Posta</label>
+                                <input type="text" class="form-control" @bind="calisanEPosta" />
+                            </div>
+                        </div>
+                        <div class="toolbar" style="border-top:1px solid var(--pinebi-border); padding-top:8px; margin-top:8px; border-bottom:none;">
+                            <button class="btn btn-success btn-sm" @onclick="CalisanKaydet">
+                                <i class="fa fa-save"></i> Kaydet
+                            </button>
+                            <button class="btn btn-primary btn-sm" @onclick="CalisanGuncelle">
+                                <i class="fa fa-pencil"></i> Guncelle
+                            </button>
+                            <button class="btn btn-danger btn-sm" @onclick="CalisanSil">
+                                <i class="fa fa-trash"></i> Sil
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-container" style="max-height:250px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Ad Soyad</th>
+                                    <th>Birim</th>
+                                    <th>Telefon</th>
+                                    <th>E-Posta</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in calisanList)
+                                {
+                                    <tr class="@(selectedCalisanId == c.Id ? "selected" : "")" @onclick="() => CalisanSec(c)">
+                                        <td>@c.AdSoyad</td>
+                                        <td>@c.Birim</td>
+                                        <td>@c.Telefon</td>
+                                        <td>@c.EPosta</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 4)
+                {
+                    <!-- SEVK ADRESLERI -->
+                    <div class="group-box">
+                        <span class="group-box-title">Sevk Adresi</span>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Baslik</label>
+                                <input type="text" class="form-control" @bind="sevkBaslik" style="max-width:300px;" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Adres</label>
+                                <input type="text" class="form-control" @bind="sevkAdres" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Telefon</label>
+                                <input type="text" class="form-control" @bind="sevkTelefon" style="max-width:200px;" />
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">Posta Kodu</label>
+                                <input type="text" class="form-control" @bind="sevkPostaKodu" style="max-width:120px;" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Ulke</label>
+                                <select class="form-control" @bind="sevkUlkeId" style="max-width:200px;">
+                                    <option value="">Seciniz</option>
+                                </select>
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">Sehir</label>
+                                <select class="form-control" @bind="sevkSehirId" style="max-width:200px;">
+                                    <option value="">Seciniz</option>
+                                </select>
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">Ilce</label>
+                                <select class="form-control" @bind="sevkIlceId" style="max-width:200px;">
+                                    <option value="">Seciniz</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="toolbar" style="border-top:1px solid var(--pinebi-border); padding-top:8px; margin-top:8px; border-bottom:none;">
+                            <button class="btn btn-success btn-sm" @onclick="SevkKaydet">
+                                <i class="fa fa-save"></i> Kaydet
+                            </button>
+                            <button class="btn btn-primary btn-sm" @onclick="SevkGuncelle">
+                                <i class="fa fa-pencil"></i> Guncelle
+                            </button>
+                            <button class="btn btn-danger btn-sm" @onclick="SevkSil">
+                                <i class="fa fa-trash"></i> Sil
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-container" style="max-height:200px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Baslik</th>
+                                    <th>Adres</th>
+                                    <th>Telefon</th>
+                                    <th>Posta Kodu</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in sevkList)
+                                {
+                                    <tr class="@(selectedSevkId == s.Id ? "selected" : "")" @onclick="() => SevkSec(s)">
+                                        <td>@s.Baslik</td>
+                                        <td>@s.Adres</td>
+                                        <td>@s.Telefon</td>
+                                        <td>@s.PostaKodu</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 5)
+                {
+                    <!-- GORUSMELER -->
+                    <div class="group-box">
+                        <span class="group-box-title">Gorusme Bilgileri</span>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:0.5;">
+                                <label>Tarih</label>
+                                <input type="date" class="form-control" @bind="gorusmeTarihi" style="max-width:160px;" />
+                            </div>
+                            <div class="form-inline" style="flex:1;">
+                                <label style="min-width:auto;">Gorusulen Kisi</label>
+                                <input type="text" class="form-control" @bind="gorusulenKisi" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-inline" style="flex:1;">
+                                <label>Aciklama</label>
+                                <textarea class="form-control" @bind="gorusmeAciklama" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="toolbar" style="border-top:1px solid var(--pinebi-border); padding-top:8px; margin-top:8px; border-bottom:none;">
+                            <button class="btn btn-success btn-sm" @onclick="GorusmeKaydet">
+                                <i class="fa fa-save"></i> Kaydet
+                            </button>
+                            <button class="btn btn-primary btn-sm" @onclick="GorusmeGuncelle">
+                                <i class="fa fa-pencil"></i> Guncelle
+                            </button>
+                            <button class="btn btn-danger btn-sm" @onclick="GorusmeSil">
+                                <i class="fa fa-trash"></i> Sil
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-container" style="max-height:200px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Gorusulen Kisi</th>
+                                    <th>Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var g in gorusmeList)
+                                {
+                                    <tr class="@(selectedGorusmeId == g.Id ? "selected" : "")" @onclick="() => GorusmeSec(g)">
+                                        <td>@(g.GorusmeTarihi?.ToString("dd.MM.yyyy"))</td>
+                                        <td>@g.GorusulenKisi</td>
+                                        <td>@g.Aciklama</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div style="padding:8px 12px; margin-top:10px; border-radius:4px; background:@(isError ? "#fef2f2" : "#f0fdf4"); color:@(isError ? "#dc2626" : "#16a34a"); border:1px solid @(isError ? "#fecaca" : "#bbf7d0");">
+                @statusMessage
+            </div>
+        }
+
+        <!-- Bottom Toolbar -->
+        <div class="toolbar" style="border-top:1px solid var(--pinebi-border); margin-top:10px; padding-top:10px; border-bottom:none; justify-content:flex-end;">
+            <button class="btn btn-primary" @onclick="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-secondary" @onclick="Kapat">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private int activeTab = 0;
+    private CariKartModel model = new();
+    private string? statusMessage;
+    private bool isError;
+    private List<MACHINEBISS_Web.Models.MachineBiss.FiyatGruplari> fiyatGruplari = new();
+
+    // Ekstre
+    private List<CariHesapEkstresi> ekstreList = new();
+
+    // Calisan
+    private List<CariCalisanlar> calisanList = new();
+    private int? selectedCalisanId;
+    private string calisanAdSoyad = "";
+    private string calisanBirim = "";
+    private string calisanTelefon = "";
+    private string calisanEPosta = "";
+
+    // Sevk
+    private List<CariSevkAdresleri> sevkList = new();
+    private int? selectedSevkId;
+    private string sevkBaslik = "";
+    private string sevkAdres = "";
+    private string sevkTelefon = "";
+    private string sevkPostaKodu = "";
+    private int? sevkUlkeId;
+    private int? sevkSehirId;
+    private int? sevkIlceId;
+
+    // Gorusme
+    private List<CariGorusmeler> gorusmeList = new();
+    private int? selectedGorusmeId;
+    private DateTime gorusmeTarihi = DateTime.Today;
+    private string gorusulenKisi = "";
+    private string gorusmeAciklama = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        using var dbFiyat = await FirmaFactory.CreateDbContextAsync();
+        fiyatGruplari = await dbFiyat.FiyatGruplari.Where(g => g.Aktif).OrderBy(g => g.GrupNo).ToListAsync();
+
+        if (Id > 0)
+        {
+            await LoadCariById(Id);
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadCariById(int cariId)
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var cari = await db.Cariler.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cariId);
+            if (cari == null) return;
+
+            model.Id = cari.Id;
+            model.CariKodu = cari.CariKodu ?? "";
+            model.Unvani = cari.Unvani ?? "";
+            model.Ad = cari.Ad ?? "";
+            model.Soyad = cari.Soyad ?? "";
+            model.TckNo = cari.TckNo ?? "";
+            model.Yetkili1 = cari.Yetkili1 ?? "";
+            model.Yetkili2 = cari.Yetkili2 ?? "";
+            model.VdKodu = cari.VdKodu ?? "";
+            model.Vd = cari.Vd ?? "";
+            model.Vn = cari.Vn ?? "";
+            model.GsmNo = cari.GsmNo ?? "";
+            model.Telefon1 = cari.Telefon1 ?? "";
+            model.Telefon2 = cari.Telefon2 ?? "";
+            model.Faks = cari.Faks ?? "";
+            model.Email = cari.Email ?? "";
+            model.Adres1 = cari.Adres1 ?? "";
+            model.Adres2 = cari.Adres2 ?? "";
+            model.PostaKodu = cari.PostaKodu ?? "";
+            model.UlkeId = cari.UlkeId;
+            model.SehirId = cari.SehirId;
+            model.IlceId = cari.IlceId;
+            model.EFatura = cari.EFatura ?? false;
+            model.SahisSirketi = cari.SahisSirketi ?? false;
+            model.YurtDisi = cari.YurtDisi ?? false;
+            model.CariGrubu = cari.CariGrubu ?? "";
+            model.OzelKod1 = cari.OzelKod1 ?? "";
+            model.OzelKod2 = cari.OzelKod2 ?? "";
+            model.OzelKod3 = cari.OzelKod3 ?? "";
+            model.OzelKod4 = cari.OzelKod4 ?? "";
+            model.OzelKod5 = cari.OzelKod5 ?? "";
+            model.FiyatGrubu = cari.FiyatGrubu ?? 1;
+            model.EFaturaUrnMail = cari.EFaturaUrnMail ?? "";
+            model.EIrsaliyeUrnMail = cari.EIrsaliyeUrnMail ?? "";
+
+            // Load sub-tables
+            calisanList = await db.CariCalisanlar.AsNoTracking().Where(c => c.CariId == cariId).ToListAsync();
+            sevkList = await db.CariSevkAdresleri.AsNoTracking().Where(s => s.CariId == cariId).ToListAsync();
+            gorusmeList = await db.CariGorusmeler.AsNoTracking().Where(g => g.CariId == cariId).ToListAsync();
+            ekstreList = await db.CariHesapEkstresi.AsNoTracking().Where(e => e.CariId == cariId).OrderBy(e => e.TarihSaat).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Veri yuklenirken hata: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    // ===================== KAYDET (Ana Cari Kart) =====================
+    private async Task Kaydet()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            if (model.Id > 0)
+            {
+                // Update
+                var entity = await db.Cariler.FindAsync(model.Id);
+                if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+                MapModelToEntity(entity);
+                db.Cariler.Update(entity);
+            }
+            else
+            {
+                // Insert
+                var entity = new Cariler { Aktif = true };
+                MapModelToEntity(entity);
+                db.Cariler.Add(entity);
+                await db.SaveChangesAsync();
+                model.Id = entity.Id;
+                Id = entity.Id;
+                statusMessage = "Cari kart kaydedildi.";
+                isError = false;
+                StateHasChanged();
+                return;
+            }
+
+            await db.SaveChangesAsync();
+            statusMessage = "Cari kart kaydedildi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Kayit hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private void MapModelToEntity(Cariler entity)
+    {
+        entity.CariKodu = model.CariKodu;
+        entity.Unvani = model.Unvani;
+        entity.Ad = model.Ad;
+        entity.Soyad = model.Soyad;
+        entity.TckNo = model.TckNo;
+        entity.Yetkili1 = model.Yetkili1;
+        entity.Yetkili2 = model.Yetkili2;
+        entity.VdKodu = model.VdKodu;
+        entity.Vd = model.Vd;
+        entity.Vn = model.Vn;
+        entity.GsmNo = model.GsmNo;
+        entity.Telefon1 = model.Telefon1;
+        entity.Telefon2 = model.Telefon2;
+        entity.Faks = model.Faks;
+        entity.Email = model.Email;
+        entity.Adres1 = model.Adres1;
+        entity.Adres2 = model.Adres2;
+        entity.PostaKodu = model.PostaKodu;
+        entity.UlkeId = model.UlkeId;
+        entity.SehirId = model.SehirId;
+        entity.IlceId = model.IlceId;
+        entity.EFatura = model.EFatura;
+        entity.SahisSirketi = model.SahisSirketi;
+        entity.YurtDisi = model.YurtDisi;
+        entity.CariGrubu = model.CariGrubu;
+        entity.OzelKod1 = model.OzelKod1;
+        entity.OzelKod2 = model.OzelKod2;
+        entity.OzelKod3 = model.OzelKod3;
+        entity.OzelKod4 = model.OzelKod4;
+        entity.OzelKod5 = model.OzelKod5;
+        entity.FiyatGrubu = model.FiyatGrubu;
+        entity.EFaturaUrnMail = model.EFaturaUrnMail;
+        entity.EIrsaliyeUrnMail = model.EIrsaliyeUrnMail;
+    }
+
+    private void Kapat() { Nav.NavigateTo("/cari/liste"); }
+
+    // ===================== CALISAN ISLEMLERI =====================
+    private void CalisanSec(CariCalisanlar c)
+    {
+        selectedCalisanId = c.Id;
+        calisanAdSoyad = c.AdSoyad ?? "";
+        calisanBirim = c.Birim ?? "";
+        calisanTelefon = c.Telefon ?? "";
+        calisanEPosta = c.EPosta ?? "";
+    }
+
+    private void CalisanTemizle()
+    {
+        selectedCalisanId = null;
+        calisanAdSoyad = "";
+        calisanBirim = "";
+        calisanTelefon = "";
+        calisanEPosta = "";
+    }
+
+    private async Task CalisanKaydet()
+    {
+        if (model.Id <= 0) { statusMessage = "Once cari karti kaydedin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(calisanAdSoyad)) { statusMessage = "Ad Soyad bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = new CariCalisanlar
+            {
+                CariId = model.Id,
+                AdSoyad = calisanAdSoyad,
+                Birim = calisanBirim,
+                Telefon = calisanTelefon,
+                EPosta = calisanEPosta
+            };
+            db.CariCalisanlar.Add(entity);
+            await db.SaveChangesAsync();
+
+            calisanList.Add(entity);
+            CalisanTemizle();
+            statusMessage = "Calisan kaydedildi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Calisan kayit hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task CalisanGuncelle()
+    {
+        if (selectedCalisanId == null) { statusMessage = "Guncellenecek calisani secin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(calisanAdSoyad)) { statusMessage = "Ad Soyad bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariCalisanlar.FindAsync(selectedCalisanId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            entity.AdSoyad = calisanAdSoyad;
+            entity.Birim = calisanBirim;
+            entity.Telefon = calisanTelefon;
+            entity.EPosta = calisanEPosta;
+
+            db.CariCalisanlar.Update(entity);
+            await db.SaveChangesAsync();
+
+            var local = calisanList.FirstOrDefault(c => c.Id == selectedCalisanId.Value);
+            if (local != null)
+            {
+                local.AdSoyad = calisanAdSoyad;
+                local.Birim = calisanBirim;
+                local.Telefon = calisanTelefon;
+                local.EPosta = calisanEPosta;
+            }
+            statusMessage = "Calisan guncellendi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Calisan guncelleme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task CalisanSil()
+    {
+        if (selectedCalisanId == null) { statusMessage = "Silinecek calisani secin."; isError = true; return; }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Bu calisani silmek istediginize emin misiniz?");
+        if (!confirmed) return;
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariCalisanlar.FindAsync(selectedCalisanId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            db.CariCalisanlar.Remove(entity);
+            await db.SaveChangesAsync();
+
+            calisanList.RemoveAll(c => c.Id == selectedCalisanId.Value);
+            CalisanTemizle();
+            statusMessage = "Calisan silindi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Calisan silme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    // ===================== SEVK ADRESI ISLEMLERI =====================
+    private void SevkSec(CariSevkAdresleri s)
+    {
+        selectedSevkId = s.Id;
+        sevkBaslik = s.Baslik ?? "";
+        sevkAdres = s.Adres ?? "";
+        sevkTelefon = s.Telefon ?? "";
+        sevkPostaKodu = s.PostaKodu ?? "";
+        sevkUlkeId = s.UlkeId;
+        sevkSehirId = s.SehirId;
+        sevkIlceId = s.IlceId;
+    }
+
+    private void SevkTemizle()
+    {
+        selectedSevkId = null;
+        sevkBaslik = "";
+        sevkAdres = "";
+        sevkTelefon = "";
+        sevkPostaKodu = "";
+        sevkUlkeId = null;
+        sevkSehirId = null;
+        sevkIlceId = null;
+    }
+
+    private async Task SevkKaydet()
+    {
+        if (model.Id <= 0) { statusMessage = "Once cari karti kaydedin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(sevkAdres)) { statusMessage = "Adres bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = new CariSevkAdresleri
+            {
+                CariId = model.Id,
+                Baslik = sevkBaslik,
+                Adres = sevkAdres,
+                Telefon = sevkTelefon,
+                PostaKodu = sevkPostaKodu,
+                UlkeId = sevkUlkeId,
+                SehirId = sevkSehirId,
+                IlceId = sevkIlceId
+            };
+            db.CariSevkAdresleri.Add(entity);
+            await db.SaveChangesAsync();
+
+            sevkList.Add(entity);
+            SevkTemizle();
+            statusMessage = "Sevk adresi kaydedildi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Sevk kayit hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task SevkGuncelle()
+    {
+        if (selectedSevkId == null) { statusMessage = "Guncellenecek sevk adresini secin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(sevkAdres)) { statusMessage = "Adres bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariSevkAdresleri.FindAsync(selectedSevkId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            entity.Baslik = sevkBaslik;
+            entity.Adres = sevkAdres;
+            entity.Telefon = sevkTelefon;
+            entity.PostaKodu = sevkPostaKodu;
+            entity.UlkeId = sevkUlkeId;
+            entity.SehirId = sevkSehirId;
+            entity.IlceId = sevkIlceId;
+
+            db.CariSevkAdresleri.Update(entity);
+            await db.SaveChangesAsync();
+
+            var local = sevkList.FirstOrDefault(s => s.Id == selectedSevkId.Value);
+            if (local != null)
+            {
+                local.Baslik = sevkBaslik;
+                local.Adres = sevkAdres;
+                local.Telefon = sevkTelefon;
+                local.PostaKodu = sevkPostaKodu;
+                local.UlkeId = sevkUlkeId;
+                local.SehirId = sevkSehirId;
+                local.IlceId = sevkIlceId;
+            }
+            statusMessage = "Sevk adresi guncellendi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Sevk guncelleme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task SevkSil()
+    {
+        if (selectedSevkId == null) { statusMessage = "Silinecek sevk adresini secin."; isError = true; return; }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Bu sevk adresini silmek istediginize emin misiniz?");
+        if (!confirmed) return;
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariSevkAdresleri.FindAsync(selectedSevkId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            db.CariSevkAdresleri.Remove(entity);
+            await db.SaveChangesAsync();
+
+            sevkList.RemoveAll(s => s.Id == selectedSevkId.Value);
+            SevkTemizle();
+            statusMessage = "Sevk adresi silindi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Sevk silme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    // ===================== GORUSME ISLEMLERI =====================
+    private void GorusmeSec(CariGorusmeler g)
+    {
+        selectedGorusmeId = g.Id;
+        gorusmeTarihi = g.GorusmeTarihi ?? DateTime.Today;
+        gorusulenKisi = g.GorusulenKisi ?? "";
+        gorusmeAciklama = g.Aciklama ?? "";
+    }
+
+    private void GorusmeTemizle()
+    {
+        selectedGorusmeId = null;
+        gorusmeTarihi = DateTime.Today;
+        gorusulenKisi = "";
+        gorusmeAciklama = "";
+    }
+
+    private async Task GorusmeKaydet()
+    {
+        if (model.Id <= 0) { statusMessage = "Once cari karti kaydedin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(gorusulenKisi)) { statusMessage = "Gorusulen kisi bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = new CariGorusmeler
+            {
+                CariId = model.Id,
+                GorusmeTarihi = gorusmeTarihi,
+                GorusulenKisi = gorusulenKisi,
+                Aciklama = gorusmeAciklama
+            };
+            db.CariGorusmeler.Add(entity);
+            await db.SaveChangesAsync();
+
+            gorusmeList.Add(entity);
+            GorusmeTemizle();
+            statusMessage = "Gorusme kaydedildi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Gorusme kayit hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task GorusmeGuncelle()
+    {
+        if (selectedGorusmeId == null) { statusMessage = "Guncellenecek gorusmeyi secin."; isError = true; return; }
+        if (string.IsNullOrWhiteSpace(gorusulenKisi)) { statusMessage = "Gorusulen kisi bos olamaz."; isError = true; return; }
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariGorusmeler.FindAsync(selectedGorusmeId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            entity.GorusmeTarihi = gorusmeTarihi;
+            entity.GorusulenKisi = gorusulenKisi;
+            entity.Aciklama = gorusmeAciklama;
+
+            db.CariGorusmeler.Update(entity);
+            await db.SaveChangesAsync();
+
+            var local = gorusmeList.FirstOrDefault(g => g.Id == selectedGorusmeId.Value);
+            if (local != null)
+            {
+                local.GorusmeTarihi = gorusmeTarihi;
+                local.GorusulenKisi = gorusulenKisi;
+                local.Aciklama = gorusmeAciklama;
+            }
+            statusMessage = "Gorusme guncellendi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Gorusme guncelleme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    private async Task GorusmeSil()
+    {
+        if (selectedGorusmeId == null) { statusMessage = "Silinecek gorusmeyi secin."; isError = true; return; }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Bu gorusmeyi silmek istediginize emin misiniz?");
+        if (!confirmed) return;
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var entity = await db.CariGorusmeler.FindAsync(selectedGorusmeId.Value);
+            if (entity == null) { statusMessage = "Kayit bulunamadi!"; isError = true; return; }
+
+            db.CariGorusmeler.Remove(entity);
+            await db.SaveChangesAsync();
+
+            gorusmeList.RemoveAll(g => g.Id == selectedGorusmeId.Value);
+            GorusmeTemizle();
+            statusMessage = "Gorusme silindi.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Gorusme silme hatasi: " + ex.Message;
+            isError = true;
+        }
+    }
+
+    // ===================== MODEL =====================
+    public class CariKartModel
+    {
+        public int Id { get; set; }
+        public bool EFatura { get; set; }
+        public bool SahisSirketi { get; set; }
+        public bool YurtDisi { get; set; }
+        public string CariGrubu { get; set; } = "";
+        public string CariKodu { get; set; } = "";
+        public string Unvani { get; set; } = "";
+        public string Ad { get; set; } = "";
+        public string Soyad { get; set; } = "";
+        public string TckNo { get; set; } = "";
+        public string Yetkili1 { get; set; } = "";
+        public string Yetkili2 { get; set; } = "";
+        public string VdKodu { get; set; } = "";
+        public string Vd { get; set; } = "";
+        public string Vn { get; set; } = "";
+        public string GsmNo { get; set; } = "";
+        public string Telefon1 { get; set; } = "";
+        public string Telefon2 { get; set; } = "";
+        public string Faks { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Adres1 { get; set; } = "";
+        public string Adres2 { get; set; } = "";
+        public string PostaKodu { get; set; } = "";
+        public int? UlkeId { get; set; }
+        public int? SehirId { get; set; }
+        public int? IlceId { get; set; }
+        public string OzelKod1 { get; set; } = "";
+        public string OzelKod2 { get; set; } = "";
+        public string OzelKod3 { get; set; } = "";
+        public string OzelKod4 { get; set; } = "";
+        public string OzelKod5 { get; set; } = "";
+        public int FiyatGrubu { get; set; } = 1;
+        public string EFaturaUrnMail { get; set; } = "";
+        public string EIrsaliyeUrnMail { get; set; } = "";
+    }
+}

@@ -1,0 +1,279 @@
+@page "/pine/tanimlar/stokgruplari"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject MACHINEBISS_Web.Services.ConfirmService Confirm
+@using MACHINEBISS_Web.Controllers.Api
+@using Microsoft.AspNetCore.WebUtilities
+
+<PageTitle>@TipAdi() - PineERP</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-layer-group"></i> Stok Gruplari - @TipAdi()
+    </div>
+    <div class="card-body" style="padding:8px 14px; overflow:hidden;">
+        <!-- Tip secici -->
+        <div class="toolbar" style="margin-bottom:6px;">
+            <div class="form-inline" style="min-width:280px;">
+                <label>Grup Tipi</label>
+                <select class="form-control" @bind="seciliTip" @bind:after="TipDegisti">
+                    @foreach (var t in TipListesi)
+                    {
+                        <option value="@t.Key">@t.Value</option>
+                    }
+                </select>
+            </div>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-success btn-sm" @onclick="Ekle" title="Yeni">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(!editMode)" title="Kaydet [F2]">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil" disabled="@(seciliId == 0)" title="Sil">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Iptal" disabled="@(!editMode)">
+                <i class="fa fa-times"></i> Iptal
+            </button>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yukle" title="Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div class="toolbar-search" style="margin-left:auto;">
+                <i class="fa fa-search"></i>
+                <input type="text" class="form-control" placeholder="Kod veya isim ile ara..." @bind="ara" @bind:event="oninput" style="width:260px;" />
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mesaj))
+        {
+            <div class="alert @mesajTip">@mesaj</div>
+        }
+
+        <div style="display:flex; gap:14px; flex:1; min-height:0;">
+            <!-- Grid -->
+            <div style="flex:2; display:flex; flex-direction:column; min-height:0;">
+                <div class="grid-container" style="flex:1; min-height:0;">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th style="width:45px;">#</th>
+                                <th style="width:160px;">Kod</th>
+                                <th>Isim</th>
+                                <th style="width:90px;">Aktif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Filtreli().Any())
+                            {
+                                var idx = 0;
+                                @foreach (var g in Filtreli())
+                                {
+                                    idx++;
+                                    var i = idx;
+                                    <tr class="@(seciliId == g.Id ? "selected" : "")" @onclick="() => Sec(g)" style="cursor:pointer;">
+                                        <td>@i</td>
+                                        <td><strong>@g.SgrKod</strong></td>
+                                        <td>@g.SgrIsim</td>
+                                        <td>@(g.SgrAktif ? "Evet" : "Hayir")</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="4" style="text-align:center; padding:30px; color:var(--pinebi-text-light);">
+                                    <i class="fa fa-inbox"></i> Kayit yok
+                                </td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+                    Toplam: @Filtreli().Count kayit (Toplam @liste.Count)
+                </div>
+            </div>
+
+            <!-- Edit form -->
+            <div style="flex:1; min-width:280px; max-width:380px;">
+                <div class="group-box">
+                    <span class="group-box-title">@(isNew ? "Yeni Kayit" : editMode ? "Duzenle" : "Detay")</span>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Kod</label>
+                            <input type="text" class="form-control" value="@form.SgrKod" disabled readonly />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Isim</label>
+                            <input type="text" class="form-control" @bind="form.SgrIsim" disabled="@(!editMode)" maxlength="200" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input type="checkbox" @bind="form.SgrAktif" disabled="@(!editMode)" />
+                            <label>Aktif</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int seciliTip = 1;
+    private List<GrupModel> liste = new();
+    private GrupModel form = new();
+    private int seciliId = 0;
+    private bool editMode = false;
+    private bool isNew = false;
+    private string ara = "";
+    private string? mesaj;
+    private string mesajTip = "alert-info";
+
+    private readonly Dictionary<int, string> TipListesi = new()
+    {
+        { 1,  "Ana Grup" },
+        { 2,  "Alt Grup" },
+        { 3,  "Kategori" },
+        { 4,  "Marka" },
+        { 5,  "Sektor" },
+        { 6,  "Reyon" },
+        { 7,  "Uretici" },
+        { 8,  "Ambalaj" },
+        { 9,  "Muhasebe Grup" },
+        { 10, "Urun Sorumlusu" },
+        { 12, "Model" },
+        { 13, "Sezon" },
+        { 15, "Prim Grup" },
+        { 16, "Paket" },
+        { 17, "Pozisyon Bayrak" },
+        { 18, "Beden" },
+        { 19, "Renk" },
+        { 20, "Tamamlayici" },
+        { 21, "Ana Saglayici" },
+    };
+
+    private string TipAdi() => TipListesi.TryGetValue(seciliTip, out var v) ? v : "Grup";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("tip", out var t) && int.TryParse(t, out var tp)) seciliTip = tp;
+        await Yukle();
+    }
+
+    private async Task Yukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResponse<List<GrupModel>>>($"api/stok/gruplar?tip={seciliTip}");
+            if (resp?.Success == true)
+                liste = resp.Data ?? new();
+            seciliId = 0; editMode = false; isNew = false; form = new();
+            mesaj = null;
+        }
+        catch (Exception ex) { Goster("Yukleme hatasi: " + ex.Message, "alert-danger"); }
+    }
+
+    private async Task TipDegisti() { await Yukle(); }
+
+    private List<GrupModel> Filtreli()
+    {
+        if (string.IsNullOrWhiteSpace(ara)) return liste;
+        var a = ara.ToLower();
+        return liste.Where(g => (g.SgrKod ?? "").ToLower().Contains(a) || (g.SgrIsim ?? "").ToLower().Contains(a)).ToList();
+    }
+
+    private void Sec(GrupModel g)
+    {
+        seciliId = g.Id;
+        form = new GrupModel
+        {
+            Id = g.Id, SgrTip = g.SgrTip, SgrKod = g.SgrKod, SgrIsim = g.SgrIsim,
+            SgrUstKod = g.SgrUstKod, SgrAciklama = g.SgrAciklama, SgrSira = g.SgrSira, SgrAktif = g.SgrAktif
+        };
+        editMode = true; isNew = false;
+    }
+
+    private void Ekle()
+    {
+        seciliId = 0;
+        // Mevcut kodlardan en buyuk sayisal degeri bul, +1 ekle
+        var maxNo = 0;
+        foreach (var g in liste)
+        {
+            if (int.TryParse(g.SgrKod, out var n) && n > maxNo) maxNo = n;
+        }
+        var yeniKod = (maxNo + 1).ToString();
+        form = new GrupModel { SgrTip = seciliTip, SgrKod = yeniKod, SgrAktif = true };
+        editMode = true; isNew = true;
+    }
+
+    private void Iptal() { editMode = false; isNew = false; form = new(); seciliId = 0; }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(form.SgrKod)) { Goster("Kod bos olamaz", "alert-warning"); return; }
+        try
+        {
+            HttpResponseMessage resp;
+            if (isNew)
+            {
+                form.SgrTip = seciliTip;
+                resp = await Http.PostAsJsonAsync("api/stok/grup", form);
+            }
+            else
+            {
+                resp = await Http.PutAsJsonAsync($"api/stok/grup/{form.Id}", form);
+            }
+            if (resp.IsSuccessStatusCode)
+            {
+                Goster("Kaydedildi", "alert-success");
+                await Yukle();
+            }
+            else
+            {
+                Goster("Kayit basarisiz", "alert-danger");
+            }
+        }
+        catch (Exception ex) { Goster("Hata: " + ex.Message, "alert-danger"); }
+    }
+
+    private async Task Sil()
+    {
+        if (seciliId == 0) return;
+        var secili = liste.FirstOrDefault(g => g.Id == seciliId);
+        var isim = secili != null ? $"{secili.SgrKod} - {secili.SgrIsim}" : "bu kayit";
+        if (!await Confirm.AskAsync($"{isim} kaydini silmek istediginize emin misiniz?", $"{TipAdi()} Sil"))
+            return;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/stok/grup/{seciliId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                Goster("Silindi", "alert-success");
+                await Yukle();
+            }
+        }
+        catch (Exception ex) { Goster("Silinemedi: " + ex.Message, "alert-danger"); }
+    }
+
+    private void Goster(string m, string t = "alert-info") { mesaj = m; mesajTip = t; }
+
+    public class GrupModel
+    {
+        public int Id { get; set; }
+        public int SgrTip { get; set; }
+        public string SgrKod { get; set; } = "";
+        public string SgrIsim { get; set; } = "";
+        public string? SgrUstKod { get; set; }
+        public string? SgrAciklama { get; set; }
+        public int SgrSira { get; set; }
+        public bool SgrAktif { get; set; } = true;
+    }
+}

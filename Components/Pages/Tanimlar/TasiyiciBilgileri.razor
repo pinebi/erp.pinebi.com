@@ -1,0 +1,255 @@
+﻿@page "/tanimlar/tasiyici"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Tasiyici Bilgileri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-truck"></i> Tasiyici Bilgileri
+    </div>
+    <div class="card-body">
+        <div style="display:flex; gap:12px;">
+            <!-- Left: Form -->
+            <div style="flex:0 0 350px;">
+                <div class="group-box">
+                    <span class="group-box-title">Tasiyici Bilgileri</span>
+                    <div class="form-group">
+                        <label>Sirket Kodu</label>
+                        <input type="text" class="form-control" @bind="formKod" />
+                    </div>
+                    <div class="form-group">
+                        <label>Sirket Unvani</label>
+                        <input type="text" class="form-control" @bind="formUnvan" />
+                    </div>
+                    <div class="form-group">
+                        <label>Vergi Dairesi</label>
+                        <input type="text" class="form-control" @bind="formVd" />
+                    </div>
+                    <div class="form-group">
+                        <label>Vergi No</label>
+                        <input type="text" class="form-control" @bind="formVn" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(warningMessage))
+                    {
+                        <div class="alert alert-warning" style="margin-top:6px;">@warningMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" style="margin-top:6px;">@errorMessage</div>
+                    }
+
+                    <div style="display:flex; gap:6px; margin-top:10px;">
+                        <button class="btn btn-success btn-sm" @onclick="NewRecord">
+                            <i class="fa fa-file"></i> Yeni
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="SaveRecord">
+                            <i class="fa fa-save"></i> Kaydet
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="DeleteSelected">
+                            <i class="fa fa-trash"></i> Sil
+                        </button>
+                        <button class="btn btn-outline btn-sm" @onclick="Close">
+                            <i class="fa fa-times"></i> Kapat
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Grid -->
+            <div style="flex:1;">
+                <div class="grid-container" style="max-height:calc(100vh - 200px);">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th>Kod</th>
+                                <th>Unvan</th>
+                                <th>Vergi Dairesi</th>
+                                <th>Vergi No</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (list != null)
+                            {
+                                @foreach (var item in list)
+                                {
+                                    <tr class="@(selectedId == item.Id ? "selected" : "")" @ondblclick="() => LoadToForm(item)" @onclick="() => selectedId = item.Id">
+                                        <td>@item.Kod</td>
+                                        <td>@item.Unvan</td>
+                                        <td>@item.Vd</td>
+                                        <td>@item.Vn</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showConfirmDelete)
+{
+    <div class="modal-overlay">
+        <div class="modal-box" style="min-width:350px;">
+            <div class="modal-header">
+                <span><i class="fa fa-exclamation-triangle"></i> Uyari</span>
+                <button class="modal-close" @onclick="() => showConfirmDelete = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Kayit silinecek! Emin misiniz?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-sm" @onclick="ConfirmDelete">Evet, Sil</button>
+                <button class="btn btn-outline btn-sm" @onclick="() => showConfirmDelete = false">Hayir</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MACHINEBISS_Web.Models.MachineBiss.TasiyiciBilgileri> list = new();
+    private int selectedId = 0;
+    private int editId = 0;
+    private string formKod = "";
+    private string formUnvan = "";
+    private string formVd = "";
+    private string formVn = "";
+    private bool showConfirmDelete = false;
+    private string? errorMessage;
+    private string? warningMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadList();
+    }
+
+    private async Task LoadList()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            list = await ctx.TasiyiciBilgileri
+                .Where(x => x.Iptal == null || x.Iptal != true)
+                .OrderBy(x => x.Kod)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private void LoadToForm(MACHINEBISS_Web.Models.MachineBiss.TasiyiciBilgileri item)
+    {
+        editId = item.Id;
+        selectedId = item.Id;
+        formKod = item.Kod ?? "";
+        formUnvan = item.Unvan ?? "";
+        formVd = item.Vd ?? "";
+        formVn = item.Vn ?? "";
+        warningMessage = null;
+    }
+
+    private void NewRecord()
+    {
+        editId = 0;
+        selectedId = 0;
+        formKod = "";
+        formUnvan = "";
+        formVd = "";
+        formVn = "";
+        warningMessage = null;
+    }
+
+    private async Task SaveRecord()
+    {
+        warningMessage = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(formKod)) { warningMessage = "Sirket Kodu Giriniz!"; return; }
+        if (string.IsNullOrWhiteSpace(formUnvan)) { warningMessage = "Sirket Unvani Giriniz!"; return; }
+        if (string.IsNullOrWhiteSpace(formVd)) { warningMessage = "Vergi Dairesi Giriniz!"; return; }
+        if (string.IsNullOrWhiteSpace(formVn)) { warningMessage = "Vergi No Giriniz!"; return; }
+
+        try
+        {
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            if (editId > 0)
+            {
+                var existing = await ctx.TasiyiciBilgileri.FindAsync(editId);
+                if (existing != null)
+                {
+                    existing.Kod = formKod;
+                    existing.Unvan = formUnvan;
+                    existing.Vd = formVd;
+                    existing.Vn = formVn;
+                    ctx.TasiyiciBilgileri.Update(existing);
+                }
+            }
+            else
+            {
+                var newItem = new MACHINEBISS_Web.Models.MachineBiss.TasiyiciBilgileri
+                {
+                    Kod = formKod,
+                    Unvan = formUnvan,
+                    Vd = formVd,
+                    Vn = formVn,
+                    Iptal = false
+                };
+                ctx.TasiyiciBilgileri.Add(newItem);
+            }
+            await ctx.SaveChangesAsync();
+            NewRecord();
+            await LoadList();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Kaydetme hatasi: " + ex.Message;
+        }
+    }
+
+    private void DeleteSelected()
+    {
+        if (editId == 0)
+        {
+            warningMessage = "Silinecek Kaydi Seciniz!";
+            return;
+        }
+        showConfirmDelete = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            var entity = await ctx.TasiyiciBilgileri.FindAsync(editId);
+            if (entity != null)
+            {
+                entity.Iptal = true;
+                ctx.TasiyiciBilgileri.Update(entity);
+                await ctx.SaveChangesAsync();
+            }
+            NewRecord();
+            await LoadList();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Silme hatasi: " + ex.Message;
+        }
+        showConfirmDelete = false;
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

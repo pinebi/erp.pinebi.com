@@ -1,0 +1,507 @@
+﻿@page "/pine/finans/tediye"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Tediye (Odeme) - PineERP</PageTitle>
+
+<div class="card" @onkeydown="KlavyeKisayol" tabindex="0" style="outline:none;">
+    <div class="card-header" style="display:flex; align-items:center; gap:8px;">
+        <i class="fa fa-credit-card"></i>
+        <span>Tediye</span>
+        <span style="color:#dc2626; font-weight:700;">(Odeme)</span>
+    </div>
+    <div class="card-body" style="padding:12px;">
+
+        @if (!string.IsNullOrEmpty(mesaj))
+        {
+            <div style="padding:8px 12px; margin-bottom:10px; border-radius:4px; font-size:12px;
+                background:@(mesajOk ? "#dcfce7" : "#fee2e2");
+                color:@(mesajOk ? "#166534" : "#991b1b");
+                border:1px solid @(mesajOk ? "#86efac" : "#fca5a5");">
+                @mesaj
+            </div>
+        }
+
+        <!-- FORM -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin-bottom:14px; padding:10px; border:1px solid var(--pinebi-border); border-radius:4px; background:#fafbfc;">
+            <div class="form-inline">
+                <label style="min-width:90px; font-weight:700;">Fis No</label>
+                <input type="text" class="form-control" @bind="fisNo" readonly style="flex:1; background:#f3f4f6;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:90px; font-weight:700;">Odeme Tipi</label>
+                <select class="form-control" @bind="odemeTipiId" @bind:after="OdemeTipiDegisti" style="flex:1;">
+                    <option value="1">Nakit</option>
+                    <option value="2">Havale/EFT</option>
+                    <option value="3">Kredi Karti</option>
+                    <option value="4">Cek</option>
+                    <option value="5">Senet</option>
+                </select>
+            </div>
+
+            <div class="form-inline">
+                <label style="min-width:90px;">Tarih</label>
+                <input type="date" class="form-control" @bind="tarih" style="flex:1;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:90px;">@(odemeTipiId == 1 ? "Kasa" : "Banka")</label>
+                @if (odemeTipiId == 1)
+                {
+                    <select class="form-control" @bind="kasaKod" style="flex:1;">
+                        <option value="">-- Kasa Sec --</option>
+                        @foreach (var k in kasaListesi)
+                        {
+                            <option value="@k.KasKod">@k.KasKod - @k.KasIsim</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <select class="form-control" @bind="bankaKod" style="flex:1;">
+                        <option value="">-- Banka Sec --</option>
+                        @foreach (var b in bankaListesi)
+                        {
+                            <option value="@b.BhsKod">@b.BhsKod - @b.BhsBankaAdi</option>
+                        }
+                    </select>
+                }
+            </div>
+
+            <div class="form-inline">
+                <label style="min-width:90px; font-weight:700;">C/H Kodu</label>
+                <input type="text" class="form-control" @bind="cariKod" style="flex:1;" />
+                <button class="btn btn-sm btn-outline" @onclick="CariSecAc" style="padding:2px 5px;"><i class="fa fa-search"></i></button>
+            </div>
+            <div class="form-inline">
+                <label style="min-width:90px;">Belge No</label>
+                <input type="text" class="form-control" @bind="belgeNo" style="flex:1;" />
+            </div>
+
+            <div class="form-inline">
+                <label style="min-width:90px;">C/H Ismi</label>
+                <input type="text" class="form-control" @bind="cariUnvan" readonly style="flex:1; background:#f3f4f6;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:90px;">Aciklama 1</label>
+                <input type="text" class="form-control" @bind="aciklama1" style="flex:1;" />
+            </div>
+
+            <div class="form-inline">
+                <label style="min-width:90px;">Doviz</label>
+                <select class="form-control" @bind="doviz" style="max-width:80px;">
+                    <option>TL</option><option>USD</option><option>EUR</option>
+                </select>
+                <label style="margin-left:6px;">Kur</label>
+                <input type="number" class="form-control" @bind="dovizKuru" step="0.0001" style="max-width:100px; font-weight:700;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:90px;">Aciklama 2</label>
+                <input type="text" class="form-control" @bind="aciklama2" style="flex:1;" />
+            </div>
+        </div>
+
+        <!-- CEK/SENET -->
+        @if (odemeTipiId == 4 || odemeTipiId == 5)
+        {
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 16px; margin-bottom:14px; padding:10px; border:1px solid #fbbf24; border-radius:4px; background:#fffbeb;">
+                <div class="form-inline">
+                    <label style="min-width:80px; font-weight:600;">Vade Tarihi</label>
+                    <input type="date" class="form-control" @bind="cekVadeTarihi" style="flex:1;" />
+                </div>
+                <div class="form-inline">
+                    <label style="min-width:60px; font-weight:600;">Banka</label>
+                    <input type="text" class="form-control" @bind="cekBanka" style="flex:1;" />
+                </div>
+                <div class="form-inline">
+                    <label style="min-width:60px; font-weight:600;">Seri No</label>
+                    <input type="text" class="form-control" @bind="cekSeriNo" style="flex:1;" />
+                </div>
+            </div>
+        }
+
+        <!-- ACIK SATINALMA FATURALARI -->
+        <div style="background:#235881; color:white; padding:6px 10px; font-weight:600; font-size:12px; border-radius:4px 4px 0 0;">
+            <i class="fa fa-file-invoice"></i> Acik Satinalma Faturalari
+            @if (!string.IsNullOrEmpty(cariUnvan))
+            {
+                <span style="margin-left:8px; font-weight:400;">(@cariUnvan)</span>
+            }
+        </div>
+        <div class="grid-container" style="max-height:280px; overflow:auto; border:1px solid var(--pinebi-border); border-top:none;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:40px; text-align:center;">Sec</th>
+                        <th style="width:130px;">Fatura No</th>
+                        <th style="width:100px;">Tarih</th>
+                        <th style="width:110px; text-align:right;">Tutar</th>
+                        <th style="width:110px; text-align:right;">Odenen</th>
+                        <th style="width:110px; text-align:right;">Kalan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (acikFaturalar.Any())
+                    {
+                        @foreach (var f in acikFaturalar)
+                        {
+                            <tr @onclick="() => FaturaSecToggle(f)" style="cursor:pointer;" class="@(f.Secili ? "selected" : "")">
+                                <td style="text-align:center;">
+                                    <input type="checkbox" checked="@f.Secili" @onchange="() => FaturaSecToggle(f)" />
+                                </td>
+                                <td>@f.FisNo</td>
+                                <td>@f.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td style="text-align:right;">@f.Tutar.ToString("N2")</td>
+                                <td style="text-align:right;">@f.Odenen.ToString("N2")</td>
+                                <td style="text-align:right; font-weight:700; color:#dc2626;">@f.Kalan.ToString("N2")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="6" style="text-align:center; color:#9ca3af; padding:20px;">
+                            @(string.IsNullOrEmpty(cariKod) ? "Cari hesap seciniz." : "Acik fatura bulunamadi.")
+                        </td></tr>
+                    }
+                </tbody>
+                @if (acikFaturalar.Any(f => f.Secili))
+                {
+                    <tfoot>
+                        <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                            <td colspan="5" style="text-align:right; padding:6px 8px;">Secilen Toplam:</td>
+                            <td style="text-align:right; padding:6px 8px;">@secilenToplam.ToString("N2")</td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <!-- TUTAR & BUTTONS -->
+        <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:2px solid var(--pinebi-border); margin-top:12px;">
+            <div class="form-inline">
+                <label style="min-width:auto; font-weight:700; font-size:14px; color:#dc2626;">TUTAR</label>
+                <input type="number" class="form-control" @bind="tutar" step="0.01"
+                       style="width:180px; font-size:16px; font-weight:700; text-align:right; border:2px solid #dc2626;" />
+                <span style="font-size:12px; color:#6b7280; margin-left:4px;">@doviz</span>
+            </div>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+                <button class="btn btn-success" @onclick="Kaydet" style="min-width:130px;">
+                    <i class="fa fa-save"></i> [F2] Kaydet
+                </button>
+                <button class="btn btn-outline" @onclick="Kapat" style="min-width:100px;">
+                    <i class="fa fa-times"></i> [Esc] Kapat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ===== CARI SEC MODAL ===== *@
+@if (cariModalAcik)
+{
+    <div class="modal-overlay" @onclick="() => cariModalAcik = false">
+        <div class="modal-box" style="width:800px; max-height:80vh;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <span><i class="fa fa-address-book"></i> Cari Sec</span>
+                <button class="modal-close" @onclick="() => cariModalAcik = false">X</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-inline mb-2">
+                    <input type="text" class="form-control" @bind="cariArama" @bind:event="oninput" @bind:after="CariAra"
+                           placeholder="Cari kodu veya unvan..." style="flex:1;" />
+                </div>
+                <div style="max-height:400px; overflow:auto;">
+                    <table class="data-grid">
+                        <thead><tr><th style="width:120px;">Cari Kodu</th><th>Unvani</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in cariListesi)
+                            {
+                                <tr style="cursor:pointer;" @onclick="() => CariSecildi(c)">
+                                    <td>@c.CarKod</td>
+                                    <td><strong>@c.CarUnvan</strong></td>
+                                </tr>
+                            }
+                            @if (!cariListesi.Any())
+                            {
+                                <tr><td colspan="2" class="text-center text-muted">Sonuc bulunamadi</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ===== FORM =====
+    private string fisNo = "TDY" + DateTime.Now.ToString("yyyyMMddHHmmss");
+    private DateTime tarih = DateTime.Today;
+    private string cariKod = "";
+    private string cariUnvan = "";
+    private string doviz = "TL";
+    private decimal dovizKuru = 1;
+    private int odemeTipiId = 1;
+    private string kasaKod = "";
+    private string bankaKod = "";
+    private string belgeNo = "";
+    private string aciklama1 = "";
+    private string aciklama2 = "";
+    private DateTime cekVadeTarihi = DateTime.Today.AddDays(30);
+    private string cekBanka = "";
+    private string cekSeriNo = "";
+    private decimal tutar = 0;
+    private string mesaj = "";
+    private bool mesajOk = false;
+
+    // ===== LISTS =====
+    private List<KasaItem> kasaListesi = new();
+    private List<BankaItem> bankaListesi = new();
+    private List<AcikFaturaItem> acikFaturalar = new();
+    private decimal secilenToplam => acikFaturalar.Where(f => f.Secili).Sum(f => f.Kalan);
+
+    // ===== CARI =====
+    private bool cariModalAcik = false;
+    private string cariArama = "";
+    private List<CariDto> cariListesi = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(KasalariYukle(), BankalariYukle());
+    }
+
+    private async Task KasalariYukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<KasaItem>>>("api/finans/kasalar");
+            kasaListesi = resp?.Success == true ? (resp.Data ?? new()) : new();
+        }
+        catch { }
+    }
+
+    private async Task BankalariYukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<BankaItem>>>("api/finans/banka/hesaplar");
+            bankaListesi = resp?.Success == true ? (resp.Data ?? new()) : new();
+        }
+        catch { }
+    }
+
+    private void OdemeTipiDegisti() { kasaKod = ""; bankaKod = ""; }
+
+    private void FaturaSecToggle(AcikFaturaItem f)
+    {
+        f.Secili = !f.Secili;
+        tutar = secilenToplam;
+    }
+
+    // ===== CARI =====
+    private async Task CariSecAc()
+    {
+        cariArama = cariKod;
+        cariModalAcik = true;
+        await CariAra();
+    }
+
+    private async Task CariAra()
+    {
+        try
+        {
+            var q = Uri.EscapeDataString(cariArama ?? "");
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<CariDto>>>($"api/cari/ara?q={q}&limit=100");
+            cariListesi = resp?.Success == true ? (resp.Data ?? new()) : new();
+        }
+        catch { cariListesi = new(); }
+    }
+
+    private async Task CariSecildi(CariDto c)
+    {
+        cariKod = c.CarKod;
+        cariUnvan = c.CarUnvan;
+        cariModalAcik = false;
+        await AcikFaturalariYukle();
+    }
+
+    private async Task AcikFaturalariYukle()
+    {
+        acikFaturalar = new();
+        if (string.IsNullOrEmpty(cariKod)) return;
+
+        try
+        {
+            // Satinalma faturalari (tip=3)
+            var url = $"api/fatura/liste?tip=3&sayfa=1&boyut=200&arama={Uri.EscapeDataString(cariKod)}";
+            var resp = await Http.GetFromJsonAsync<PagedResp<FaturaDto>>(url);
+            if (resp?.Success == true && resp.Data != null)
+            {
+                foreach (var f in resp.Data.Where(x => !x.RecIptal && !x.FatKapandiFl))
+                {
+                    decimal odenen = 0;
+                    try
+                    {
+                        var tResp = await Http.GetFromJsonAsync<ApiResp<TahsilatOzet>>($"api/fatura/tahsilat/{f.Id}");
+                        if (tResp?.Success == true)
+                            odenen = tResp.Data?.ToplamTahsilat ?? 0;
+                    }
+                    catch { }
+
+                    var kalan = f.FatOdenecekTutar - odenen;
+                    if (kalan > 0.01m)
+                    {
+                        acikFaturalar.Add(new AcikFaturaItem
+                        {
+                            FaturaId = f.Id,
+                            FisNo = f.FisNo,
+                            Tarih = f.FatTarih,
+                            Tutar = f.FatOdenecekTutar,
+                            Odenen = odenen,
+                            Kalan = kalan
+                        });
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
+    // ===== KAYDET =====
+    private async Task Kaydet()
+    {
+        mesaj = "";
+        if (string.IsNullOrEmpty(cariKod)) { mesaj = "Cari hesap seciniz!"; mesajOk = false; return; }
+        if (tutar <= 0) { mesaj = "Tutar giriniz!"; mesajOk = false; return; }
+
+        try
+        {
+            // 1. Secilen faturalara odeme yaz
+            var secilenler = acikFaturalar.Where(f => f.Secili).ToList();
+            decimal kalanOdeme = tutar;
+            foreach (var fat in secilenler)
+            {
+                if (kalanOdeme <= 0) break;
+                var odenecek = Math.Min(kalanOdeme, fat.Kalan);
+
+                await Http.PostAsJsonAsync("api/fatura/tahsilat", new
+                {
+                    FaturaId = fat.FaturaId,
+                    Tip = 1, // Odeme
+                    OdemeSekli = odemeTipiId,
+                    Tutar = odenecek,
+                    DovizCinsi = doviz,
+                    DovizKuru = dovizKuru,
+                    KasaKodu = kasaKod,
+                    BankaKodu = bankaKod,
+                    Aciklama = $"Tediye - {cariUnvan}"
+                });
+                kalanOdeme -= odenecek;
+            }
+
+            // 2. Kasa veya Banka hareketi (cikis)
+            if (odemeTipiId == 1)
+            {
+                await Http.PostAsJsonAsync("api/finans/kasa/hareket", new
+                {
+                    KasaKod = kasaKod,
+                    Tip = 1, // Cikis
+                    Tutar = tutar,
+                    DovizCinsi = doviz,
+                    DovizKuru = dovizKuru,
+                    CariKod = cariKod,
+                    HareketCinsi = 3, // Odeme
+                    Aciklama1 = $"Tediye - {cariUnvan}",
+                    Aciklama2 = aciklama1
+                });
+            }
+            else if (odemeTipiId == 2 || odemeTipiId == 3)
+            {
+                await Http.PostAsJsonAsync("api/finans/banka/hareket", new
+                {
+                    HesapKod = bankaKod,
+                    Tip = 1, // Cikis
+                    Tutar = tutar,
+                    DovizCinsi = doviz,
+                    DovizKuru = dovizKuru,
+                    CariKod = cariKod,
+                    HareketCinsi = 4, // Odeme
+                    Aciklama1 = $"Tediye - {cariUnvan}",
+                    Aciklama2 = aciklama1
+                });
+            }
+            else if (odemeTipiId == 4 || odemeTipiId == 5)
+            {
+                await Http.PostAsJsonAsync("api/finans/ceksenet", new
+                {
+                    CshTip = 'V', // Verilen
+                    CshCins = odemeTipiId == 4 ? 'C' : 'S',
+                    CshTarih = tarih,
+                    CshVadeTarihi = cekVadeTarihi,
+                    CshCariKod = cariKod,
+                    CshBanka = cekBanka,
+                    CshSeriNo = cekSeriNo,
+                    CshTutar = tutar,
+                    CshDovizCinsi = doviz,
+                    CshDovizKuru = dovizKuru,
+                    CshDurumu = "Acik",
+                    CshAciklama1 = $"Tediye - {cariUnvan}",
+                    CshAciklama2 = aciklama1
+                });
+            }
+
+            mesaj = $"Tediye basariyla kaydedildi. Fis No: {fisNo}";
+            mesajOk = true;
+            FormuSifirla();
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Kayit hatasi: {ex.Message}";
+            mesajOk = false;
+        }
+    }
+
+    private void FormuSifirla()
+    {
+        fisNo = "TDY" + DateTime.Now.ToString("yyyyMMddHHmmss");
+        tarih = DateTime.Today; cariKod = ""; cariUnvan = ""; doviz = "TL"; dovizKuru = 1;
+        odemeTipiId = 1; kasaKod = ""; bankaKod = ""; belgeNo = "";
+        aciklama1 = ""; aciklama2 = ""; cekVadeTarihi = DateTime.Today.AddDays(30);
+        cekBanka = ""; cekSeriNo = ""; tutar = 0; acikFaturalar = new();
+    }
+
+    private void Kapat() => Nav.NavigateTo("/");
+
+    private async Task KlavyeKisayol(KeyboardEventArgs e)
+    {
+        if (e.Key == "F2") await Kaydet();
+        else if (e.Key == "Escape") Kapat();
+    }
+
+    // ===== CLASSES =====
+    public class KasaItem { public string KasKod { get; set; } = ""; public string KasIsim { get; set; } = ""; }
+    public class BankaItem { public string BhsKod { get; set; } = ""; public string BhsBankaAdi { get; set; } = ""; }
+    public class CariDto { public string CarKod { get; set; } = ""; public string CarUnvan { get; set; } = ""; }
+    public class FaturaDto
+    {
+        public int Id { get; set; }
+        public string FisNo { get; set; } = "";
+        public DateTime FatTarih { get; set; }
+        public decimal FatOdenecekTutar { get; set; }
+        public bool FatKapandiFl { get; set; }
+        public bool RecIptal { get; set; }
+    }
+    public class TahsilatOzet { public decimal ToplamTahsilat { get; set; } }
+    public class AcikFaturaItem
+    {
+        public int FaturaId { get; set; }
+        public string FisNo { get; set; } = "";
+        public DateTime Tarih { get; set; }
+        public decimal Tutar { get; set; }
+        public decimal Odenen { get; set; }
+        public decimal Kalan { get; set; }
+        public bool Secili { get; set; }
+    }
+    public class ApiResp<T> { public bool Success { get; set; } public T? Data { get; set; } }
+    public class PagedResp<T> { public bool Success { get; set; } public List<T>? Data { get; set; } }
+}

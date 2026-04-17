@@ -1,0 +1,503 @@
+﻿@page "/pine/personel/kart"
+@page "/pine/personel/kart/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Personel Kart</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-user"></i> Personel Kart @(Id > 0 ? "- Duzenle" : "- Yeni")
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Geri">
+                <i class="fa fa-arrow-left"></i> Geri
+            </button>
+        </div>
+
+        <!-- Tab Control -->
+        <div class="xtab">
+            <div class="xtab-header">
+                <div class="xtab-header-item @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">
+                    Kimlik Bilgileri
+                </div>
+                <div class="xtab-header-item @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+                    Is Bilgileri
+                </div>
+                <div class="xtab-header-item @(activeTab == 2 ? "active" : "")" @onclick="() => activeTab = 2">
+                    Iletisim
+                </div>
+                <div class="xtab-header-item @(activeTab == 3 ? "active" : "")" @onclick="() => activeTab = 3">
+                    Maas / Banka
+                </div>
+                <div class="xtab-header-item @(activeTab == 4 ? "active" : "")" @onclick="() => activeTab = 4">
+                    Kisisel Bilgiler
+                </div>
+                <div class="xtab-header-item @(activeTab == 5 ? "active" : "")" @onclick="() => { activeTab = 5; LoadIzinler(); }">
+                    Izinler
+                </div>
+            </div>
+
+            <div class="xtab-body" style="padding:10px;">
+                @if (activeTab == 0)
+                {
+                    <!-- KIMLIK BILGILERI -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Kimlik Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Personel Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.PerKod" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ad Soyad</label>
+                                        <input type="text" class="form-control" @bind="model.PerAdsoyad" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>TC Kimlik No</label>
+                                        <input type="text" class="form-control" @bind="model.PerTcKimlik" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">SGK No</label>
+                                        <input type="text" class="form-control" @bind="model.PerSgkNo" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ozluk No</label>
+                                        <input type="text" class="form-control" @bind="model.PerOzlukNo" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Dogum Tarihi</label>
+                                        <input type="date" class="form-control" @bind="model.PerDogumTarihi" style="max-width:160px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Dogum Yeri</label>
+                                        <input type="text" class="form-control" @bind="model.PerDogumYeri" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Cinsiyet</label>
+                                        <select class="form-control" @bind="model.PerCinsiyet" style="max-width:120px;">
+                                            <option value="">Seciniz</option>
+                                            <option value="E">Erkek</option>
+                                            <option value="K">Kadin</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Uyruk</label>
+                                        <input type="text" class="form-control" @bind="model.PerUyruk" style="max-width:150px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 1)
+                {
+                    <!-- IS BILGILERI -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Is Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Unvan</label>
+                                        <input type="text" class="form-control" @bind="model.PerUnvan" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Departman</label>
+                                        <input type="text" class="form-control" @bind="model.PerDepartmanKodu" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Pozisyon</label>
+                                        <input type="text" class="form-control" @bind="model.PerPozisyonKodu" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Gorev</label>
+                                        <input type="text" class="form-control" @bind="model.PerGorev" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ise Giris</label>
+                                        <input type="date" class="form-control" @bind="model.PerIseGiris" style="max-width:160px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Ise Bitis</label>
+                                        <input type="date" class="form-control" @bind="model.PerIseBitis" style="max-width:160px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Calisma Sekli</label>
+                                        <select class="form-control" @bind="model.PerCalismaSekli" style="max-width:180px;">
+                                            <option value="">Seciniz</option>
+                                            <option value="Tam Zamanli">Tam Zamanli</option>
+                                            <option value="Yari Zamanli">Yari Zamanli</option>
+                                            <option value="Sozlesmeli">Sozlesmeli</option>
+                                            <option value="Stajyer">Stajyer</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ayrilma Sebebi</label>
+                                        <input type="text" class="form-control" @bind="model.PerAyrilmaSebebi" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-check">
+                                        <input type="checkbox" @bind="model.PerIstenAyrildi" />
+                                        <label>Isten Ayrildi</label>
+                                    </div>
+                                    <div class="form-check" style="margin-left:10px;">
+                                        <input type="checkbox" @bind="model.PerErpKullanicisi" />
+                                        <label>ERP Kullanicisi</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex:1; min-width:300px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Gorev ve Sorumluluklar</span>
+                                <textarea class="form-control" rows="6" @bind="model.PerGorevSorumluluklar" style="width:100%;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 2)
+                {
+                    <!-- ILETISIM -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Iletisim Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Telefon</label>
+                                        <input type="text" class="form-control" @bind="model.PerTel" style="max-width:200px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">GSM</label>
+                                        <input type="text" class="form-control" @bind="model.PerGsm" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>E-Posta</label>
+                                        <input type="email" class="form-control" @bind="model.PerEmail" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Adres</label>
+                                        <input type="text" class="form-control" @bind="model.PerAdres" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Sehir</label>
+                                        <input type="text" class="form-control" @bind="model.PerSehir" style="max-width:200px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Ilce</label>
+                                        <input type="text" class="form-control" @bind="model.PerIlce" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="group-box" style="margin-top:8px;">
+                                <span class="group-box-title">Acil Durum Iletisimi</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Acil Kisi</label>
+                                        <input type="text" class="form-control" @bind="model.PerAcilKisi" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Telefon</label>
+                                        <input type="text" class="form-control" @bind="model.PerAcilTel" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 3)
+                {
+                    <!-- MAAS / BANKA -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Maas Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Maas Turu</label>
+                                        <select class="form-control" @bind="model.PerMaasTuru" style="max-width:180px;">
+                                            <option value="">Seciniz</option>
+                                            <option value="Net">Net</option>
+                                            <option value="Brut">Brut</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Net Maas</label>
+                                        <input type="number" step="0.01" class="form-control" @bind="model.PerNetMaas" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Brut Maas</label>
+                                        <input type="number" step="0.01" class="form-control" @bind="model.PerBrutMaas" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="group-box" style="margin-top:8px;">
+                                <span class="group-box-title">Banka Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Banka Adi</label>
+                                        <input type="text" class="form-control" @bind="model.PerBankaAdi" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>IBAN</label>
+                                        <input type="text" class="form-control" @bind="model.PerIbanNo" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 4)
+                {
+                    <!-- KISISEL BILGILER -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Kisisel Bilgiler</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Kan Grubu</label>
+                                        <select class="form-control" @bind="model.PerKanGrubu" style="max-width:100px;">
+                                            <option value="">-</option>
+                                            <option>A+</option><option>A-</option>
+                                            <option>B+</option><option>B-</option>
+                                            <option>AB+</option><option>AB-</option>
+                                            <option>0+</option><option>0-</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Medeni Durum</label>
+                                        <select class="form-control" @bind="model.PerMedeniDurum" style="max-width:120px;">
+                                            <option value="">-</option>
+                                            <option>Bekar</option><option>Evli</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Ehliyet Sinifi</label>
+                                        <input type="text" class="form-control" @bind="model.PerEhliyetSinifi" style="max-width:100px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Askerlik</label>
+                                        <select class="form-control" @bind="model.PerAskerlikDurumu" style="max-width:150px;">
+                                            <option value="">-</option>
+                                            <option>Yapti</option><option>Tecilli</option><option>Muaf</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-check">
+                                        <input type="checkbox" @bind="model.PerEsiCalisiyormu" />
+                                        <label>Esi Calisiyor mu?</label>
+                                    </div>
+                                    <div class="form-inline" style="margin-left:20px;">
+                                        <label style="min-width:auto;">Cocuk Sayisi</label>
+                                        <input type="number" class="form-control" @bind="model.PerCocukSayisi" style="max-width:60px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 5)
+                {
+                    <!-- IZINLER -->
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="YeniIzin">
+                            <i class="fa fa-plus"></i> Yeni
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:calc(100vh - 380px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Izin Turu</th>
+                                    <th>Talep Tarihi</th>
+                                    <th>Baslangic</th>
+                                    <th>Bitis</th>
+                                    <th>Gun</th>
+                                    <th>Onay Durumu</th>
+                                    <th>Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (izinler != null)
+                                {
+                                    @foreach (var iz in izinler)
+                                    {
+                                        <tr>
+                                            <td>@iz.PizIzinTuru</td>
+                                            <td>@iz.PizTalepTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@iz.PizBaslangic?.ToString("dd.MM.yyyy")</td>
+                                            <td>@iz.PizBitis?.ToString("dd.MM.yyyy")</td>
+                                            <td>@iz.PizIzinGunu</td>
+                                            <td>@iz.PizOnayDurumu</td>
+                                            <td>@iz.PizPersonelAciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private int activeTab = 0;
+    private PersonelModel model = new();
+    private List<IzinDto>? izinler;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id > 0)
+        {
+            try
+            {
+                var resp = await Http.GetFromJsonAsync<ApiResp<PersonelModel>>($"/api/personel/kart/{Id}");
+                if (resp?.Data != null) model = resp.Data;
+            }
+            catch (Exception ex) { Console.WriteLine($"Personel kart yukleme hatasi: {ex.Message}"); }
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            if (Id > 0)
+                await Http.PutAsJsonAsync($"/api/personel/kart/{Id}", model);
+            else
+            {
+                var resp = await Http.PostAsJsonAsync("/api/personel/kart", model);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var result = await resp.Content.ReadFromJsonAsync<ApiResp<PersonelModel>>();
+                    if (result?.Data != null)
+                        Nav.NavigateTo($"/pine/personel/kart/{result.Data.Id}");
+                }
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Kaydetme hatasi: {ex.Message}"); }
+    }
+
+    private void Geri() => Nav.NavigateTo("/pine/personel/liste");
+
+    private async Task LoadIzinler()
+    {
+        if (string.IsNullOrWhiteSpace(model.PerKod)) return;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<IzinDto>>>($"/api/personel/izinler/{model.PerKod}");
+            izinler = resp?.Data ?? new();
+        }
+        catch { izinler = new(); }
+    }
+
+    private void YeniIzin() { /* TODO: Open izin form */ }
+
+    public class PersonelModel
+    {
+        public int Id { get; set; }
+        public string? PerKod { get; set; }
+        public string? PerAdsoyad { get; set; }
+        public string? PerTcKimlik { get; set; }
+        public string? PerSgkNo { get; set; }
+        public string? PerOzlukNo { get; set; }
+        public string? PerUnvan { get; set; }
+        public string? PerDepartmanKodu { get; set; }
+        public string? PerPozisyonKodu { get; set; }
+        public string? PerGorev { get; set; }
+        public string? PerCinsiyet { get; set; }
+        public string? PerUyruk { get; set; }
+        public string? PerKanGrubu { get; set; }
+        public string? PerMedeniDurum { get; set; }
+        public DateTime? PerDogumTarihi { get; set; }
+        public string? PerDogumYeri { get; set; }
+        public string? PerTel { get; set; }
+        public string? PerGsm { get; set; }
+        public string? PerEmail { get; set; }
+        public string? PerAdres { get; set; }
+        public string? PerSehir { get; set; }
+        public string? PerIlce { get; set; }
+        public DateTime? PerIseGiris { get; set; }
+        public DateTime? PerIseBitis { get; set; }
+        public string? PerAyrilmaSebebi { get; set; }
+        public string? PerCalismaSekli { get; set; }
+        public string? PerMaasTuru { get; set; }
+        public decimal PerNetMaas { get; set; }
+        public decimal PerBrutMaas { get; set; }
+        public string? PerBankaAdi { get; set; }
+        public string? PerIbanNo { get; set; }
+        public string? PerEhliyetSinifi { get; set; }
+        public string? PerAskerlikDurumu { get; set; }
+        public string? PerAcilKisi { get; set; }
+        public string? PerAcilTel { get; set; }
+        public bool PerEsiCalisiyormu { get; set; }
+        public int PerCocukSayisi { get; set; }
+        public string? PerGorevSorumluluklar { get; set; }
+        public bool PerIstenAyrildi { get; set; }
+        public bool PerErpKullanicisi { get; set; }
+    }
+
+    public class IzinDto
+    {
+        public int Id { get; set; }
+        public string? PizIzinTuru { get; set; }
+        public DateTime? PizTalepTarihi { get; set; }
+        public DateTime? PizBaslangic { get; set; }
+        public DateTime? PizBitis { get; set; }
+        public int PizIzinGunu { get; set; }
+        public string? PizOnayDurumu { get; set; }
+        public string? PizPersonelAciklama { get; set; }
+    }
+
+    public class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+}

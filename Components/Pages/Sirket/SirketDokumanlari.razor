@@ -1,0 +1,34 @@
+﻿@page "/sirket/dokumanlar"
+@inject NavigationManager Nav
+
+<PageTitle>Sirket Dokumanlari</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-folder"></i> Sirket Dokumanlari</div>
+    <div class="card-body">
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm"><i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Duzenle</button>
+            <button class="btn btn-danger btn-sm"><i class="fa fa-trash"></i> Sil</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-download"></i> Indir</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-eye"></i> Goruntule</button>
+        </div>
+        <div class="grid-container" style="max-height:500px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Dokuman Adi</th>
+                        <th>Dokuman Tipi</th>
+                        <th>Aciklama</th>
+                        <th>Yuklenme Tarihi</th>
+                        <th>Boyut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="6" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

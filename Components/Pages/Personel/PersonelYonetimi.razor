@@ -1,0 +1,1390 @@
+﻿@page "/personel"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+@using MACHINEBISS_Web.Models.MachineBiss
+
+<PageTitle>Personel Yonetimi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-users"></i> Personel Yonetimi
+    </div>
+    <div class="card-body">
+        <!-- Sidebar + Content Layout -->
+        <div style="display:flex; gap:12px;">
+            <!-- Left Accordion Nav -->
+            <div style="min-width:200px; max-width:200px; border:1px solid var(--pinebi-border); border-radius:4px; background:var(--pinebi-white);">
+                <div class="accordion-item @(activeSection == "liste" ? "active" : "")" @onclick='() => SectionChanged("liste")'>
+                    <i class="fa fa-list"></i> Personel Listesi
+                </div>
+                <div class="accordion-item @(activeSection == "izin" ? "active" : "")" @onclick='() => SectionChanged("izin")'>
+                    <i class="fa fa-calendar"></i> Izin Listesi
+                </div>
+                <div class="accordion-item @(activeSection == "saglik" ? "active" : "")" @onclick='() => SectionChanged("saglik")'>
+                    <i class="fa fa-medkit"></i> Saglik Raporlari
+                </div>
+                <div class="accordion-item @(activeSection == "tutanak" ? "active" : "")" @onclick='() => SectionChanged("tutanak")'>
+                    <i class="fa fa-file-text-o"></i> Disiplin Tutanaklari
+                </div>
+                <div class="accordion-item @(activeSection == "geneltutanak" ? "active" : "")" @onclick='() => SectionChanged("geneltutanak")'>
+                    <i class="fa fa-file-o"></i> Genel Tutanaklar
+                </div>
+                <div class="accordion-item @(activeSection == "zimmet" ? "active" : "")" @onclick='() => SectionChanged("zimmet")'>
+                    <i class="fa fa-briefcase"></i> Zimmet Islemleri
+                </div>
+                <div class="accordion-item @(activeSection == "maas" ? "active" : "")" @onclick='() => SectionChanged("maas")'>
+                    <i class="fa fa-money"></i> Maas Bordrosu
+                </div>
+                <div class="accordion-item @(activeSection == "puantaj" ? "active" : "")" @onclick='() => SectionChanged("puantaj")'>
+                    <i class="fa fa-clock-o"></i> Puantaj
+                </div>
+                <div class="accordion-item @(activeSection == "talep" ? "active" : "")" @onclick='() => SectionChanged("talep")'>
+                    <i class="fa fa-inbox"></i> Talepler
+                </div>
+                <div class="accordion-item @(activeSection == "gecmis" ? "active" : "")" @onclick='() => SectionChanged("gecmis")'>
+                    <i class="fa fa-history"></i> Isten Ayrilanlar
+                </div>
+                <div class="accordion-item @(activeSection == "oneri" ? "active" : "")" @onclick='() => SectionChanged("oneri")'>
+                    <i class="fa fa-comment"></i> Gorus ve Oneriler
+                </div>
+            </div>
+
+            <!-- Right Content Area -->
+            <div style="flex:1; min-width:0;">
+                @* ===== PERSONEL LISTESI ===== *@
+                @if (activeSection == "liste")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="PersonelEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="PersonelDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="PersonelIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="IzinFormuAc">
+                            <i class="fa fa-calendar-plus-o"></i> Izin Formu
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="form-row" style="margin-bottom:10px;">
+                        <div class="form-inline" style="margin-left:auto;">
+                            <label style="min-width:30px;">Ara</label>
+                            <input type="text" class="form-control" placeholder="Ad, soyad, departman..." @bind="aramaMetniPersonel" @bind:event="oninput" style="max-width:250px;" />
+                        </div>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px;">Foto</th>
+                                    <th style="width:80px;">Sicil No</th>
+                                    <th style="min-width:120px;">Ad</th>
+                                    <th style="min-width:120px;">Soyad</th>
+                                    <th style="width:100px;">TC Kimlik No</th>
+                                    <th style="width:90px;">Dogum Tarihi</th>
+                                    <th style="min-width:120px;">Departman</th>
+                                    <th style="min-width:120px;">Gorevi</th>
+                                    <th style="width:90px;">Ise Giris Tarihi</th>
+                                    <th style="width:100px;">Telefon</th>
+                                    <th style="min-width:150px;">E-Posta</th>
+                                    <th style="width:80px;">Kan Grubu</th>
+                                    <th style="width:100px;">Egitim Durumu</th>
+                                    <th style="width:60px;">Cinsiyet</th>
+                                    <th style="width:80px;">Askerlik</th>
+                                    <th style="min-width:100px;">Sehir</th>
+                                    <th style="min-width:100px;">Ilce</th>
+                                    <th style="min-width:150px;">Adres</th>
+                                    <th style="width:80px;">SGK No</th>
+                                    <th style="min-width:120px;">Isyeri</th>
+                                    <th style="width:100px;">Kasa Kodu</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (personelListesi != null)
+                                {
+                                    foreach (var p in filtrelenmisPersoneller)
+                                    {
+                                        <tr class="@(seciliPersonelId == p.Id ? "selected" : "")" @onclick="() => seciliPersonelId = p.Id">
+                                            <td><i class="fa fa-user" style="color:var(--pinebi-primary);"></i></td>
+                                            <td>@p.SicilNo</td>
+                                            <td>@p.Ad</td>
+                                            <td>@p.Soyad</td>
+                                            <td>@p.TcKimlikNo</td>
+                                            <td>@p.DogumTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@p.Departman</td>
+                                            <td>@p.Gorevi</td>
+                                            <td>@p.IseGirisTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@p.Telefon</td>
+                                            <td>@p.EPosta</td>
+                                            <td>@p.KanGrubu</td>
+                                            <td>@p.EgitimDurumu</td>
+                                            <td>@p.Cinsiyet</td>
+                                            <td>@p.Askerlik</td>
+                                            <td>@p.Sehir</td>
+                                            <td>@p.Ilce</td>
+                                            <td>@p.Adres</td>
+                                            <td>@p.SgkNo</td>
+                                            <td>@p.Isyeri</td>
+                                            <td>@p.KasaKodu</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== IZIN LISTESI ===== *@
+                @if (activeSection == "izin")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-primary btn-sm" @onclick="IzinDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="IzinIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Personel</th>
+                                    <th style="width:100px;">Izin Turu</th>
+                                    <th style="width:90px;">Baslangic</th>
+                                    <th style="width:90px;">Bitis</th>
+                                    <th style="width:60px;">Gun Sayisi</th>
+                                    <th style="min-width:150px;">Aciklama</th>
+                                    <th style="width:100px;">Onay Durumu</th>
+                                    <th style="min-width:150px;">Onay Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (izinListesi != null)
+                                {
+                                    foreach (var iz in izinListesi)
+                                    {
+                                        <tr class="@(seciliIzinId == iz.Id ? "selected" : "")" @onclick="() => seciliIzinId = iz.Id">
+                                            <td>@iz.Personel</td>
+                                            <td>@iz.IzinTuru</td>
+                                            <td>@iz.BaslangicTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@iz.BitisTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@iz.GunSayisi</td>
+                                            <td>@iz.Aciklama</td>
+                                            <td>@iz.OnayDurumu</td>
+                                            <td>@iz.OnayAciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== SAGLIK RAPORLARI ===== *@
+                @if (activeSection == "saglik")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-primary btn-sm" @onclick="SaglikDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="SaglikIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Personel</th>
+                                    <th style="width:100px;">Rapor Turu</th>
+                                    <th style="width:90px;">Baslangic</th>
+                                    <th style="width:90px;">Bitis</th>
+                                    <th style="width:60px;">Gun Sayisi</th>
+                                    <th style="min-width:150px;">Hastane</th>
+                                    <th style="min-width:150px;">Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (saglikListesi != null)
+                                {
+                                    foreach (var s in saglikListesi)
+                                    {
+                                        <tr class="@(seciliSaglikId == s.Id ? "selected" : "")" @onclick="() => seciliSaglikId = s.Id">
+                                            <td>@s.Personel</td>
+                                            <td>@s.RaporTuru</td>
+                                            <td>@s.BaslangicTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@s.BitisTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@s.GunSayisi</td>
+                                            <td>@s.Hastane</td>
+                                            <td>@s.Aciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== DISIPLIN TUTANAKLARI ===== *@
+                @if (activeSection == "tutanak")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="TutanakEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="TutanakDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="TutanakIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Personel</th>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:120px;">Tutanak Turu</th>
+                                    <th style="min-width:200px;">Aciklama</th>
+                                    <th style="width:100px;">Ceza Turu</th>
+                                    <th style="width:80px;">Dosya Eki</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (tutanakListesi != null)
+                                {
+                                    foreach (var t in tutanakListesi)
+                                    {
+                                        <tr class="@(seciliTutanakId == t.Id ? "selected" : "")" @onclick="() => seciliTutanakId = t.Id">
+                                            <td>@t.Personel</td>
+                                            <td>@t.Tarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@t.TutanakTuru</td>
+                                            <td>@t.Aciklama</td>
+                                            <td>@t.CezaTuru</td>
+                                            <td>@t.DosyaEki</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== GENEL TUTANAKLAR ===== *@
+                @if (activeSection == "geneltutanak")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="GenelTutanakEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="GenelTutanakDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="GenelTutanakIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:120px;">Tutanak Turu</th>
+                                    <th style="min-width:250px;">Aciklama</th>
+                                    <th style="width:80px;">Dosya Eki</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (genelTutanakListesi != null)
+                                {
+                                    foreach (var t in genelTutanakListesi)
+                                    {
+                                        <tr class="@(seciliGenelTutanakId == t.Id ? "selected" : "")" @onclick="() => seciliGenelTutanakId = t.Id">
+                                            <td>@t.Tarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@t.TutanakTuru</td>
+                                            <td>@t.Aciklama</td>
+                                            <td>@t.DosyaEki</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== ZIMMET ISLEMLERI ===== *@
+                @if (activeSection == "zimmet")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="ZimmetEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="ZimmetDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="ZimmetIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Personel</th>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:120px;">Zimmet Turu</th>
+                                    <th style="min-width:200px;">Aciklama</th>
+                                    <th style="width:80px;">Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (zimmetListesi != null)
+                                {
+                                    foreach (var z in zimmetListesi)
+                                    {
+                                        <tr class="@(seciliZimmetId == z.Id ? "selected" : "")" @onclick="() => seciliZimmetId = z.Id">
+                                            <td>@z.Personel</td>
+                                            <td>@z.Tarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@z.ZimmetTuru</td>
+                                            <td>@z.Aciklama</td>
+                                            <td>@z.Durum</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== MAAS BORDROSU ===== *@
+                @if (activeSection == "maas")
+                {
+                    <div style="padding:20px; text-align:center; color:var(--pinebi-text-light);">
+                        <i class="fa fa-money" style="font-size:48px; margin-bottom:10px;"></i>
+                        <p>Maas Bordrosu modulu hazirlaniyor...</p>
+                    </div>
+                }
+
+                @* ===== PUANTAJ ===== *@
+                @if (activeSection == "puantaj")
+                {
+                    <div class="toolbar">
+                        <div class="form-inline">
+                            <label>Yil</label>
+                            <select class="form-control" @bind="puantajYil" style="max-width:100px;">
+                                @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year; y++)
+                                {
+                                    <option value="@y">@y</option>
+                                }
+                            </select>
+                        </div>
+                        <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+                        <button class="btn btn-outline btn-sm" @onclick="PuantajYazdir">
+                            <i class="fa fa-print"></i> Yazdir
+                        </button>
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <!-- Month Tabs -->
+                    <div style="display:flex; gap:2px; margin:8px 0; flex-wrap:wrap;">
+                        @{ string[] aylar = { "Ocak", "Subat", "Mart", "Nisan", "Mayis", "Haziran", "Temmuz", "Agustos", "Eylul", "Ekim", "Kasim", "Aralik" }; }
+                        @for (int i = 0; i < 12; i++)
+                        {
+                            var ayIndex = i;
+                            <button class="btn btn-sm @(puantajAy == ayIndex ? "btn-primary" : "btn-outline")" @onclick="() => puantajAy = ayIndex">
+                                @aylar[ayIndex]
+                            </button>
+                        }
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 360px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:100px;">Personel</th>
+                                    <th style="width:60px;">Yil</th>
+                                    <th style="width:60px;">Ay</th>
+                                    @for (int d = 1; d <= 31; d++)
+                                    {
+                                        <th style="width:35px; text-align:center;">@d</th>
+                                    }
+                                    <th style="width:60px; text-align:center;">Toplam</th>
+                                    <th style="width:60px; text-align:center;">Mesai</th>
+                                    <th style="width:60px; text-align:center;">Izin</th>
+                                    <th style="width:60px; text-align:center;">Rapor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (puantajListesi != null)
+                                {
+                                    foreach (var p in puantajListesi)
+                                    {
+                                        <tr>
+                                            <td>@p.Personel</td>
+                                            <td>@p.Yil</td>
+                                            <td>@p.Ay</td>
+                                            @for (int d = 1; d <= 31; d++)
+                                            {
+                                                <td style="text-align:center;">@p.Gunler[d - 1]</td>
+                                            }
+                                            <td style="text-align:center;">@p.Toplam</td>
+                                            <td style="text-align:center;">@p.Mesai</td>
+                                            <td style="text-align:center;">@p.Izin</td>
+                                            <td style="text-align:center;">@p.Rapor</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== TALEPLER ===== *@
+                @if (activeSection == "talep")
+                {
+                    <div style="padding:20px; text-align:center; color:var(--pinebi-text-light);">
+                        <i class="fa fa-inbox" style="font-size:48px; margin-bottom:10px;"></i>
+                        <p>Talep modulu hazirlaniyor...</p>
+                    </div>
+                }
+
+                @* ===== ISTEN AYRILANLAR ===== *@
+                @if (activeSection == "gecmis")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                            <i class="fa fa-file-excel-o"></i> Excel Aktar
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:80px;">Sicil No</th>
+                                    <th style="min-width:120px;">Ad</th>
+                                    <th style="min-width:120px;">Soyad</th>
+                                    <th style="min-width:120px;">Departman</th>
+                                    <th style="min-width:120px;">Gorevi</th>
+                                    <th style="width:90px;">Ise Giris</th>
+                                    <th style="width:90px;">Isten Ayrilma</th>
+                                    <th style="min-width:200px;">Ayrilma Sebebi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (istenAyrilanlar != null)
+                                {
+                                    foreach (var p in istenAyrilanlar)
+                                    {
+                                        <tr>
+                                            <td>@p.SicilNo</td>
+                                            <td>@p.Ad</td>
+                                            <td>@p.Soyad</td>
+                                            <td>@p.Departman</td>
+                                            <td>@p.Gorevi</td>
+                                            <td>@p.IseGirisTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@p.IsiBirakmaTarihi?.ToString("dd.MM.yyyy")</td>
+                                            <td>@p.IsiBirakmaSebebi</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @* ===== GORUS VE ONERILER ===== *@
+                @if (activeSection == "oneri")
+                {
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="GorusEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="GorusDuzenle">
+                            <i class="fa fa-pencil"></i> Duzenle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="GorusIptal">
+                            <i class="fa fa-ban"></i> Iptal
+                        </button>
+                    </div>
+
+                    <div class="grid-container" style="max-height:calc(100vh - 300px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Personel</th>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:120px;">Konu</th>
+                                    <th style="min-width:300px;">Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (gorusListesi != null)
+                                {
+                                    foreach (var g in gorusListesi)
+                                    {
+                                        <tr class="@(seciliGorusId == g.Id ? "selected" : "")" @onclick="() => seciliGorusId = g.Id">
+                                            <td>@g.Personel</td>
+                                            <td>@g.Tarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@g.Konu</td>
+                                            <td>@g.Aciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .accordion-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--pinebi-border);
+        transition: background 0.15s;
+    }
+    .accordion-item:hover {
+        background: #f3f4f6;
+    }
+    .accordion-item.active {
+        background: var(--pinebi-primary);
+        color: white;
+    }
+    .accordion-item i {
+        width: 18px;
+        text-align: center;
+    }
+</style>
+
+@code {
+    private string activeSection = "liste";
+    private string aramaMetniPersonel = "";
+    private int seciliPersonelId;
+    private int seciliIzinId;
+    private int seciliSaglikId;
+    private int seciliTutanakId;
+    private int seciliGenelTutanakId;
+    private int seciliZimmetId;
+    private int seciliGorusId;
+    private int puantajYil = DateTime.Now.Year;
+    private int puantajAy = DateTime.Now.Month - 1;
+    private string hataMesaji = "";
+
+    // Data lists
+    private List<PersonelItem> personelListesi = new();
+    private List<IzinItem> izinListesi = new();
+    private List<SaglikItem> saglikListesi = new();
+    private List<TutanakItem> tutanakListesi = new();
+    private List<TutanakItem> genelTutanakListesi = new();
+    private List<ZimmetItem> zimmetListesi = new();
+    private List<PuantajItem> puantajListesi = new();
+    private List<PersonelItem> istenAyrilanlar = new();
+    private List<GorusItem> gorusListesi = new();
+
+    private IEnumerable<PersonelItem> filtrelenmisPersoneller =>
+        string.IsNullOrWhiteSpace(aramaMetniPersonel)
+            ? personelListesi
+            : personelListesi.Where(p =>
+                (p.Ad ?? "").Contains(aramaMetniPersonel, StringComparison.OrdinalIgnoreCase) ||
+                (p.Soyad ?? "").Contains(aramaMetniPersonel, StringComparison.OrdinalIgnoreCase) ||
+                (p.Departman ?? "").Contains(aramaMetniPersonel, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await PersonelListele();
+    }
+
+    private async void SectionChanged(string section)
+    {
+        activeSection = section;
+        try
+        {
+            switch (section)
+            {
+                case "liste": await PersonelListele(); break;
+                case "izin": await IzinListele(); break;
+                case "saglik": await SaglikListele(); break;
+                case "tutanak": await TutanakListele(); break;
+                case "geneltutanak": await GenelTutanakListele(); break;
+                case "zimmet": await ZimmetListele(); break;
+                case "puantaj": await PuantajListele(); break;
+                case "gecmis": await IstenAyrilanlarListele(); break;
+                case "oneri": await GorusListele(); break;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SectionChanged hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== DATA LOADING =====
+
+    private async Task PersonelListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.Personeller.AsNoTracking()
+                .Where(p => p.Iptal != true && p.IstenAyrildi != true)
+                .OrderBy(p => p.AdSoyad)
+                .ToListAsync();
+
+            personelListesi = list.Select(p =>
+            {
+                var adParts = (p.AdSoyad ?? "").Split(' ', 2);
+                return new PersonelItem
+                {
+                    Id = p.Id,
+                    SicilNo = p.PersonelOzluk,
+                    Ad = adParts.Length > 0 ? adParts[0] : "",
+                    Soyad = adParts.Length > 1 ? adParts[1] : "",
+                    TcKimlikNo = p.TCKNo,
+                    DogumTarihi = p.DogumTarihi,
+                    Departman = p.Unvan,
+                    Gorevi = p.GorevVeSorumluluklar,
+                    IseGirisTarihi = p.IseGirisTarihi,
+                    Telefon = p.Telefon,
+                    EPosta = p.Email,
+                    SgkNo = p.SGKNo,
+                    KasaKodu = p.KasaKodu,
+                    IsiBirakmaTarihi = p.IsiBirakmaTarihi,
+                    IsiBirakmaSebebi = p.IsiBirakmaSebebi
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PersonelListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task IzinListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.IzinFormlari.AsNoTracking()
+                .Where(i => i.Iptal != true)
+                .OrderByDescending(i => i.BaslangicTarihi)
+                .ToListAsync();
+
+            izinListesi = list.Select(i => new IzinItem
+            {
+                Id = i.Id,
+                Personel = i.AdiSoyadi,
+                IzinTuru = i.IzinTuru,
+                BaslangicTarihi = i.BaslangicTarihi,
+                BitisTarihi = i.BitisTarihi,
+                GunSayisi = i.IzinGunu,
+                Aciklama = i.PersonelAciklama,
+                OnayDurumu = i.OnayDurumu,
+                OnayAciklama = i.OnayAciklama
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"IzinListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task SaglikListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.SaglikRaporlari.AsNoTracking()
+                .Where(s => s.Iptal != true)
+                .OrderByDescending(s => s.BaslangicTarihi)
+                .ToListAsync();
+
+            saglikListesi = list.Select(s => new SaglikItem
+            {
+                Id = s.Id,
+                Personel = s.AdiSoyadi,
+                RaporTuru = s.HastalikTanisi,
+                BaslangicTarihi = s.BaslangicTarihi,
+                BitisTarihi = s.BitisTarihi,
+                GunSayisi = s.RaporGunu,
+                Aciklama = s.YoneticiAciklama
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SaglikListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task TutanakListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.DisiplinTutanaklari.AsNoTracking()
+                .Where(t => t.Iptal != true)
+                .OrderByDescending(t => t.Tarih)
+                .ToListAsync();
+
+            tutanakListesi = list.Select(t => new TutanakItem
+            {
+                Id = t.Id,
+                Personel = t.PersonelAdi,
+                Tarih = t.Tarih,
+                TutanakTuru = t.Konu,
+                Aciklama = t.Duzenleyen,
+                DosyaEki = t.DosyaEki
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TutanakListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task GenelTutanakListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.GenelTutanaklar.AsNoTracking()
+                .Where(t => t.Iptal != true)
+                .OrderByDescending(t => t.Tarih)
+                .ToListAsync();
+
+            genelTutanakListesi = list.Select(t => new TutanakItem
+            {
+                Id = t.Id,
+                Tarih = t.Tarih,
+                TutanakTuru = t.Konu,
+                Aciklama = t.Duzenleyen,
+                DosyaEki = t.DosyaEki
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GenelTutanakListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task ZimmetListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.ZimmetBaslik.AsNoTracking()
+                .Where(z => z.Iptal != true)
+                .OrderByDescending(z => z.Tarih)
+                .ToListAsync();
+
+            zimmetListesi = list.Select(z => new ZimmetItem
+            {
+                Id = z.Id,
+                Personel = z.PersonelAdi,
+                Tarih = z.Tarih,
+                ZimmetTuru = z.DokumanNo,
+                Aciklama = z.Aciklama,
+                Durum = z.Iptal != true ? "Aktif" : "Iptal"
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ZimmetListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task PuantajListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.Puantaj.AsNoTracking()
+                .Where(p => p.Yil == puantajYil)
+                .ToListAsync();
+
+            puantajListesi = list.Select(p => new PuantajItem
+            {
+                Personel = p.Personel,
+                Yil = p.Yil ?? 0,
+                Ay = p.Ay ?? 0,
+                Gunler = new[]
+                {
+                    p._1_, p._2_, p._3_, p._4_, p._5_, p._6_, p._7_, p._8_, p._9_, p._10_,
+                    p._11_, p._12_, p._13_, p._14_, p._15_, p._16_, p._17_, p._18_, p._19_, p._20_,
+                    p._21_, p._22_, p._23_, p._24_, p._25_, p._26_, p._27_, p._28_, p._29_, p._30_, p._31_
+                }
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PuantajListele hatasi: {ex.Message}");
+            puantajListesi = new();
+        }
+    }
+
+    private async Task IstenAyrilanlarListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.Personeller.AsNoTracking()
+                .Where(p => p.IstenAyrildi == true)
+                .OrderByDescending(p => p.IsiBirakmaTarihi)
+                .ToListAsync();
+
+            istenAyrilanlar = list.Select(p =>
+            {
+                var adParts = (p.AdSoyad ?? "").Split(' ', 2);
+                return new PersonelItem
+                {
+                    Id = p.Id,
+                    SicilNo = p.PersonelOzluk,
+                    Ad = adParts.Length > 0 ? adParts[0] : "",
+                    Soyad = adParts.Length > 1 ? adParts[1] : "",
+                    Departman = p.Unvan,
+                    Gorevi = p.GorevVeSorumluluklar,
+                    IseGirisTarihi = p.IseGirisTarihi,
+                    IsiBirakmaTarihi = p.IsiBirakmaTarihi,
+                    IsiBirakmaSebebi = p.IsiBirakmaSebebi
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"IstenAyrilanlarListele hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task GorusListele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var list = await db.GorusVeOneriler.AsNoTracking()
+                .Where(g => g.Iptal != true)
+                .OrderByDescending(g => g.Tarih)
+                .ToListAsync();
+
+            gorusListesi = list.Select(g => new GorusItem
+            {
+                Id = g.Id,
+                Personel = g.Duzenleyen,
+                Tarih = g.Tarih,
+                Konu = g.Konu,
+                Aciklama = g.DuzenleyenGorevi
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GorusListele hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== PERSONEL HANDLERS =====
+
+    private async Task PersonelEkle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var yeniPersonel = new Personeller
+            {
+                AdSoyad = "Yeni Personel",
+                IseGirisTarihi = DateTime.Now,
+                Iptal = false,
+                IstenAyrildi = false
+            };
+            db.Personeller.Add(yeniPersonel);
+            await db.SaveChangesAsync();
+            await PersonelListele();
+            seciliPersonelId = yeniPersonel.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PersonelEkle hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task PersonelDuzenle()
+    {
+        if (seciliPersonelId == 0) return;
+        Nav.NavigateTo($"/personel/{seciliPersonelId}");
+    }
+
+    private async Task PersonelIptal()
+    {
+        if (seciliPersonelId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var personel = await db.Personeller.FindAsync(seciliPersonelId);
+            if (personel != null)
+            {
+                personel.Iptal = true;
+                db.Personeller.Update(personel);
+                await db.SaveChangesAsync();
+                seciliPersonelId = 0;
+                await PersonelListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PersonelIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== IZIN HANDLERS =====
+
+    private async Task IzinFormuAc()
+    {
+        if (seciliPersonelId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var personel = await db.Personeller.AsNoTracking().FirstOrDefaultAsync(p => p.Id == seciliPersonelId);
+            if (personel == null) return;
+
+            var yeniIzin = new IzinFormlari
+            {
+                PersonelId = personel.Id,
+                AdiSoyadi = personel.AdSoyad,
+                Gorevi = personel.GorevVeSorumluluklar,
+                IzinTalepTarihi = DateTime.Now,
+                BaslangicTarihi = DateTime.Now,
+                BitisTarihi = DateTime.Now.AddDays(1),
+                IzinGunu = 1,
+                OnayDurumu = "Beklemede",
+                Iptal = false
+            };
+            db.IzinFormlari.Add(yeniIzin);
+            await db.SaveChangesAsync();
+            activeSection = "izin";
+            await IzinListele();
+            seciliIzinId = yeniIzin.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"IzinFormuAc hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task IzinDuzenle()
+    {
+        if (seciliIzinId == 0) return;
+        Nav.NavigateTo($"/personel/izin/{seciliIzinId}");
+    }
+
+    private async Task IzinIptal()
+    {
+        if (seciliIzinId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var izin = await db.IzinFormlari.FindAsync(seciliIzinId);
+            if (izin != null)
+            {
+                izin.Iptal = true;
+                db.IzinFormlari.Update(izin);
+                await db.SaveChangesAsync();
+                seciliIzinId = 0;
+                await IzinListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"IzinIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== SAGLIK RAPORU HANDLERS =====
+
+    private async Task SaglikDuzenle()
+    {
+        if (seciliSaglikId == 0) return;
+        Nav.NavigateTo($"/personel/saglik/{seciliSaglikId}");
+    }
+
+    private async Task SaglikIptal()
+    {
+        if (seciliSaglikId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var rapor = await db.SaglikRaporlari.FindAsync(seciliSaglikId);
+            if (rapor != null)
+            {
+                rapor.Iptal = true;
+                db.SaglikRaporlari.Update(rapor);
+                await db.SaveChangesAsync();
+                seciliSaglikId = 0;
+                await SaglikListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SaglikIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== DISIPLIN TUTANAKLARI HANDLERS =====
+
+    private async Task TutanakEkle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var yeniTutanak = new DisiplinTutanaklari
+            {
+                Tarih = DateTime.Now,
+                Konu = "",
+                Iptal = false
+            };
+            db.DisiplinTutanaklari.Add(yeniTutanak);
+            await db.SaveChangesAsync();
+            await TutanakListele();
+            seciliTutanakId = yeniTutanak.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TutanakEkle hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task TutanakDuzenle()
+    {
+        if (seciliTutanakId == 0) return;
+        Nav.NavigateTo($"/personel/tutanak/{seciliTutanakId}");
+    }
+
+    private async Task TutanakIptal()
+    {
+        if (seciliTutanakId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var tutanak = await db.DisiplinTutanaklari.FindAsync(seciliTutanakId);
+            if (tutanak != null)
+            {
+                tutanak.Iptal = true;
+                db.DisiplinTutanaklari.Update(tutanak);
+                await db.SaveChangesAsync();
+                seciliTutanakId = 0;
+                await TutanakListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TutanakIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== GENEL TUTANAK HANDLERS =====
+
+    private async Task GenelTutanakEkle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var yeniTutanak = new GenelTutanaklar
+            {
+                Tarih = DateTime.Now,
+                Konu = "",
+                Iptal = false
+            };
+            db.GenelTutanaklar.Add(yeniTutanak);
+            await db.SaveChangesAsync();
+            await GenelTutanakListele();
+            seciliGenelTutanakId = yeniTutanak.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GenelTutanakEkle hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task GenelTutanakDuzenle()
+    {
+        if (seciliGenelTutanakId == 0) return;
+        Nav.NavigateTo($"/personel/geneltutanak/{seciliGenelTutanakId}");
+    }
+
+    private async Task GenelTutanakIptal()
+    {
+        if (seciliGenelTutanakId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var tutanak = await db.GenelTutanaklar.FindAsync(seciliGenelTutanakId);
+            if (tutanak != null)
+            {
+                tutanak.Iptal = true;
+                db.GenelTutanaklar.Update(tutanak);
+                await db.SaveChangesAsync();
+                seciliGenelTutanakId = 0;
+                await GenelTutanakListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GenelTutanakIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== ZIMMET HANDLERS =====
+
+    private async Task ZimmetEkle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var yeniZimmet = new ZimmetBaslik
+            {
+                Tarih = DateTime.Now,
+                DuzenlemeTarihi = DateTime.Now,
+                Iptal = false
+            };
+            db.ZimmetBaslik.Add(yeniZimmet);
+            await db.SaveChangesAsync();
+            await ZimmetListele();
+            seciliZimmetId = yeniZimmet.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ZimmetEkle hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task ZimmetDuzenle()
+    {
+        if (seciliZimmetId == 0) return;
+        Nav.NavigateTo($"/personel/zimmet/{seciliZimmetId}");
+    }
+
+    private async Task ZimmetIptal()
+    {
+        if (seciliZimmetId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var zimmet = await db.ZimmetBaslik.FindAsync(seciliZimmetId);
+            if (zimmet != null)
+            {
+                zimmet.Iptal = true;
+                db.ZimmetBaslik.Update(zimmet);
+                await db.SaveChangesAsync();
+                seciliZimmetId = 0;
+                await ZimmetListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ZimmetIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== GORUS VE ONERI HANDLERS =====
+
+    private async Task GorusEkle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var yeniGorus = new GorusVeOneriler
+            {
+                Tarih = DateTime.Now,
+                Konu = "",
+                Iptal = false
+            };
+            db.GorusVeOneriler.Add(yeniGorus);
+            await db.SaveChangesAsync();
+            await GorusListele();
+            seciliGorusId = yeniGorus.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GorusEkle hatasi: {ex.Message}");
+        }
+    }
+
+    private async Task GorusDuzenle()
+    {
+        if (seciliGorusId == 0) return;
+        Nav.NavigateTo($"/personel/gorus/{seciliGorusId}");
+    }
+
+    private async Task GorusIptal()
+    {
+        if (seciliGorusId == 0) return;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var gorus = await db.GorusVeOneriler.FindAsync(seciliGorusId);
+            if (gorus != null)
+            {
+                gorus.Iptal = true;
+                db.GorusVeOneriler.Update(gorus);
+                await db.SaveChangesAsync();
+                seciliGorusId = 0;
+                await GorusListele();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GorusIptal hatasi: {ex.Message}");
+        }
+    }
+
+    // ===== PRINT & EXPORT HANDLERS =====
+
+    private void PuantajYazdir()
+    {
+        Console.WriteLine($"PuantajYazdir: Yil={puantajYil}, Ay={puantajAy + 1} - Yazdir islemi henuz implemente edilmedi.");
+    }
+
+    private void ExcelAktar()
+    {
+        Console.WriteLine($"ExcelAktar: Aktif sekme={activeSection} - Excel aktarimi henuz implemente edilmedi.");
+    }
+
+    // Model classes
+    public class PersonelItem
+    {
+        public int Id { get; set; }
+        public string SicilNo { get; set; }
+        public string Ad { get; set; }
+        public string Soyad { get; set; }
+        public string TcKimlikNo { get; set; }
+        public DateTime? DogumTarihi { get; set; }
+        public string Departman { get; set; }
+        public string Gorevi { get; set; }
+        public DateTime? IseGirisTarihi { get; set; }
+        public string Telefon { get; set; }
+        public string EPosta { get; set; }
+        public string KanGrubu { get; set; }
+        public string EgitimDurumu { get; set; }
+        public string Cinsiyet { get; set; }
+        public string Askerlik { get; set; }
+        public string Sehir { get; set; }
+        public string Ilce { get; set; }
+        public string Adres { get; set; }
+        public string SgkNo { get; set; }
+        public string Isyeri { get; set; }
+        public string KasaKodu { get; set; }
+        public DateTime? IsiBirakmaTarihi { get; set; }
+        public string IsiBirakmaSebebi { get; set; }
+    }
+
+    public class IzinItem
+    {
+        public int Id { get; set; }
+        public string Personel { get; set; }
+        public string IzinTuru { get; set; }
+        public DateTime? BaslangicTarihi { get; set; }
+        public DateTime? BitisTarihi { get; set; }
+        public int? GunSayisi { get; set; }
+        public string Aciklama { get; set; }
+        public string OnayDurumu { get; set; }
+        public string OnayAciklama { get; set; }
+    }
+
+    public class SaglikItem
+    {
+        public int Id { get; set; }
+        public string Personel { get; set; }
+        public string RaporTuru { get; set; }
+        public DateTime? BaslangicTarihi { get; set; }
+        public DateTime? BitisTarihi { get; set; }
+        public int? GunSayisi { get; set; }
+        public string Hastane { get; set; }
+        public string Aciklama { get; set; }
+    }
+
+    public class TutanakItem
+    {
+        public int Id { get; set; }
+        public string Personel { get; set; }
+        public DateTime? Tarih { get; set; }
+        public string TutanakTuru { get; set; }
+        public string Aciklama { get; set; }
+        public string CezaTuru { get; set; }
+        public string DosyaEki { get; set; }
+    }
+
+    public class ZimmetItem
+    {
+        public int Id { get; set; }
+        public string Personel { get; set; }
+        public DateTime? Tarih { get; set; }
+        public string ZimmetTuru { get; set; }
+        public string Aciklama { get; set; }
+        public string Durum { get; set; }
+    }
+
+    public class PuantajItem
+    {
+        public string Personel { get; set; }
+        public int Yil { get; set; }
+        public int Ay { get; set; }
+        public string[] Gunler { get; set; } = new string[31];
+        public string Toplam { get; set; }
+        public string Mesai { get; set; }
+        public string Izin { get; set; }
+        public string Rapor { get; set; }
+    }
+
+    public class GorusItem
+    {
+        public int Id { get; set; }
+        public string Personel { get; set; }
+        public DateTime? Tarih { get; set; }
+        public string Konu { get; set; }
+        public string Aciklama { get; set; }
+    }
+}

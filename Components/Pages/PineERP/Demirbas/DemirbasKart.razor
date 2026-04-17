@@ -1,0 +1,304 @@
+﻿@page "/pine/demirbas/kart"
+@page "/pine/demirbas/kart/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Demirbas Kart</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-archive"></i> Demirbas Kart @(Id > 0 ? "- Duzenle" : "- Yeni")
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Geri">
+                <i class="fa fa-arrow-left"></i> Geri
+            </button>
+        </div>
+
+        <!-- Tab Control -->
+        <div class="xtab">
+            <div class="xtab-header">
+                <div class="xtab-header-item @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">
+                    Demirbas Bilgileri
+                </div>
+                <div class="xtab-header-item @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">
+                    Mali Bilgiler
+                </div>
+                <div class="xtab-header-item @(activeTab == 2 ? "active" : "")" @onclick="() => { activeTab = 2; LoadHareketler(); }">
+                    Hareketler
+                </div>
+            </div>
+
+            <div class="xtab-body" style="padding:10px;">
+                @if (activeTab == 0)
+                {
+                    <!-- DEMIRBAS BILGILERI -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Temel Bilgiler</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Demirbas Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.DmrKod" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Isim</label>
+                                        <input type="text" class="form-control" @bind="model.DmrIsim" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Grup Kodu</label>
+                                        <input type="text" class="form-control" @bind="model.DmrGrupKodu" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Kategori</label>
+                                        <input type="text" class="form-control" @bind="model.DmrKategori" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Marka</label>
+                                        <input type="text" class="form-control" @bind="model.DmrMarka" style="max-width:200px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Model</label>
+                                        <input type="text" class="form-control" @bind="model.DmrModel" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Seri No</label>
+                                        <input type="text" class="form-control" @bind="model.DmrSeriNo" style="max-width:200px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex:1; min-width:350px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Konum ve Sorumluluk</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Lokasyon</label>
+                                        <input type="text" class="form-control" @bind="model.DmrLokasyon" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Sorumlu Personel</label>
+                                        <input type="text" class="form-control" @bind="model.DmrSorumluPersonel" style="max-width:180px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Durum</label>
+                                        <select class="form-control" @bind="model.DmrDurum" style="max-width:180px;">
+                                            <option value="">Seciniz</option>
+                                            <option value="Aktif">Aktif</option>
+                                            <option value="Bakim">Bakimda</option>
+                                            <option value="Hurda">Hurda</option>
+                                            <option value="Kayip">Kayip</option>
+                                            <option value="Satildi">Satildi</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Aciklama</label>
+                                        <input type="text" class="form-control" @bind="model.DmrAciklama" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 1)
+                {
+                    <!-- MALI BILGILER -->
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:450px;">
+                            <div class="group-box">
+                                <span class="group-box-title">Alis Bilgileri</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Alis Tarihi</label>
+                                        <input type="date" class="form-control" @bind="model.DmrAlisTarihi" style="max-width:160px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Garanti Bitis</label>
+                                        <input type="date" class="form-control" @bind="model.DmrGarantiBitis" style="max-width:160px;" />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Alis Fiyati</label>
+                                        <input type="number" step="0.01" class="form-control" @bind="model.DmrAlisFiyati" style="max-width:180px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Doviz</label>
+                                        <input type="text" class="form-control" @bind="model.DmrDovizCinsi" style="max-width:60px;" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="group-box" style="margin-top:8px;">
+                                <span class="group-box-title">Amortisman</span>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Amortisman Orani %</label>
+                                        <input type="number" step="0.01" class="form-control" @bind="model.DmrAmortismanOrani" style="max-width:120px;" />
+                                    </div>
+                                    <div class="form-inline" style="flex:1;">
+                                        <label style="min-width:auto;">Yontem</label>
+                                        <select class="form-control" @bind="model.DmrAmortismanYontemi" style="max-width:180px;">
+                                            <option value="">Seciniz</option>
+                                            <option value="Normal">Normal</option>
+                                            <option value="Azalan Bakiyeler">Azalan Bakiyeler</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-inline" style="flex:1;">
+                                        <label>Faydali Omur (Yil)</label>
+                                        <input type="number" class="form-control" @bind="model.DmrFaydaliOmur" style="max-width:80px;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == 2)
+                {
+                    <!-- HAREKETLER -->
+                    <div class="grid-container" style="max-height:calc(100vh - 380px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Hareket Tipi</th>
+                                    <th>Personel Kodu</th>
+                                    <th>Lokasyon</th>
+                                    <th>Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (hareketler != null)
+                                {
+                                    @foreach (var h in hareketler)
+                                    {
+                                        <tr>
+                                            <td>@h.DhkTarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@h.DhkTip</td>
+                                            <td>@h.DhkPersonelKod</td>
+                                            <td>@h.DhkLokasyon</td>
+                                            <td>@h.DhkAciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private int activeTab = 0;
+    private DemirbasModel model = new();
+    private List<HareketDto>? hareketler;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id > 0)
+        {
+            try
+            {
+                var resp = await Http.GetFromJsonAsync<ApiResp<DemirbasModel>>($"/api/demirbas/kart/{Id}");
+                if (resp?.Data != null) model = resp.Data;
+            }
+            catch (Exception ex) { Console.WriteLine($"Demirbas kart yukleme hatasi: {ex.Message}"); }
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            if (Id > 0)
+                await Http.PutAsJsonAsync($"/api/demirbas/kart/{Id}", model);
+            else
+            {
+                var resp = await Http.PostAsJsonAsync("/api/demirbas/kart", model);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var result = await resp.Content.ReadFromJsonAsync<ApiResp<DemirbasModel>>();
+                    if (result?.Data != null)
+                        Nav.NavigateTo($"/pine/demirbas/kart/{result.Data.Id}");
+                }
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Kaydetme hatasi: {ex.Message}"); }
+    }
+
+    private void Geri() => Nav.NavigateTo("/pine/demirbas/liste");
+
+    private async Task LoadHareketler()
+    {
+        if (string.IsNullOrWhiteSpace(model.DmrKod)) return;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<HareketDto>>>($"/api/demirbas/hareketler/{model.DmrKod}");
+            hareketler = resp?.Data ?? new();
+        }
+        catch { hareketler = new(); }
+    }
+
+    public class DemirbasModel
+    {
+        public int Id { get; set; }
+        public string? DmrKod { get; set; }
+        public string? DmrIsim { get; set; }
+        public string? DmrGrupKodu { get; set; }
+        public string? DmrKategori { get; set; }
+        public string? DmrMarka { get; set; }
+        public string? DmrModel { get; set; }
+        public string? DmrSeriNo { get; set; }
+        public DateTime? DmrAlisTarihi { get; set; }
+        public decimal DmrAlisFiyati { get; set; }
+        public string? DmrDovizCinsi { get; set; }
+        public decimal DmrAmortismanOrani { get; set; }
+        public string? DmrAmortismanYontemi { get; set; }
+        public int DmrFaydaliOmur { get; set; }
+        public DateTime? DmrGarantiBitis { get; set; }
+        public string? DmrSorumluPersonel { get; set; }
+        public string? DmrLokasyon { get; set; }
+        public string? DmrDurum { get; set; }
+        public string? DmrAciklama { get; set; }
+    }
+
+    public class HareketDto
+    {
+        public int Id { get; set; }
+        public DateTime? DhkTarih { get; set; }
+        public string? DhkTip { get; set; }
+        public string? DhkPersonelKod { get; set; }
+        public string? DhkLokasyon { get; set; }
+        public string? DhkAciklama { get; set; }
+    }
+
+    public class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+}

@@ -1,0 +1,308 @@
+﻿@page "/efatura/giden"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Giden E-Faturalar</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-paper-plane"></i> Giden E-Faturalar
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick="FaturaGoster">
+                <i class="fa fa-eye"></i> Fatura Goster
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="TekrarGondermekIcinEkle">
+                <i class="fa fa-list-alt"></i> Tekrar Gondermek Icin Listeye Ekle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="FaturaIptalEt">
+                <i class="fa fa-ban"></i> Fatura Iptal Et
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="FaturaLinkiKopyala">
+                <i class="fa fa-link"></i> Fatura Linki Kopyala
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="TumunuSec">
+                <i class="fa fa-check-square-o"></i> Tumunu Sec
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="SecimleriTemizle">
+                <i class="fa fa-square-o"></i> Secimleri Temizle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="FaturaIndir">
+                <i class="fa fa-download"></i> Fatura Indir
+            </button>
+        </div>
+
+        <!-- Filtre Alani -->
+        <div class="form-row" style="margin-bottom:10px; margin-top:10px;">
+            <div class="form-inline">
+                <label style="min-width:60px;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:30px;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> [F5] Yenile
+            </button>
+            <div class="form-check" style="margin-left:10px;">
+                <input type="checkbox" @bind="basarisizGosterilsin" @bind:after="DurumDegisti" />
+                <label>Basarisiz Gonderiler</label>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-left:10px;" @onclick="DurumGuncelle">
+                <i class="fa fa-sync"></i> Durum Guncelle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="GibHataKodlari">
+                <i class="fa fa-exclamation-triangle"></i> GIB Hata Kodlari
+            </button>
+            <span style="margin-left:auto;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 300px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">Sec</th>
+                        <th style="width:130px;">Fatura No</th>
+                        <th style="width:280px;">Fatura ETTN</th>
+                        <th style="width:130px;">Olusturma Tarihi</th>
+                        <th style="width:90px;">Fatura Tarihi</th>
+                        <th style="min-width:200px;">Cari Unvani</th>
+                        <th style="width:100px;">Vergi No</th>
+                        <th style="width:200px;">Gonderi Durum Aciklama</th>
+                        <th style="width:200px;">Onay/Red Durumu</th>
+                        <th style="width:200px;">Zarf Durum Aciklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (gidenFaturalar.Count == 0)
+                    {
+                        <tr><td colspan="10" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var fatura in gidenFaturalar)
+                        {
+                            <tr class="@(seciliId == fatura.Id ? "selected" : "")" @onclick="() => seciliId = fatura.Id">
+                                <td style="text-align:center;">
+                                    <input type="checkbox" @bind="fatura.Secili" />
+                                </td>
+                                <td>@fatura.FaturaNo</td>
+                                <td style="font-size:11px;">@fatura.FaturaETTN</td>
+                                <td>@fatura.OlusturmaTarihi?.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@fatura.FaturaTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@fatura.CariUnvani</td>
+                                <td>@fatura.VergiNo</td>
+                                <td>
+                                    @if (fatura.GonderiDurumu == "0")
+                                    {
+                                        <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.GonderiDurumAciklama</span>
+                                    }
+                                    else if (fatura.GonderiDurumu == "-1")
+                                    {
+                                        <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.GonderiDurumAciklama</span>
+                                    }
+                                    else
+                                    {
+                                        @fatura.GonderiDurumAciklama
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var bgOnay = fatura.InvoiceStatus switch
+                                        {
+                                            "3" or "5" => "background:#16a34a; color:white;",
+                                            "2" => "background:#eab308; color:black;",
+                                            "4" or "10" => "background:#f97316; color:black;",
+                                            "1" or "6" or "7" or "8" or "9" => "background:#ef4444; color:white;",
+                                            _ => ""
+                                        };
+                                    }
+                                    @if (!string.IsNullOrEmpty(bgOnay))
+                                    {
+                                        <span style="@bgOnay padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.OnayRedDurumu</span>
+                                    }
+                                    else
+                                    {
+                                        @fatura.OnayRedDurumu
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var bgZarf = fatura.ZarfDurumu switch
+                                        {
+                                            "0" => "background:#eab308; color:black;",
+                                            "1" or "3" or "4" => "background:#dc2626; color:white;",
+                                            "2" or "34" => "background:#86efac; color:black;",
+                                            "5" or "39" => "background:#16a34a; color:white;",
+                                            _ => ""
+                                        };
+                                    }
+                                    @if (!string.IsNullOrEmpty(bgZarf))
+                                    {
+                                        <span style="@bgZarf padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.ZarfDurumAciklama</span>
+                                    }
+                                    else
+                                    {
+                                        @fatura.ZarfDurumAciklama
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @gidenFaturalar.Count kayit | @gidenFaturalar.Count(f => f.Secili) secili</span>
+            @if (isDurumGuncelleniyor)
+            {
+                <span style="color:#800000; font-weight:bold;"><i class="fa fa-spinner fa-spin"></i> Fatura durum bilgileri guncelleniyor...</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime baslangicTarihi = new DateTime(DateTime.Now.Year, 1, 1);
+    private DateTime bitisTarihi = DateTime.Today;
+    private bool basarisizGosterilsin = false;
+    private int seciliId = 0;
+    private bool isDurumGuncelleniyor = false;
+
+    private List<GidenFaturaItem> gidenFaturalar = new();
+
+    protected override void OnInitialized()
+    {
+        Listele();
+    }
+
+    private void Listele()
+    {
+        // TODO: FirmaContext ile veritabanindan veri cekilecek
+        // var gonderiDurumu = basarisizGosterilsin ? "-1" : "0";
+        // gidenFaturalar = db.GidenEFaturalarView
+        //     .Where(g => g.createdAt >= baslangicTarihi && g.createdAt <= bitisTarihi && g.GonderiDurumu == gonderiDurumu)
+        //     .OrderBy(s => s.OlusturmaTarihi).ToList();
+        gidenFaturalar = GetPlaceholderData();
+    }
+
+    private void Yenile()
+    {
+        Listele();
+    }
+
+    private void DurumDegisti()
+    {
+        Listele();
+    }
+
+    private void DurumGuncelle()
+    {
+        // TODO: Her fatura icin Innova API uzerinden durum sorgula
+        // DurumSorgula(referenceNumber, ETTN) -> InvoiceInquiry
+        // isDurumGuncelleniyor = true;
+        // foreach item: DurumSorgula, update DB, update grid
+        // isDurumGuncelleniyor = false;
+    }
+
+    private void FaturaGoster()
+    {
+        if (seciliId == 0) return;
+        var fatura = gidenFaturalar.FirstOrDefault(f => f.Id == seciliId);
+        if (fatura == null || string.IsNullOrWhiteSpace(fatura.FaturaUrl)) return;
+        // TODO: Fatura URL'sini goster (popup veya yeni tab)
+    }
+
+    private void TekrarGondermekIcinEkle()
+    {
+        if (seciliId == 0) return;
+        // TODO: Fatura tekrar gonderim listesine ekle
+        // update.itemResponseStatus = "-1"; fat.Status = -1;
+    }
+
+    private void FaturaIptalEt()
+    {
+        if (seciliId == 0) return;
+        var fatura = gidenFaturalar.FirstOrDefault(f => f.Id == seciliId);
+        if (fatura == null) return;
+        // TODO: Sadece reddedilen faturalar icin iptal yap (InvoiceStatus == "6")
+        // fatura.Iptal = true; db.SaveChanges();
+    }
+
+    private void FaturaLinkiKopyala()
+    {
+        if (seciliId == 0) return;
+        var fatura = gidenFaturalar.FirstOrDefault(f => f.Id == seciliId);
+        if (fatura == null) return;
+        // TODO: JSInterop ile panoya kopyala
+        // await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", fatura.FaturaUrl);
+    }
+
+    private void TumunuSec()
+    {
+        foreach (var f in gidenFaturalar) f.Secili = true;
+    }
+
+    private void SecimleriTemizle()
+    {
+        foreach (var f in gidenFaturalar) f.Secili = false;
+    }
+
+    private void FaturaIndir()
+    {
+        var secili = gidenFaturalar.Where(f => f.Secili).ToList();
+        if (secili.Count == 0) return;
+        // TODO: Innova API uzerinden PDF indir
+        // DownloadInvoice(TrackNumber, ViewContentType=4) -> base64 -> PDF
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void GibHataKodlari()
+    {
+        Nav.NavigateTo("/efatura/connector");
+    }
+
+    private List<GidenFaturaItem> GetPlaceholderData()
+    {
+        return new List<GidenFaturaItem>
+        {
+            new() { Id = 1, FaturaNo = "HTA202600001", FaturaETTN = "550e8400-e29b-41d4-a716-446655440001", OlusturmaTarihi = DateTime.Today.AddDays(-2).AddHours(10).AddMinutes(30), FaturaTarihi = DateTime.Today.AddDays(-3), CariUnvani = "ABC Ticaret Ltd. Sti.", VergiNo = "1234567890", GonderiDurumu = "0", GonderiDurumAciklama = "Basarili", InvoiceStatus = "3", OnayRedDurumu = "Kabul Edildi", ZarfDurumu = "5", ZarfDurumAciklama = "Basarili", FaturaUrl = "https://efatura.example.com/view/1" },
+            new() { Id = 2, FaturaNo = "HTA202600002", FaturaETTN = "550e8400-e29b-41d4-a716-446655440002", OlusturmaTarihi = DateTime.Today.AddDays(-1).AddHours(14), FaturaTarihi = DateTime.Today.AddDays(-2), CariUnvani = "XYZ Insaat A.S.", VergiNo = "9876543210", GonderiDurumu = "0", GonderiDurumAciklama = "Basarili", InvoiceStatus = "2", OnayRedDurumu = "Bekleniyor", ZarfDurumu = "2", ZarfDurumAciklama = "Iletildi", FaturaUrl = "https://efatura.example.com/view/2" },
+            new() { Id = 3, FaturaNo = "HTA202600003", FaturaETTN = "550e8400-e29b-41d4-a716-446655440003", OlusturmaTarihi = DateTime.Today.AddHours(9).AddMinutes(15), FaturaTarihi = DateTime.Today.AddDays(-1), CariUnvani = "DEF Makina San.", VergiNo = "1122334455", GonderiDurumu = "0", GonderiDurumAciklama = "Basarili", InvoiceStatus = "6", OnayRedDurumu = "Reddedildi", ZarfDurumu = "1", ZarfDurumAciklama = "Hatali", FaturaUrl = "" }
+        };
+    }
+
+    public class GidenFaturaItem
+    {
+        public int Id { get; set; }
+        public bool Secili { get; set; }
+        public int FaturaId { get; set; }
+        public string FaturaNo { get; set; } = "";
+        public string FaturaETTN { get; set; } = "";
+        public DateTime? OlusturmaTarihi { get; set; }
+        public DateTime? FaturaTarihi { get; set; }
+        public string CariUnvani { get; set; } = "";
+        public string VergiNo { get; set; } = "";
+        public string GonderiDurumu { get; set; } = "";
+        public string GonderiDurumAciklama { get; set; } = "";
+        public string InvoiceStatus { get; set; } = "";
+        public string OnayRedDurumu { get; set; } = "";
+        public string ZarfDurumu { get; set; } = "";
+        public string ZarfDurumAciklama { get; set; } = "";
+        public string FaturaUrl { get; set; } = "";
+    }
+}

@@ -1,0 +1,60 @@
+﻿@page "/ayarlar/sifredegistir"
+@inject NavigationManager Nav
+
+<PageTitle>Sifre Degistir</PageTitle>
+
+<div style="max-width:400px; margin:40px auto;">
+    <div class="card">
+        <div class="card-header"><i class="fa fa-key"></i> Sifre Degistir</div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>Mevcut Sifre</label>
+                <input type="password" class="form-control" @bind="mevcutSifre" />
+            </div>
+            <div class="form-group">
+                <label>Yeni Sifre</label>
+                <input type="password" class="form-control" @bind="yeniSifre" />
+            </div>
+            <div class="form-group">
+                <label>Yeni Sifre (Tekrar)</label>
+                <input type="password" class="form-control" @bind="yeniSifreTekrar" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(mesaj))
+            {
+                <div class="alert @(basarili ? "alert-success" : "alert-danger")">@mesaj</div>
+            }
+
+            <button class="btn btn-primary btn-block" @onclick="Degistir" style="margin-top:12px;">
+                <i class="fa fa-save"></i> Sifre Degistir
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string mevcutSifre = "";
+    private string yeniSifre = "";
+    private string yeniSifreTekrar = "";
+    private string mesaj = "";
+    private bool basarili = false;
+
+    private void Degistir()
+    {
+        if (string.IsNullOrWhiteSpace(mevcutSifre) || string.IsNullOrWhiteSpace(yeniSifre))
+        {
+            mesaj = "Tum alanlari doldurunuz!";
+            basarili = false;
+            return;
+        }
+        if (yeniSifre != yeniSifreTekrar)
+        {
+            mesaj = "Yeni sifreler uyusmuyor!";
+            basarili = false;
+            return;
+        }
+        // TODO: DB'den sifre degistirme
+        mesaj = "Sifreniz basariyla degistirildi!";
+        basarili = true;
+    }
+}

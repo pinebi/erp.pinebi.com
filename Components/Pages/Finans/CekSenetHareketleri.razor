@@ -1,0 +1,391 @@
+﻿@page "/finans/ceksenet"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Cek/Senet Hareketleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-file-invoice-dollar"></i> Cek/Senet Hareketleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="AlinanCekGirisi">
+                <i class="fa fa-plus-circle"></i> Alinan Cek/Senet Girisi
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="VerilenCekGirisi">
+                <i class="fa fa-minus-circle"></i> Verilen Cek/Senet Girisi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+
+            <!-- Cek Durumu Dropdown -->
+            <div style="position:relative; display:inline-block;">
+                <button class="btn btn-outline btn-sm" @onclick="() => showCekDurumuMenu = !showCekDurumuMenu">
+                    <i class="fa fa-info-circle"></i> Cek Durumu <i class="fa fa-caret-down"></i>
+                </button>
+                @if (showCekDurumuMenu)
+                {
+                    <div style="position:absolute; top:100%; left:0; background:white; border:1px solid var(--pinebi-border); border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:100; min-width:180px;">
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" class="@(selectedItem?.IslemId != 1 ? "disabled-menu" : "")" @onclick="TahsilEdildi">
+                            <i class="fa fa-check" style="color:green;"></i> Tahsil Edildi
+                        </div>
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" class="@(selectedItem?.IslemId != 1 ? "disabled-menu" : "")" @onclick="TahsilEdilmedi">
+                            <i class="fa fa-times" style="color:red;"></i> Tahsil Edilmedi
+                        </div>
+                        <hr style="margin:2px 0; border-color:#e5e7eb;" />
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" class="@(selectedItem?.IslemId != 0 ? "disabled-menu" : "")" @onclick="Odendi">
+                            <i class="fa fa-check" style="color:green;"></i> Odendi
+                        </div>
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" class="@(selectedItem?.IslemId != 0 ? "disabled-menu" : "")" @onclick="Odenmedi">
+                            <i class="fa fa-times" style="color:red;"></i> Odenmedi
+                        </div>
+                        <hr style="margin:2px 0; border-color:#e5e7eb;" />
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" class="@(selectedItem?.IslemId != 1 ? "disabled-menu" : "")" @onclick="TransferEt">
+                            <i class="fa fa-exchange-alt" style="color:var(--pinebi-primary);"></i> Transfer Et
+                        </div>
+                        <hr style="margin:2px 0; border-color:#e5e7eb;" />
+                        <div style="padding:6px 12px; cursor:pointer; font-size:12px;" @onclick="IslemiGeriAl">
+                            <i class="fa fa-undo" style="color:red;"></i> Islemi Geri Al
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="IptalEt" style="color:#dc2626;">
+                <i class="fa fa-ban"></i> Iptal Et
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="async () => await Yenile()">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+        </div>
+
+        <!-- Grid Caption -->
+        <div style="background:var(--pinebi-primary); color:white; padding:6px 10px; font-weight:600; font-size:12px; border-radius:4px 4px 0 0;">
+            @gridCaption
+        </div>
+
+        <!-- Filter Row -->
+        <div style="display:flex; gap:4px; background:#f9fafb; padding:4px; border:1px solid var(--pinebi-border); border-top:none;">
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterTarih" @bind:event="oninput" style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterVadeTarihi" @bind:event="oninput" style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterAciklama1" @bind:event="oninput" style="flex:2; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterAciklama2" @bind:event="oninput" style="flex:2; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterUnvan" @bind:event="oninput" style="flex:1.5; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:0.8; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:0.8; padding:3px 6px; font-size:11px;" />
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 310px); overflow:auto;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:90px;">Vade Tarihi</th>
+                        <th style="width:250px;">Aciklama1</th>
+                        <th style="width:250px;">Aciklama2</th>
+                        <th style="width:180px;">Unvan</th>
+                        <th style="width:80px;">Evrak Tipi</th>
+                        <th style="width:110px; text-align:right;">Alinan</th>
+                        <th style="width:110px; text-align:right;">Verilen</th>
+                        <th style="width:90px;">Durumu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (cekSenetHareketleri != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => SelectItem(item)" @ondblclick="() => RowDoubleClick(item)">
+                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.VadeTarihi.ToString("dd.MM.yyyy")</td>
+                                <td>@item.Aciklama1</td>
+                                <td>@item.Aciklama2</td>
+                                <td>@item.Unvan</td>
+                                <td>@item.EvrakTipi</td>
+                                <td style="text-align:right;">@item.Alinan.ToString("N2")</td>
+                                <td style="text-align:right;">@item.Verilen.ToString("N2")</td>
+                                <td>
+                                    <span style="@GetDurumuStyle(item.Durumu)">@item.Durumu</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                        <td colspan="6" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamAlinan.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamVerilen.ToString("N2")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Bottom Panel - Radio Buttons -->
+        <div style="display:flex; align-items:center; gap:16px; padding:10px 0; flex-wrap:wrap;">
+            <label class="form-check">
+                <input type="radio" name="cekFiltre" checked="@(selectedFilter == "alinan")" @onchange="@(() => FilterChanged("alinan"))" />
+                <span>Alinan Cekler</span>
+            </label>
+            <label class="form-check">
+                <input type="radio" name="cekFiltre" checked="@(selectedFilter == "verilen")" @onchange="@(() => FilterChanged("verilen"))" />
+                <span>Verilen Cekler</span>
+            </label>
+            <label class="form-check" style="color:navy;">
+                <input type="radio" name="cekFiltre" checked="@(selectedFilter == "odenen")" @onchange="@(() => FilterChanged("odenen"))" />
+                <span>Odenen/Tahsil Edilen Cekler</span>
+            </label>
+            <label class="form-check" style="color:maroon;">
+                <input type="radio" name="cekFiltre" checked="@(selectedFilter == "odenecek")" @onchange="@(() => FilterChanged("odenecek"))" />
+                <span>Odenecek/Tahsil Edilecek Cekler</span>
+            </label>
+            <label class="form-check" style="font-weight:700;">
+                <input type="radio" name="cekFiltre" checked="@(selectedFilter == "hepsi")" @onchange="@(() => FilterChanged("hepsi"))" />
+                <span>Hepsi</span>
+            </label>
+
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> [F4] Yazdir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Iptal Onay Modal -->
+@if (showIptalModal)
+{
+    <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:400px;">
+            <div class="card-header" style="background:#dc2626;">
+                <i class="fa fa-exclamation-triangle"></i> UYARI
+            </div>
+            <div class="card-body" style="text-align:center; padding:20px;">
+                <p style="font-weight:600;">ISLEM IPTAL EDILECEK! EMIN MISINIZ?</p>
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                    <button class="btn btn-danger" @onclick="IptalOnayla">Evet</button>
+                    <button class="btn btn-outline" @onclick="() => showIptalModal = false">Hayir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .disabled-menu {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+</style>
+
+@code {
+    private string gridCaption = "Cek/Senet Hareket Raporu";
+
+    private string filterTarih = "";
+    private string filterVadeTarihi = "";
+    private string filterAciklama1 = "";
+    private string filterAciklama2 = "";
+    private string filterUnvan = "";
+    private string selectedFilter = "hepsi";
+
+    private List<CekSenetItem> cekSenetHareketleri = new();
+    private CekSenetItem? selectedItem;
+    private bool showIptalModal = false;
+    private bool showCekDurumuMenu = false;
+
+    private IEnumerable<CekSenetItem> filteredList => cekSenetHareketleri.Where(x =>
+        (string.IsNullOrEmpty(filterTarih) || x.Tarih.ToString("dd.MM.yyyy").Contains(filterTarih, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterVadeTarihi) || x.VadeTarihi.ToString("dd.MM.yyyy").Contains(filterVadeTarihi, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterAciklama1) || (x.Aciklama1 ?? "").Contains(filterAciklama1, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterAciklama2) || (x.Aciklama2 ?? "").Contains(filterAciklama2, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterUnvan) || (x.Unvan ?? "").Contains(filterUnvan, StringComparison.OrdinalIgnoreCase))
+    );
+
+    private decimal toplamAlinan => filteredList.Sum(x => x.Alinan);
+    private decimal toplamVerilen => filteredList.Sum(x => x.Verilen);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var query = db.CekSenetHareketleriView.AsNoTracking()
+                .Where(c => c.Iptal != true);
+
+            // Apply radio button filter
+            if (selectedFilter == "alinan")
+                query = query.Where(c => c.IslemId == 1);
+            else if (selectedFilter == "verilen")
+                query = query.Where(c => c.IslemId == 0);
+            else if (selectedFilter == "odenen")
+                query = query.Where(c => c.Durumu == "Tahsil Edildi" || c.Durumu == "Odendi");
+            else if (selectedFilter == "odenecek")
+                query = query.Where(c => c.Durumu != "Tahsil Edildi" && c.Durumu != "Odendi");
+
+            var dbList = await query
+                .OrderByDescending(c => c.Tarih)
+                .Take(500)
+                .ToListAsync();
+
+            cekSenetHareketleri = dbList.Select(c => new CekSenetItem
+            {
+                Id = c.Id, FisId = c.FisId ?? 0, IslemId = c.IslemId,
+                CariId = c.CariId ?? 0, CariKodu = c.CariKodu,
+                Tarih = c.Tarih, VadeTarihi = c.VadeTarihi,
+                Aciklama1 = c.Aciklama1, Aciklama2 = c.Aciklama2,
+                Unvan = c.Unvan, EvrakTipi = c.EvrakTipi,
+                Alinan = (decimal)c.Alinan, Verilen = (decimal)c.Verilen,
+                Durumu = c.Durumu, Doviz = c.DovizId,
+                Iptal = c.Iptal
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CekSenetHareketleri DB hatasi: {ex.Message}");
+            cekSenetHareketleri = new List<CekSenetItem>();
+        }
+    }
+
+    private void SelectItem(CekSenetItem item)
+    {
+        selectedItem = item;
+        showCekDurumuMenu = false;
+    }
+
+    private async void FilterChanged(string filter)
+    {
+        selectedFilter = filter;
+        await Yenile();
+        StateHasChanged();
+    }
+
+    private string GetDurumuStyle(string? durumu)
+    {
+        return durumu switch
+        {
+            "Tahsil Edildi" => "color:green; font-weight:600;",
+            "Odendi" => "color:green; font-weight:600;",
+            "Tahsil Edilmedi" => "color:red; font-weight:600;",
+            "Odenmedi" => "color:red; font-weight:600;",
+            _ => ""
+        };
+    }
+
+    private void AlinanCekGirisi()
+    {
+        Nav.NavigateTo("/finans/ceksenet?islem=alinan");
+    }
+
+    private void VerilenCekGirisi()
+    {
+        Nav.NavigateTo("/finans/ceksenet?islem=verilen");
+    }
+
+    private void TahsilEdildi()
+    {
+        showCekDurumuMenu = false;
+        // TODO: Call API to set Durumu="Tahsil Edildi"
+    }
+
+    private void TahsilEdilmedi()
+    {
+        showCekDurumuMenu = false;
+        // TODO: Call API to set Durumu="Tahsil Edilmedi"
+    }
+
+    private void Odendi()
+    {
+        showCekDurumuMenu = false;
+        // TODO: Call API to set Durumu="Odendi"
+    }
+
+    private void Odenmedi()
+    {
+        showCekDurumuMenu = false;
+        // TODO: Call API to set Durumu="Odenmedi"
+    }
+
+    private void TransferEt()
+    {
+        showCekDurumuMenu = false;
+        Nav.NavigateTo("/finans/ceksenet?islem=transfer");
+    }
+
+    private void IslemiGeriAl()
+    {
+        showCekDurumuMenu = false;
+        // TODO: Call API to revert status
+    }
+
+    private void Duzenle()
+    {
+        if (selectedItem != null)
+            RowDoubleClick(selectedItem);
+    }
+
+    private void RowDoubleClick(CekSenetItem item)
+    {
+        Nav.NavigateTo($"/finans/ceksenet?islem=duzenle&id={item.Id}");
+    }
+
+    private void IptalEt()
+    {
+        if (selectedItem == null) return;
+        showIptalModal = true;
+    }
+
+    private async void IptalOnayla()
+    {
+        // TODO: Call API to cancel selected item (set Iptal=1)
+        showIptalModal = false;
+        await Yenile();
+        StateHasChanged();
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Export/print grid
+    }
+
+    private class CekSenetItem
+    {
+        public int Id { get; set; }
+        public int FisId { get; set; }
+        public int IslemId { get; set; }
+        public int CariId { get; set; }
+        public string? CariKodu { get; set; }
+        public DateTime Tarih { get; set; }
+        public DateTime VadeTarihi { get; set; }
+        public string? Aciklama1 { get; set; }
+        public string? Aciklama2 { get; set; }
+        public string? Unvan { get; set; }
+        public string? EvrakTipi { get; set; }
+        public decimal Alinan { get; set; }
+        public decimal Verilen { get; set; }
+        public string? Durumu { get; set; }
+        public string? Doviz { get; set; }
+        public int DovizId { get; set; }
+        public bool? Iptal { get; set; }
+    }
+}

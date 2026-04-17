@@ -1,0 +1,132 @@
+﻿@page "/ayarlar/lisans"
+@using MACHINEBISS_Web.Services
+@inject LisansService LisansSvc
+
+<PageTitle>Lisans Bilgileri</PageTitle>
+
+<div class="card" style="padding:16px;">
+    <h4 style="margin-bottom:16px;"><i class="fa fa-key"></i> Lisans Bilgileri</h4>
+
+    @if (isLoading)
+    {
+        <div style="text-align:center; padding:40px;">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p>Lisans bilgileri yukleniyor...</p>
+        </div>
+    }
+    else if (lisans == null)
+    {
+        <div class="alert alert-danger">Lisans bilgileri yuklenemedi!</div>
+    }
+    else
+    {
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <!-- Sol Kolon: Plan Bilgileri -->
+            <div style="border:1px solid var(--pinebi-border,#e0e0e0); border-radius:6px; padding:16px;">
+                <h5 style="margin-bottom:12px; color:#2563eb;"><i class="fa fa-info-circle"></i> Plan Bilgileri</h5>
+                <table style="width:100%;">
+                    <tr><td style="padding:4px 8px; font-weight:600; width:140px;">Plan Tipi:</td><td style="padding:4px 8px;">@(lisans.PlanTipi ?? "-")</td></tr>
+                    <tr><td style="padding:4px 8px; font-weight:600;">Lisans Kodu:</td><td style="padding:4px 8px;">@(lisans.LisansKodu ?? "-")</td></tr>
+                    <tr><td style="padding:4px 8px; font-weight:600;">Baslangic:</td><td style="padding:4px 8px;">@(lisans.BaslangicTarihi?.ToString("dd.MM.yyyy") ?? "-")</td></tr>
+                    <tr><td style="padding:4px 8px; font-weight:600;">Bitis:</td><td style="padding:4px 8px;">@(lisans.BitisTarihi?.ToString("dd.MM.yyyy") ?? "-")</td></tr>
+                    <tr>
+                        <td style="padding:4px 8px; font-weight:600;">Kalan Gun:</td>
+                        <td style="padding:4px 8px;">
+                            <span style="font-weight:700; color:@(lisans.KalanGun > 30 ? "#16a34a" : lisans.KalanGun > 7 ? "#d97706" : "#dc2626");">
+                                @lisans.KalanGun gun
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:4px 8px; font-weight:600;">Durum:</td>
+                        <td style="padding:4px 8px;">
+                            @if (lisans.Gecerli)
+                            {
+                                <span style="color:#16a34a; font-weight:700;"><i class="fa fa-check-circle"></i> Aktif</span>
+                            }
+                            else
+                            {
+                                <span style="color:#dc2626; font-weight:700;"><i class="fa fa-times-circle"></i> Suresi Dolmus</span>
+                            }
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Sag Kolon: Moduller -->
+            <div style="border:1px solid var(--pinebi-border,#e0e0e0); border-radius:6px; padding:16px;">
+                <h5 style="margin-bottom:12px; color:#2563eb;"><i class="fa fa-puzzle-piece"></i> Moduller</h5>
+                <table style="width:100%;">
+                    <tr><td style="padding:4px 8px; width:140px;">E-Fatura:</td><td style="padding:4px 8px;">@ModulDurum(lisans.EFaturaAktif)</td></tr>
+                    <tr><td style="padding:4px 8px;">E-Irsaliye:</td><td style="padding:4px 8px;">@ModulDurum(lisans.EIrsaliyeAktif)</td></tr>
+                    <tr><td style="padding:4px 8px;">E-Arsiv:</td><td style="padding:4px 8px;">@ModulDurum(lisans.EArsivAktif)</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Alt Kisim: Kullanim Istatistikleri -->
+        <div style="margin-top:16px; border:1px solid var(--pinebi-border,#e0e0e0); border-radius:6px; padding:16px;">
+            <h5 style="margin-bottom:12px; color:#2563eb;"><i class="fa fa-chart-bar"></i> Kullanim Istatistikleri</h5>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
+                <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:4px;">
+                    <div style="font-size:24px; font-weight:700; color:#2563eb;">@lisans.MevcutFatura</div>
+                    <div style="font-size:12px; color:#6b7280;">Fatura @LimitText(lisans.MaxFaturaAylik)</div>
+                </div>
+                <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:4px;">
+                    <div style="font-size:24px; font-weight:700; color:#2563eb;">@lisans.MevcutCari</div>
+                    <div style="font-size:12px; color:#6b7280;">Cari @LimitText(lisans.MaxCari)</div>
+                </div>
+                <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:4px;">
+                    <div style="font-size:24px; font-weight:700; color:#2563eb;">@lisans.MevcutStok</div>
+                    <div style="font-size:12px; color:#6b7280;">Stok @LimitText(lisans.MaxStok)</div>
+                </div>
+                <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:4px;">
+                    <div style="font-size:24px; font-weight:700; color:#2563eb;">@lisans.MevcutKullanici</div>
+                    <div style="font-size:12px; color:#6b7280;">Kullanici @LimitText(lisans.MaxKullanici)</div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private MACHINEBISS_Web.Services.LisansBilgiDto? lisans;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            lisans = await LisansSvc.LisansBilgileriGetir();
+        }
+        catch { }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string LimitText(int? max)
+    {
+        if (max == null || max == 0) return "(Limitsiz)";
+        return $"/ {max}";
+    }
+
+    private static RenderFragment ModulDurum(bool? aktif) => builder =>
+    {
+        if (aktif == true)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "style", "color:#16a34a; font-weight:600;");
+            builder.AddContent(2, "Aktif");
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "style", "color:#9ca3af;");
+            builder.AddContent(2, "Pasif");
+            builder.CloseElement();
+        }
+    };
+}

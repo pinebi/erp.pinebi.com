@@ -1,0 +1,120 @@
+﻿@page "/tanimlar/tevkifat"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Tevkifat Kodlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-code"></i> Tevkifat Kodlari
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="form-control" placeholder="Ara..." @bind="searchText" @bind:event="oninput" style="max-width:250px;" />
+            <button class="btn btn-secondary btn-sm" @onclick="Refresh">
+                <i class="fa fa-sync"></i> Yenile
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">Tevkifat Kodu</th>
+                        <th>Tevkifat Aciklamasi</th>
+                        <th style="width:120px;">Tevkifat Carpani</th>
+                        <th style="width:120px;">Tevkifat Boleni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => SelectItem(item)">
+                                <td>@item.TevkifatKodu</td>
+                                <td>@item.TevkifatAciklama</td>
+                                <td style="text-align:right;">@item.TevkifatCarpani</td>
+                                <td style="text-align:right;">@item.TevkifatBoleni</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:space-between; margin-top:10px;">
+            <span style="font-size:12px; color:var(--pinebi-text-light);">
+                Toplam: @(filteredList?.Count() ?? 0) kayit
+            </span>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-primary btn-sm" @onclick="() => SelectItem(selectedItem)">
+                    <i class="fa fa-check"></i> Sec
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="Close">
+                    <i class="fa fa-times"></i> Kapat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.MachineBiss.TevkifatKodlari> list = new();
+    private MACHINEBISS_Web.Models.MachineBiss.TevkifatKodlari? selectedItem;
+    private string searchText = "";
+    private string? errorMessage;
+
+    private IEnumerable<MACHINEBISS_Web.Models.MachineBiss.TevkifatKodlari> filteredList =>
+        string.IsNullOrWhiteSpace(searchText) ? list :
+        list.Where(x => (x.TevkifatKodu ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                        (x.TevkifatAciklama ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await NetworkFactory.CreateDbContextAsync();
+            list = await ctx.TevkifatKodlari.OrderBy(x => x.TevkifatKodu).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private void SelectItem(MACHINEBISS_Web.Models.MachineBiss.TevkifatKodlari? item)
+    {
+        if (item == null) return;
+        // Return TevkifatKodu, TevkifatCarpani, TevkifatBoleni to calling page
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

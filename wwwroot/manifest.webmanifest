@@ -1,0 +1,50 @@
+{
+  "name": "PineERP",
+  "short_name": "PineERP",
+  "description": "Pinebi ERP - Kurumsal Kaynak Planlama",
+  "start_url": "/pine/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0E3D5C",
+  "theme_color": "#235881",
+  "lang": "tr-TR",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/images/pinebi_logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pinebi_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pinebi_logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Stok Kartları",
+      "url": "/pine/stok/kartlar",
+      "icons": [{ "src": "/images/pinebi_logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Yeni Stok",
+      "url": "/pine/stok/kart",
+      "icons": [{ "src": "/images/pinebi_logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Satış Faturası",
+      "url": "/pine/fatura/satis",
+      "icons": [{ "src": "/images/pinebi_logo.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -1,0 +1,548 @@
+﻿@page "/pine/satis/faturalar"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<PageTitle>Satis Faturalari - PineERP</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-file-text"></i> Satis Faturalari
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="YeniFatura">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-success btn-sm" @onclick="YeniIadeFatura">
+                <i class="fa fa-plus"></i> Satis Iade Faturasi
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="IptalSor">
+                <i class="fa fa-ban"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="FaturaTahsilati">
+                <i class="fa fa-money"></i> Tahsilat
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="TahsilatGecmisiAc">
+                <i class="fa fa-history"></i> Tahsilat Gecmisi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                <i class="fa fa-file-excel-o"></i> Excel
+            </button>
+        </div>
+
+        <!-- Filtre Alani -->
+        <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-inline">
+                <label style="min-width:60px;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:30px;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Listele">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div class="form-check" style="margin-left:10px;">
+                <input type="checkbox" @bind="iptalGoster" @bind:after="Listele" />
+                <label>Iptal Kayitlari Goster</label>
+            </div>
+            <div class="form-inline" style="margin-left:auto;">
+                <label style="min-width:30px;">Ara</label>
+                <input type="text" class="form-control" placeholder="Fis no, cari kodu, unvan..." @bind="aramaMetni" @bind:event="oninput" style="max-width:250px;" />
+            </div>
+        </div>
+
+        <!-- Sayfa Bilgisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:11px; color:#666;">
+            <span>Toplam @toplamKayit kayit | Sayfa @sayfa / @toplamSayfa</span>
+            <div style="display:flex; gap:4px;">
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa <= 1)" @onclick="OncekiSayfa">&lt; Onceki</button>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa >= toplamSayfa)" @onclick="SonrakiSayfa">Sonraki &gt;</button>
+            </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 300px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:110px;">Fis No</th>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:100px;">Cari Kodu</th>
+                        <th style="min-width:200px;">Unvani</th>
+                        <th style="width:100px; text-align:right;">Tutar</th>
+                        <th style="width:100px; text-align:right;">KDV</th>
+                        <th style="width:110px; text-align:right;">Toplam</th>
+                        <th style="width:50px;">Doviz</th>
+                        <th style="width:90px;">Durum</th>
+                        <th style="width:90px;">Vade</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="width:100px;">Plasiyer</th>
+                        <th style="min-width:150px;">Aciklama</th>
+                        <th style="width:90px;">GIB</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (yukleniyorMu)
+                    {
+                        <tr><td colspan="14" class="text-center text-muted" style="padding:30px;">Yukleniyor...</td></tr>
+                    }
+                    else if (!filtreliFaturalar.Any())
+                    {
+                        <tr><td colspan="14" class="text-center text-muted" style="padding:30px;">Kayit bulunamadi</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var f in filtreliFaturalar)
+                        {
+                            <tr class="@(seciliId == f.Id ? "selected" : "") @(f.RecIptal ? "text-muted" : "")"
+                                @onclick="() => SatirSec(f.Id)" @ondblclick="Duzenle">
+                                <td>@f.FisNo</td>
+                                <td>@f.FatTarih.ToString("dd.MM.yyyy")</td>
+                                <td>@f.FatCariKod</td>
+                                <td>@f.FatCariUnvan</td>
+                                <td class="text-right">@f.FatTutar.ToString("N2")</td>
+                                <td class="text-right">@f.FatKdvTutari.ToString("N2")</td>
+                                <td class="text-right" style="font-weight:700;">@f.FatToplamTutar.ToString("N2")</td>
+                                <td>@(f.FatDovizCinsi ?? "TL")</td>
+                                <td>
+                                    @if (f.RecIptal)
+                                    {
+                                        <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Iptal</span>
+                                    }
+                                    else if (f.FatKapandiFl)
+                                    {
+                                        <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Kapandi</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="background:#2563eb; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@(f.FatDurumu ?? "Acik")</span>
+                                    }
+                                </td>
+                                <td>@f.FatVadeTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@f.FatBelgeNo</td>
+                                <td>@f.FatPlasiyerKodu</td>
+                                <td>@f.FatAciklama1</td>
+                                <td>@f.FatGibDurumu</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                @if (filtreliFaturalar.Any())
+                {
+                    <tfoot>
+                        <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                            <td colspan="4" class="text-right">Toplam:</td>
+                            <td class="text-right">@filtreliFaturalar.Sum(f => f.FatTutar).ToString("N2")</td>
+                            <td class="text-right">@filtreliFaturalar.Sum(f => f.FatKdvTutari).ToString("N2")</td>
+                            <td class="text-right">@filtreliFaturalar.Sum(f => f.FatToplamTutar).ToString("N2")</td>
+                            <td colspan="7"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    </div>
+</div>
+
+@* ===== IPTAL ONAY MODAL ===== *@
+@if (iptalOnayAcik)
+{
+    <div class="modal-backdrop" @onclick="() => iptalOnayAcik = false"></div>
+    <div class="modal-dialog" style="width:400px;">
+        <div class="card">
+            <div class="card-header" style="background:#dc2626;">
+                <i class="fa fa-exclamation-triangle"></i> FATURA IPTAL
+            </div>
+            <div class="card-body" style="padding:16px;">
+                <p style="font-weight:600;">Bu fatura iptal edilecek. Emin misiniz?</p>
+                <div style="margin-bottom:12px;">
+                    <label>Iptal Sebebi:</label>
+                    <input type="text" class="form-control" @bind="iptalSebebi" placeholder="Sebebi giriniz..." />
+                </div>
+                @if (!string.IsNullOrEmpty(hataMesaji))
+                {
+                    <div style="color:red; margin-bottom:8px; font-size:12px;">@hataMesaji</div>
+                }
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button class="btn btn-danger btn-sm" @onclick="IptalOnayla">Evet, Iptal Et</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => iptalOnayAcik = false">Vazgec</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== TAHSILAT MODAL ===== *@
+@if (tahsilatModalAcik)
+{
+    <div class="modal-backdrop" @onclick="() => tahsilatModalAcik = false"></div>
+    <div class="modal-dialog" style="width:450px;">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa fa-money"></i> Fatura Tahsilati
+                <button class="btn btn-sm" style="float:right;" @onclick="() => tahsilatModalAcik = false">X</button>
+            </div>
+            <div class="card-body" style="padding:16px;">
+                <div style="margin-bottom:12px;">
+                    <label>Fatura Tutari:</label>
+                    <input type="text" class="form-control" value="@tahsilatFaturaTutar.ToString("N2")" readonly />
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Tahsilat Tutari:</label>
+                    <input type="number" class="form-control" @bind="tahsilatTutar" step="0.01" />
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Odeme Sekli:</label>
+                    <select class="form-control" @bind="tahsilatOdemeSekli">
+                        <option value="1">Nakit</option>
+                        <option value="2">Havale/EFT</option>
+                        <option value="3">Kredi Karti</option>
+                        <option value="4">Cek</option>
+                        <option value="5">Senet</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Aciklama:</label>
+                    <input type="text" class="form-control" @bind="tahsilatAciklama" />
+                </div>
+                @if (!string.IsNullOrEmpty(tahsilatMesaj))
+                {
+                    <div style="color:@(tahsilatBasarili ? "#166534" : "red"); margin-bottom:8px; font-size:12px;">@tahsilatMesaj</div>
+                }
+                <div style="text-align:right;">
+                    <button class="btn btn-success btn-sm" @onclick="TahsilatKaydet">
+                        <i class="fa fa-save"></i> Kaydet
+                    </button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => tahsilatModalAcik = false">Vazgec</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== TAHSILAT GECMISI MODAL ===== *@
+@if (gecmisModalAcik)
+{
+    <div class="modal-backdrop" @onclick="() => gecmisModalAcik = false"></div>
+    <div class="modal-dialog" style="width:550px;">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa fa-history"></i> Tahsilat Gecmisi
+                <button class="btn btn-sm" style="float:right;" @onclick="() => gecmisModalAcik = false">X</button>
+            </div>
+            <div class="card-body" style="padding:16px;">
+                <div style="margin-bottom:8px; font-size:12px; color:#666;">
+                    Fatura Tutari: <strong>@gecmisFaturaTutar.ToString("N2")</strong> |
+                    Tahsil Edilen: <strong>@gecmisToplamTahsilat.ToString("N2")</strong> |
+                    Kalan: <strong style="color:#dc2626;">@gecmisKalan.ToString("N2")</strong>
+                </div>
+                @if (tahsilatGecmisiListe.Any())
+                {
+                    <table class="data-grid">
+                        <thead><tr><th>Tarih</th><th>Sekil</th><th style="text-align:right;">Tutar</th><th>Aciklama</th></tr></thead>
+                        <tbody>
+                            @foreach (var t in tahsilatGecmisiListe)
+                            {
+                                <tr>
+                                    <td>@t.FthTarih.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@OdemeSekilAdi(t.FthOdemeSekli)</td>
+                                    <td style="text-align:right; font-weight:700;">@t.FthTutar.ToString("N2")</td>
+                                    <td>@t.FthAciklama</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="text-muted">Tahsilat gecmisi bulunamadi.</p>
+                }
+                <div style="text-align:right; margin-top:12px;">
+                    <button class="btn btn-outline btn-sm" @onclick="() => gecmisModalAcik = false">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ===== FILTRE =====
+    private DateTime baslangicTarihi = DateTime.Today.AddDays(-90);
+    private DateTime bitisTarihi = DateTime.Today;
+    private bool iptalGoster = false;
+    private string aramaMetni = "";
+    private int sayfa = 1;
+    private int sayfaBoyutu = 50;
+    private int toplamKayit = 0;
+    private int toplamSayfa = 1;
+    private int seciliId = 0;
+    private bool yukleniyorMu = false;
+    private string hataMesaji = "";
+
+    // ===== DATA =====
+    private List<FaturaItem> faturalar = new();
+    private List<FaturaItem> filtreliFaturalar => string.IsNullOrWhiteSpace(aramaMetni)
+        ? faturalar
+        : faturalar.Where(f =>
+            (f.FisNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (f.FatCariKod ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (f.FatCariUnvan ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (f.FatBelgeNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Listele();
+    }
+
+    private async Task Listele()
+    {
+        yukleniyorMu = true;
+        hataMesaji = "";
+        try
+        {
+            var url = $"api/fatura/liste?tip=1&sayfa={sayfa}&boyut={sayfaBoyutu}&baslangic={baslangicTarihi:yyyy-MM-dd}&bitis={bitisTarihi:yyyy-MM-dd}";
+            var resp = await Http.GetFromJsonAsync<PagedResponse<FaturaItem>>(url);
+            if (resp != null && resp.Success)
+            {
+                faturalar = resp.Data ?? new();
+                if (!iptalGoster)
+                    faturalar = faturalar.Where(f => !f.RecIptal).ToList();
+                toplamKayit = resp.Toplam;
+                toplamSayfa = resp.ToplamSayfa > 0 ? resp.ToplamSayfa : 1;
+            }
+            else
+            {
+                hataMesaji = resp?.Message ?? "Bilinmeyen hata";
+            }
+        }
+        catch (Exception ex)
+        {
+            hataMesaji = $"API hatasi: {ex.Message}";
+            faturalar = new();
+        }
+        yukleniyorMu = false;
+    }
+
+    private void SatirSec(int id) => seciliId = id;
+    private void YeniFatura() => Nav.NavigateTo("/pine/fatura/yeni?tip=1");
+    private void YeniIadeFatura() => Nav.NavigateTo("/pine/fatura/yeni?tip=2");
+
+    private void Duzenle()
+    {
+        if (seciliId == 0) return;
+        Nav.NavigateTo($"/pine/fatura/{seciliId}");
+    }
+
+    private async Task OncekiSayfa()
+    {
+        if (sayfa > 1) { sayfa--; await Listele(); }
+    }
+
+    private async Task SonrakiSayfa()
+    {
+        if (sayfa < toplamSayfa) { sayfa++; await Listele(); }
+    }
+
+    // ===== IPTAL =====
+    private bool iptalOnayAcik = false;
+    private string iptalSebebi = "";
+
+    private void IptalSor()
+    {
+        if (seciliId == 0) return;
+        iptalSebebi = "";
+        hataMesaji = "";
+        iptalOnayAcik = true;
+    }
+
+    private async Task IptalOnayla()
+    {
+        hataMesaji = "";
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/fatura/{seciliId}?sebep={Uri.EscapeDataString(iptalSebebi)}");
+            var result = await resp.Content.ReadFromJsonAsync<ApiResult>();
+            if (result?.Success == true)
+            {
+                iptalOnayAcik = false;
+                await Listele();
+            }
+            else
+            {
+                hataMesaji = result?.Message ?? "Iptal hatasi";
+            }
+        }
+        catch (Exception ex)
+        {
+            hataMesaji = $"Hata: {ex.Message}";
+        }
+    }
+
+    // ===== TAHSILAT =====
+    private bool tahsilatModalAcik = false;
+    private decimal tahsilatFaturaTutar = 0;
+    private decimal tahsilatTutar = 0;
+    private int tahsilatOdemeSekli = 1;
+    private string tahsilatAciklama = "";
+    private string tahsilatMesaj = "";
+    private bool tahsilatBasarili = false;
+
+    private void FaturaTahsilati()
+    {
+        if (seciliId == 0) return;
+        var f = faturalar.FirstOrDefault(x => x.Id == seciliId);
+        if (f == null) return;
+        tahsilatFaturaTutar = f.FatOdenecekTutar;
+        tahsilatTutar = f.FatOdenecekTutar;
+        tahsilatAciklama = "";
+        tahsilatMesaj = "";
+        tahsilatBasarili = false;
+        tahsilatModalAcik = true;
+    }
+
+    private async Task TahsilatKaydet()
+    {
+        if (tahsilatTutar <= 0) { tahsilatMesaj = "Tutar giriniz!"; tahsilatBasarili = false; return; }
+        try
+        {
+            var dto = new { FaturaId = seciliId, Tip = 0, OdemeSekli = tahsilatOdemeSekli, Tutar = tahsilatTutar, Aciklama = tahsilatAciklama };
+            var resp = await Http.PostAsJsonAsync("api/fatura/tahsilat", dto);
+            var result = await resp.Content.ReadFromJsonAsync<ApiResult>();
+            if (result?.Success == true)
+            {
+                tahsilatMesaj = "Tahsilat kaydedildi!";
+                tahsilatBasarili = true;
+                await Listele();
+            }
+            else
+            {
+                tahsilatMesaj = result?.Message ?? "Hata";
+                tahsilatBasarili = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            tahsilatMesaj = $"Hata: {ex.Message}";
+            tahsilatBasarili = false;
+        }
+    }
+
+    // ===== TAHSILAT GECMISI =====
+    private bool gecmisModalAcik = false;
+    private List<TahsilatItem> tahsilatGecmisiListe = new();
+    private decimal gecmisFaturaTutar = 0;
+    private decimal gecmisToplamTahsilat = 0;
+    private decimal gecmisKalan = 0;
+
+    private async Task TahsilatGecmisiAc()
+    {
+        if (seciliId == 0) return;
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<TahsilatGecmisiResponse>($"api/fatura/tahsilat/{seciliId}");
+            if (resp != null && resp.Success)
+            {
+                tahsilatGecmisiListe = resp.Data?.Tahsilatlar ?? new();
+                gecmisFaturaTutar = resp.Data?.FaturaTutar ?? 0;
+                gecmisToplamTahsilat = resp.Data?.ToplamTahsilat ?? 0;
+                gecmisKalan = resp.Data?.Kalan ?? 0;
+            }
+            else
+            {
+                tahsilatGecmisiListe = new();
+            }
+            gecmisModalAcik = true;
+        }
+        catch { tahsilatGecmisiListe = new(); gecmisModalAcik = true; }
+    }
+
+    private string OdemeSekilAdi(int sekil) => sekil switch
+    {
+        1 => "Nakit",
+        2 => "Havale",
+        3 => "Kredi Karti",
+        4 => "Cek",
+        5 => "Senet",
+        _ => "-"
+    };
+
+    private async void Yazdir() { await JS.InvokeVoidAsync("window.print"); }
+    private void ExcelAktar() { /* TODO: Excel export */ }
+
+    // ===== HELPER CLASSES =====
+    public class FaturaItem
+    {
+        public int Id { get; set; }
+        public string FisNo { get; set; } = "";
+        public int FatTip { get; set; }
+        public DateTime FatTarih { get; set; }
+        public DateTime? FatSevkTarihi { get; set; }
+        public DateTime? FatVadeTarihi { get; set; }
+        public string? FatBelgeNo { get; set; }
+        public string FatCariKod { get; set; } = "";
+        public string? FatCariUnvan { get; set; }
+        public string? FatDovizCinsi { get; set; }
+        public decimal FatTutar { get; set; }
+        public decimal FatKdvTutari { get; set; }
+        public decimal FatToplamTutar { get; set; }
+        public decimal FatOdenecekTutar { get; set; }
+        public string? FatDurumu { get; set; }
+        public bool FatKapandiFl { get; set; }
+        public string? FatGibDurumu { get; set; }
+        public string? FatPlasiyerKodu { get; set; }
+        public string? FatAciklama1 { get; set; }
+        public bool RecIptal { get; set; }
+    }
+
+    public class PagedResponse<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+
+    public class ApiResult
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+    }
+
+    public class TahsilatItem
+    {
+        public DateTime FthTarih { get; set; }
+        public int FthOdemeSekli { get; set; }
+        public decimal FthTutar { get; set; }
+        public string? FthAciklama { get; set; }
+    }
+
+    public class TahsilatGecmisiData
+    {
+        public decimal FaturaTutar { get; set; }
+        public decimal ToplamTahsilat { get; set; }
+        public decimal Kalan { get; set; }
+        public List<TahsilatItem> Tahsilatlar { get; set; } = new();
+    }
+
+    public class TahsilatGecmisiResponse
+    {
+        public bool Success { get; set; }
+        public TahsilatGecmisiData? Data { get; set; }
+    }
+}

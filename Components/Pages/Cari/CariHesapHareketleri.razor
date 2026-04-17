@@ -1,0 +1,262 @@
+﻿@page "/cari/hesaphareketleri"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Cari Hesap Hareketleri</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-exchange-alt"></i> Cari Hesap Hareketleri</div>
+    <div class="card-body">
+        <!-- Filtre -->
+        <div class="form-row mb-2" style="align-items:center;">
+            <div class="form-inline">
+                <label style="min-width:80px; font-weight:700;">Cari Sec</label>
+                <input type="text" class="form-control" @bind="cariKodu" style="max-width:120px;" placeholder="Cari Kodu" />
+                <button class="btn btn-sm btn-outline" @onclick="CariSecPopupAc"><i class="fa fa-search"></i></button>
+                <span style="font-weight:600; color:var(--pinebi-primary); margin-left:8px;">@cariUnvan</span>
+            </div>
+            <div class="form-inline" style="margin-left:16px;">
+                <label>Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label>Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Listele"><i class="fa fa-search"></i> Listele</button>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir"><i class="fa fa-print"></i> Yazdir</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(hataMesaji))
+        {
+            <div class="alert alert-warning" style="font-size:12px;">@hataMesaji</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:120px;">Fis No</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="min-width:200px;">Aciklama 1</th>
+                        <th style="min-width:150px;">Aciklama 2</th>
+                        <th style="width:60px;">Islem</th>
+                        <th style="width:100px; text-align:right;">Borc</th>
+                        <th style="width:100px; text-align:right;">Alacak</th>
+                        <th style="width:100px; text-align:right;">Bakiye</th>
+                        <th style="width:60px;">Doviz</th>
+                        <th style="width:80px;">Kaynak</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (hareketler.Any())
+                    {
+                        @foreach (var h in hareketler)
+                        {
+                            <tr style="cursor:pointer;" @onclick="() => HareketeGit(h)">
+                                <td>@h.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@h.FisNo</td>
+                                <td>@h.BelgeNo</td>
+                                <td>@h.Aciklama1</td>
+                                <td>@h.Aciklama2</td>
+                                <td>@(h.IslemId == 1 ? "Borc" : "Alacak")</td>
+                                <td class="text-right" style="@(h.Borc > 0 ? "color:#dc2626; font-weight:600;" : "")">@h.Borc.ToString("N2")</td>
+                                <td class="text-right" style="@(h.Alacak > 0 ? "color:#16a34a; font-weight:600;" : "")">@h.Alacak.ToString("N2")</td>
+                                <td class="text-right" style="font-weight:700; @(h.Bakiye < 0 ? "color:#dc2626;" : h.Bakiye > 0 ? "color:#16a34a;" : "")">@h.Bakiye.ToString("N2")</td>
+                                <td>@h.Doviz</td>
+                                <td>@h.Kaynak</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="11" class="text-center text-muted">@(string.IsNullOrEmpty(cariKodu) ? "Cari seciniz" : "Hareket bulunamadi")</td></tr>
+                    }
+                </tbody>
+                @if (hareketler.Any())
+                {
+                    <tfoot>
+                        <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                            <td colspan="6" class="text-right">Toplam:</td>
+                            <td class="text-right">@hareketler.Sum(h => h.Borc).ToString("N2")</td>
+                            <td class="text-right">@hareketler.Sum(h => h.Alacak).ToString("N2")</td>
+                            <td class="text-right">@(hareketler.LastOrDefault()?.Bakiye.ToString("N2") ?? "0,00")</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+        <div style="font-size:11px; color:var(--pinebi-text-light); margin-top:4px;">
+            Toplam: @hareketler.Count hareket
+        </div>
+    </div>
+</div>
+
+<!-- CARI SECME POPUP -->
+@if (cariPopupAcik)
+{
+    <div class="modal-overlay" @onclick="() => cariPopupAcik = false">
+        <div class="modal-box" style="width:700px; max-height:80vh;" @onclick:stopPropagation="true">
+            <div class="modal-header"><span><i class="fa fa-address-book"></i> Cari Sec</span><button class="modal-close" @onclick="() => cariPopupAcik = false">X</button></div>
+            <div class="modal-body">
+                <div class="form-inline mb-2">
+                    <label>Ara:</label>
+                    <input type="text" class="form-control" placeholder="Cari kodu, unvan..." @bind="cariArama" @bind:event="oninput" @bind:after="CariAra" style="flex:1;" />
+                </div>
+                <div class="grid-container" style="max-height:350px;">
+                    <table class="data-grid">
+                        <thead><tr><th>Cari Kodu</th><th>Unvan</th><th>Telefon</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in cariListesi)
+                            {
+                                <tr style="cursor:pointer;" @onclick="() => CariSecildi(c)">
+                                    <td>@c.CariKodu</td>
+                                    <td><strong>@c.Unvani</strong></td>
+                                    <td>@c.Telefon1</td>
+                                </tr>
+                            }
+                            @if (!cariListesi.Any())
+                            {
+                                <tr><td colspan="3" class="text-center text-muted">Cari bulunamadi</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string cariKodu = "";
+    private string cariUnvan = "";
+    private int cariId = 0;
+    private DateTime baslangicTarihi = new DateTime(DateTime.Now.Year, 1, 1);
+    private DateTime bitisTarihi = DateTime.Today;
+    private string hataMesaji = "";
+
+    private List<HareketItem> hareketler = new();
+
+    // Cari popup
+    private bool cariPopupAcik = false;
+    private string cariArama = "";
+    private List<MACHINEBISS_Web.Models.MachineBiss.Cariler> cariListesi = new();
+
+    private async Task Listele()
+    {
+        if (cariId == 0)
+        {
+            hataMesaji = "Lutfen cari seciniz!";
+            return;
+        }
+        hataMesaji = "";
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbHareketler = await db.CariHareketler.AsNoTracking()
+                .Where(h => h.CariId == cariId && h.Iptal != true && h.Tarih >= baslangicTarihi && h.Tarih <= bitisTarihi)
+                .OrderBy(h => h.Tarih)
+                .Take(1000)
+                .ToListAsync();
+
+            decimal bakiye = 0;
+            hareketler = dbHareketler.Select(h =>
+            {
+                var borc = h.IslemId == 1 ? h.Tutar : 0;
+                var alacak = h.IslemId == 2 ? h.Tutar : 0;
+                bakiye += borc - alacak;
+                return new HareketItem
+                {
+                    Id = h.Id, FisId = h.FisId ?? 0, Tarih = h.Tarih,
+                    FisNo = h.FisNo ?? "", BelgeNo = h.BelgeNo ?? "",
+                    Aciklama1 = h.Aciklama1 ?? "", Aciklama2 = h.Aciklama2 ?? "",
+                    IslemId = h.IslemId,
+                    Borc = borc, Alacak = alacak, Bakiye = bakiye,
+                    Doviz = h.DovizId ?? "TL", Kaynak = h.Kaynak ?? ""
+                };
+            }).ToList();
+
+            if (!hareketler.Any())
+                hataMesaji = $"{cariUnvan} icin bu tarih araliginda hareket bulunamadi.";
+        }
+        catch (Exception ex)
+        {
+            hataMesaji = $"Hata: {ex.Message}";
+        }
+    }
+
+    private async Task CariSecPopupAc()
+    {
+        cariArama = "";
+        cariPopupAcik = true;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            cariListesi = await db.Cariler.AsNoTracking().OrderBy(c => c.CariKodu).Take(50).ToListAsync();
+        }
+        catch { cariListesi = new(); }
+    }
+
+    private async Task CariAra()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            if (string.IsNullOrWhiteSpace(cariArama))
+                cariListesi = await db.Cariler.AsNoTracking().OrderBy(c => c.CariKodu).Take(50).ToListAsync();
+            else
+            {
+                var q = cariArama.Trim();
+                cariListesi = await db.Cariler.AsNoTracking()
+                    .Where(c => c.CariKodu.Contains(q) || c.Unvani.Contains(q))
+                    .Take(50).ToListAsync();
+            }
+        }
+        catch { }
+    }
+
+    private async void CariSecildi(MACHINEBISS_Web.Models.MachineBiss.Cariler c)
+    {
+        cariKodu = c.CariKodu ?? "";
+        cariUnvan = c.Unvani ?? "";
+        cariId = c.Id;
+        cariPopupAcik = false;
+        await Listele();
+        StateHasChanged();
+    }
+
+    private void HareketeGit(HareketItem h)
+    {
+        if (h.Kaynak == "Fatura" && h.FisId > 0)
+            Nav.NavigateTo($"/satis/fatura/{h.FisId}");
+        else if (h.Kaynak == "Kasa")
+            Nav.NavigateTo("/finans/kasa");
+        else if (h.Kaynak == "Banka")
+            Nav.NavigateTo("/finans/banka");
+    }
+
+    private async void Yazdir() { await JS.InvokeVoidAsync("window.print"); }
+
+    public class HareketItem
+    {
+        public int Id { get; set; }
+        public int FisId { get; set; }
+        public DateTime Tarih { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public string Aciklama1 { get; set; } = "";
+        public string Aciklama2 { get; set; } = "";
+        public int IslemId { get; set; }
+        public decimal Borc { get; set; }
+        public decimal Alacak { get; set; }
+        public decimal Bakiye { get; set; }
+        public string Doviz { get; set; } = "";
+        public string Kaynak { get; set; } = "";
+    }
+}

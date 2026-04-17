@@ -1,0 +1,56 @@
+@inject MACHINEBISS_Web.Services.ConfirmService Confirm
+@implements IDisposable
+
+@if (request != null)
+{
+    <div class="modal-overlay" @onclick="() => Cevap(false)" style="z-index:9999;">
+        <div class="modal-box" style="min-width:380px; max-width:520px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <span>
+                    <i class="fa @(request.Danger ? "fa-exclamation-triangle" : "fa-question-circle")" style="color:@(request.Danger ? "#dc2626" : "#235881");"></i>
+                    @request.Title
+                </span>
+                <button class="modal-close" @onclick="() => Cevap(false)">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px; line-height:1.5; margin:0;">@request.Message</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm @(request.Danger ? "btn-danger" : "btn-primary")" @onclick="() => Cevap(true)" autofocus>
+                    <i class="fa @(request.Danger ? "fa-trash" : "fa-check")"></i> @request.OkText
+                </button>
+                <button class="btn btn-sm btn-outline" @onclick="() => Cevap(false)">
+                    <i class="fa fa-times"></i> @request.CancelText
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private MACHINEBISS_Web.Services.ConfirmRequest? request;
+
+    protected override void OnInitialized()
+    {
+        Confirm.OnShow += Goster;
+    }
+
+    private Task Goster(MACHINEBISS_Web.Services.ConfirmRequest req)
+    {
+        request = req;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    private void Cevap(bool sonuc)
+    {
+        request?.Tcs.TrySetResult(sonuc);
+        request = null;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Confirm.OnShow -= Goster;
+    }
+}

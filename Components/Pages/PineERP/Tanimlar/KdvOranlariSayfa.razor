@@ -1,0 +1,186 @@
+@page "/pine/tanimlar/kdvoranlari"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>KDV Oranlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-percent"></i> KDV Oranlari
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-secondary btn-sm" @onclick="Yukle">
+                <i class="fa fa-sync"></i> Yenile
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-outline btn-sm" @onclick="Kapat">
+                    <i class="fa fa-times"></i> Kapat
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mesaj))
+        {
+            <div class="alert alert-@(hataVar ? "danger" : "success")" style="margin-top:8px;">@mesaj</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 260px); margin-top:8px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">#</th>
+                        <th style="width:240px;">KDV Orani (%)</th>
+                        <th style="width:100px;">Islem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < liste.Count; i++)
+                    {
+                        var idx = i;
+                        var item = liste[idx];
+                        <tr>
+                            <td>@(idx + 1)</td>
+                            <td>
+                                <input type="number" class="form-control text-right" step="0.01" min="0"
+                                       value="@item.KdvOrani"
+                                       @onchange="@(e => SatirGuncelle(idx, e.Value?.ToString()))" />
+                            </td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" @onclick="() => SatirSil(idx)" title="Sil">
+                                    <i class="fa fa-times"></i> Sil
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    @if (!liste.Any())
+                    {
+                        <tr><td colspan="3" style="text-align:center; color:var(--pinebi-text-light); padding:20px;">Kayit yok. "Yeni KDV" ile ekleyin.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @liste.Count kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.BlockBiss.KdvOranlari> liste = new();
+    private HashSet<int> silinenler = new();
+    private string? mesaj;
+    private bool hataVar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yukle();
+    }
+
+    private async Task Yukle()
+    {
+        try
+        {
+            mesaj = null; hataVar = false;
+            using var ctx = await NetworkFactory.CreateDbContextAsync();
+
+            // Tablo bossa varsayilan oranlari seed et
+            if (!await ctx.KdvOranlari.AnyAsync())
+            {
+                ctx.KdvOranlari.AddRange(
+                    new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = 0 },
+                    new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = 1 },
+                    new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = 10 },
+                    new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = 20 }
+                );
+                await ctx.SaveChangesAsync();
+            }
+
+            liste = await ctx.KdvOranlari.OrderBy(x => x.KdvOrani).ToListAsync();
+            silinenler.Clear();
+        }
+        catch (Exception ex)
+        {
+            mesaj = "Yukleme hatasi: " + ex.Message;
+            hataVar = true;
+        }
+    }
+
+    private void Ekle()
+    {
+        liste.Add(new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = 0 });
+    }
+
+    private void SatirSil(int idx)
+    {
+        if (idx < 0 || idx >= liste.Count) return;
+        var item = liste[idx];
+        if (item.Id > 0) silinenler.Add(item.Id);
+        liste.RemoveAt(idx);
+    }
+
+    private void SatirGuncelle(int idx, string? deger)
+    {
+        if (idx < 0 || idx >= liste.Count) return;
+        if (double.TryParse((deger ?? "0").Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v))
+        {
+            liste[idx].KdvOrani = v;
+        }
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            mesaj = null; hataVar = false;
+            using var ctx = await NetworkFactory.CreateDbContextAsync();
+
+            // Sil
+            if (silinenler.Any())
+            {
+                var silinecekler = await ctx.KdvOranlari.Where(k => silinenler.Contains(k.Id)).ToListAsync();
+                ctx.KdvOranlari.RemoveRange(silinecekler);
+            }
+
+            // Guncelle / Ekle
+            foreach (var l in liste)
+            {
+                if (l.Id > 0)
+                {
+                    var m = await ctx.KdvOranlari.FirstOrDefaultAsync(x => x.Id == l.Id);
+                    if (m != null) m.KdvOrani = l.KdvOrani;
+                }
+                else
+                {
+                    ctx.KdvOranlari.Add(new MACHINEBISS_Web.Models.BlockBiss.KdvOranlari { KdvOrani = l.KdvOrani });
+                }
+            }
+
+            await ctx.SaveChangesAsync();
+            await Yukle();
+            mesaj = "Basariyla kaydedildi.";
+            hataVar = false;
+        }
+        catch (Exception ex)
+        {
+            mesaj = "Kayit hatasi: " + ex.Message;
+            hataVar = true;
+        }
+    }
+
+    private void Kapat()
+    {
+        Nav.NavigateTo("/pine/dashboard");
+    }
+}

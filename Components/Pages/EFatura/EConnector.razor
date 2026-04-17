@@ -1,0 +1,415 @@
+﻿@page "/efatura/connector"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>E-Fatura Connector</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-plug"></i> E-Fatura Connector
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Gonder">
+                <i class="fa fa-paper-plane"></i> Gonder
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="TekrarGonder">
+                <i class="fa fa-repeat"></i> Tekrar Gonder
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="CariDuzenle">
+                <i class="fa fa-address-book"></i> Cari Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="FaturaDuzenle">
+                <i class="fa fa-pencil"></i> Fatura Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="TumunuSec">
+                <i class="fa fa-check-square-o"></i> Tumunu Sec
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="SecimleriTemizle">
+                <i class="fa fa-square-o"></i> Secimleri Temizle
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> Yazdir
+            </button>
+        </div>
+
+        <!-- Split Layout: Faturalar (left) + Satirlar (right) -->
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <!-- Faturalar Grid -->
+            <div style="flex:1.2; min-width:0;">
+                <div class="group-box">
+                    <div class="group-box-title">Faturalar</div>
+                    <div class="grid-container" style="max-height:calc(100vh - 260px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">Sec</th>
+                                    <th style="width:90px;">Fis Tipi</th>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:50px;">Saat</th>
+                                    <th style="width:110px;">Fis No</th>
+                                    <th style="width:100px;">Belge No</th>
+                                    <th style="width:100px;">Cari Kodu</th>
+                                    <th style="min-width:180px;">Unvani</th>
+                                    <th style="width:100px; text-align:right;">Tutar</th>
+                                    <th style="width:100px; text-align:right;">Top. Indirim</th>
+                                    <th style="width:100px; text-align:right;">KDV Matrahi</th>
+                                    <th style="width:100px; text-align:right;">KDV Tutari</th>
+                                    <th style="width:100px; text-align:right;">Toplam Tutar</th>
+                                    <th style="width:110px; text-align:right;">Odenecek Tutar</th>
+                                    <th style="width:110px;">GIB Durum Kodu</th>
+                                    <th style="width:150px;">GIB Gonderim</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (faturalar.Count == 0)
+                                {
+                                    <tr><td colspan="16" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var fatura in faturalar)
+                                    {
+                                        <tr class="@(seciliId == fatura.Id ? "selected" : "")" @onclick="() => SatirSec(fatura)">
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" @bind="fatura.Secili" />
+                                            </td>
+                                            <td>@fatura.FisTipi</td>
+                                            <td>@fatura.Tarih.ToString("dd.MM.yyyy")</td>
+                                            <td>@fatura.Saat?.ToString(@"hh\:mm")</td>
+                                            <td>@fatura.FisNo</td>
+                                            <td>@fatura.BelgeNo</td>
+                                            <td>@fatura.CariKodu</td>
+                                            <td>@fatura.Unvani</td>
+                                            <td class="text-right">@fatura.Tutar?.ToString("N2")</td>
+                                            <td class="text-right">@fatura.ToplamIndirim?.ToString("N2")</td>
+                                            <td class="text-right">@fatura.KdvMatrahi?.ToString("N2")</td>
+                                            <td class="text-right">@fatura.KdvTutari?.ToString("N2")</td>
+                                            <td class="text-right">@fatura.ToplamTutar?.ToString("N2")</td>
+                                            <td class="text-right" style="font-weight:700;">@fatura.OdenecekTutar?.ToString("N2")</td>
+                                            <td>
+                                                @if (fatura.GibDurumKodu == "0000")
+                                                {
+                                                    <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.GibDurumKodu</span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(fatura.GibDurumKodu))
+                                                {
+                                                    <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.GibDurumKodu</span>
+                                                }
+                                            </td>
+                                            <td>@fatura.GibGonderimDurumu</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                                    <td colspan="8" class="text-right">Toplam:</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.Tutar ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.ToplamIndirim ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.KdvMatrahi ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.KdvTutari ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.ToplamTutar ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@faturalar.Sum(f => f.OdenecekTutar ?? 0).ToString("N2")</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Satirlar Grid -->
+            <div style="flex:0.8; min-width:0;">
+                <div class="group-box">
+                    <div class="group-box-title">Fatura Satirlari</div>
+                    <div class="grid-container" style="max-height:calc(100vh - 260px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:100px;">Stok Kodu</th>
+                                    <th style="min-width:180px;">Stok Cinsi</th>
+                                    <th style="width:70px; text-align:right;">Miktar</th>
+                                    <th style="width:60px;">Birim</th>
+                                    <th style="width:90px; text-align:right;">Fiyat</th>
+                                    <th style="width:60px;">KDV %</th>
+                                    <th style="width:90px; text-align:right;">KDV Matrahi</th>
+                                    <th style="width:90px; text-align:right;">KDV Tutari</th>
+                                    <th style="width:90px; text-align:right;">Net Tutar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (satirlar.Count == 0)
+                                {
+                                    <tr><td colspan="9" class="text-center text-muted">Fatura seciniz</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var satir in satirlar)
+                                    {
+                                        <tr>
+                                            <td>@satir.StokKodu</td>
+                                            <td>@satir.StokCinsi</td>
+                                            <td class="text-right">@satir.Miktar.ToString("N2")</td>
+                                            <td>@satir.Birim</td>
+                                            <td class="text-right">@satir.Fiyat.ToString("N2")</td>
+                                            <td>@satir.KdvOrani</td>
+                                            <td class="text-right">@satir.KdvMatrahi.ToString("N2")</td>
+                                            <td class="text-right">@satir.KdvTutari.ToString("N2")</td>
+                                            <td class="text-right">@satir.NetTutar.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                                    <td colspan="6" class="text-right">Toplam:</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.KdvMatrahi).ToString("N2")</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.KdvTutari).ToString("N2")</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.NetTutar).ToString("N2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar Alt -->
+        <div class="form-row" style="margin-top:8px; padding:6px; background:#f8f9fa; border-radius:4px;">
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> [F5] Listeyi Yenile
+            </button>
+            <button class="btn btn-success btn-sm" @onclick="Gonder" style="margin-left:auto;">
+                <i class="fa fa-paper-plane"></i> [F2] Gonder
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @faturalar.Count fatura | @faturalar.Count(f => f.Secili) secili</span>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(gonderimMesaji) && !isGonderiliyor)
+{
+    <div style="position:fixed; bottom:20px; right:20px; z-index:9999; min-width:350px;">
+        <div class="alert @(gonderimBasarili ? "alert-success" : "alert-warning")" style="box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+            <i class="fa @(gonderimBasarili ? "fa-check-circle" : "fa-exclamation-circle")"></i> @gonderimMesaji
+            <button style="float:right; background:none; border:none; cursor:pointer; font-size:14px;" @onclick='() => gonderimMesaji = ""'>X</button>
+        </div>
+    </div>
+}
+
+@if (isGonderiliyor)
+{
+    <div style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="padding:30px; text-align:center; min-width:400px;">
+            <div style="color:#800000; font-weight:bold; font-size:14px; margin-bottom:15px;">
+                <i class="fa fa-spinner fa-spin"></i> @gonderimMesaji
+            </div>
+            <div style="height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+                <div style="height:100%; background:var(--pinebi-primary); width:60%; animation: progress 2s ease-in-out infinite;"></div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int seciliId = 0;
+    private bool isGonderiliyor = false;
+    private string gonderimMesaji = "";
+    private bool gonderimBasarili = false;
+
+    private List<EConnectorFaturaItem> faturalar = new();
+    private List<EConnectorSatirItem> satirlar = new();
+
+    protected override void OnInitialized()
+    {
+        FaturaListesi();
+    }
+
+    private void FaturaListesi()
+    {
+        // TODO: FirmaContext ile veritabanindan veri cekilecek
+        // var trCode = new List<int> { 2, 3, 6, 7, 8, 9 };
+        // var faturaTipi = new List<int> { 1, 2 };
+        // faturalar = db.FaturalarView.AsNoTracking()
+        //     .Where(s => faturaTipi.Contains((int)s.FaturaTipi) && trCode.Contains((int)s.TrCode) && s.Status != 0 && s.Iptal != true)
+        //     .Select(s => new EConnectorFaturaItem { ... }).ToList();
+        faturalar = GetPlaceholderData();
+        satirlar.Clear();
+    }
+
+    private void SatirSec(EConnectorFaturaItem fatura)
+    {
+        seciliId = fatura.Id;
+        // TODO: FirmaContext ile fatura satirlari cekilecek
+        // satirlar = db.FatIrsSatirlarView.AsNoTracking().Where(s => s.FaturaId == fatura.Id).Select(...).ToList();
+        satirlar = GetPlaceholderSatirlar();
+    }
+
+    private async Task Gonder()
+    {
+        var seciliFaturalar = faturalar.Where(f => f.Secili).ToList();
+        if (!seciliFaturalar.Any())
+        {
+            gonderimMesaji = "Lutfen gonderilecek fatura(lari) seciniz!";
+            gonderimBasarili = false;
+            return;
+        }
+
+        isGonderiliyor = true;
+        gonderimMesaji = $"{seciliFaturalar.Count} fatura gonderiliyor...";
+        StateHasChanged();
+
+        // Gonderim simulasyonu
+        await Task.Delay(2000);
+
+        foreach (var f in seciliFaturalar)
+        {
+            f.GibDurumKodu = "0000";
+            f.GibGonderimDurumu = "Basariyla Gonderildi";
+            f.Secili = false;
+        }
+
+        isGonderiliyor = false;
+        gonderimMesaji = $"{seciliFaturalar.Count} fatura basariyla gonderildi!";
+        gonderimBasarili = true;
+    }
+
+    private async Task TekrarGonder()
+    {
+        var seciliFaturalar = faturalar.Where(f => f.Secili).ToList();
+        if (!seciliFaturalar.Any())
+        {
+            gonderimMesaji = "Lutfen tekrar gonderilecek fatura(lari) seciniz!";
+            gonderimBasarili = false;
+            return;
+        }
+
+        isGonderiliyor = true;
+        gonderimMesaji = $"{seciliFaturalar.Count} fatura tekrar gonderiliyor...";
+        StateHasChanged();
+
+        await Task.Delay(2000);
+
+        foreach (var f in seciliFaturalar)
+        {
+            f.GibDurumKodu = "0000";
+            f.GibGonderimDurumu = "Tekrar Gonderildi";
+            f.Secili = false;
+        }
+
+        isGonderiliyor = false;
+        gonderimMesaji = $"{seciliFaturalar.Count} fatura tekrar gonderildi!";
+        gonderimBasarili = true;
+    }
+
+    private void CariDuzenle()
+    {
+        if (seciliId == 0)
+        {
+            gonderimMesaji = "Lutfen bir fatura seciniz!";
+            gonderimBasarili = false;
+            return;
+        }
+        var fatura = faturalar.FirstOrDefault(f => f.Id == seciliId);
+        Nav.NavigateTo($"/cari/kart");
+    }
+
+    private void FaturaDuzenle()
+    {
+        if (seciliId == 0)
+        {
+            gonderimMesaji = "Lutfen bir fatura seciniz!";
+            gonderimBasarili = false;
+            return;
+        }
+        Nav.NavigateTo($"/satis/fatura/{seciliId}");
+    }
+
+    private void TumunuSec()
+    {
+        foreach (var f in faturalar) f.Secili = true;
+    }
+
+    private void SecimleriTemizle()
+    {
+        foreach (var f in faturalar) f.Secili = false;
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void Yenile()
+    {
+        FaturaListesi();
+    }
+
+    private List<EConnectorFaturaItem> GetPlaceholderData()
+    {
+        return new List<EConnectorFaturaItem>
+        {
+            new() { Id = 1, FisTipi = "Satis Faturasi", Tarih = DateTime.Today.AddDays(-2), Saat = new TimeSpan(10, 30, 0), FisNo = "HTA202600001", CariKodu = "C001", Unvani = "ABC Ticaret Ltd. Sti.", Tutar = 10000.00, ToplamIndirim = 0, KdvMatrahi = 10000.00, KdvTutari = 2000.00, ToplamTutar = 12000.00, OdenecekTutar = 12000.00 },
+            new() { Id = 2, FisTipi = "Satis Faturasi", Tarih = DateTime.Today.AddDays(-1), Saat = new TimeSpan(14, 0, 0), FisNo = "HTA202600002", CariKodu = "C002", Unvani = "XYZ Insaat A.S.", Tutar = 25000.00, ToplamIndirim = 1000.00, KdvMatrahi = 24000.00, KdvTutari = 4800.00, ToplamTutar = 28800.00, OdenecekTutar = 28800.00, GibDurumKodu = "0000", GibGonderimDurumu = "Basarili" },
+            new() { Id = 3, FisTipi = "Iade Faturasi", Tarih = DateTime.Today, Saat = new TimeSpan(9, 15, 0), FisNo = "HTA202600003", CariKodu = "C003", Unvani = "DEF Makina San. Tic. A.S.", Tutar = 5000.00, ToplamIndirim = 0, KdvMatrahi = 5000.00, KdvTutari = 1000.00, ToplamTutar = 6000.00, OdenecekTutar = 6000.00 }
+        };
+    }
+
+    private List<EConnectorSatirItem> GetPlaceholderSatirlar()
+    {
+        return new List<EConnectorSatirItem>
+        {
+            new() { StokKodu = "STK001", StokCinsi = "Celik Boru 50mm", Miktar = 100, Birim = "AD", Fiyat = 50.00, KdvOrani = "%20", KdvMatrahi = 5000.00, KdvTutari = 1000.00, NetTutar = 6000.00 },
+            new() { StokKodu = "STK002", StokCinsi = "Baglanti Elemani", Miktar = 200, Birim = "AD", Fiyat = 25.00, KdvOrani = "%20", KdvMatrahi = 5000.00, KdvTutari = 1000.00, NetTutar = 6000.00 }
+        };
+    }
+
+    public class EConnectorFaturaItem
+    {
+        public int Id { get; set; }
+        public bool Secili { get; set; }
+        public string FisTipi { get; set; } = "";
+        public DateTime Tarih { get; set; }
+        public TimeSpan? Saat { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public string CariKodu { get; set; } = "";
+        public string Unvani { get; set; } = "";
+        public double? Tutar { get; set; }
+        public double? ToplamIndirim { get; set; }
+        public double? KdvMatrahi { get; set; }
+        public double? KdvTutari { get; set; }
+        public double? ToplamTutar { get; set; }
+        public double? OdenecekTutar { get; set; }
+        public string GibDurumKodu { get; set; } = "";
+        public string GibGonderimDurumu { get; set; } = "";
+    }
+
+    public class EConnectorSatirItem
+    {
+        public string StokKodu { get; set; } = "";
+        public string StokCinsi { get; set; } = "";
+        public double Miktar { get; set; }
+        public string Birim { get; set; } = "";
+        public double Fiyat { get; set; }
+        public string KdvOrani { get; set; } = "";
+        public double KdvMatrahi { get; set; }
+        public double KdvTutari { get; set; }
+        public double NetTutar { get; set; }
+    }
+}

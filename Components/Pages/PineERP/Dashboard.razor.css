@@ -1,0 +1,264 @@
+/* PineERP Dashboard */
+.pine-dashboard {
+    padding: 20px 24px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+/* Header */
+.pd-header {
+    margin-bottom: 28px;
+}
+
+.pd-welcome h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0E3D5C;
+    margin-bottom: 4px;
+}
+
+.pd-welcome p {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* Stats Cards - 4 kart yatayda tek sira */
+.pd-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.pd-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-left: 4px solid transparent;
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+
+.pd-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.pd-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.pd-card-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.pd-card-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.pd-card-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* Card color variants */
+.pd-card-stok {
+    border-left-color: #3b82f6;
+}
+.pd-card-stok .pd-card-icon {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.pd-card-cari {
+    border-left-color: #10b981;
+}
+.pd-card-cari .pd-card-icon {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.pd-card-fatura {
+    border-left-color: #f59e0b;
+}
+.pd-card-fatura .pd-card-icon {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.pd-card-tahsilat {
+    border-left-color: #ef4444;
+}
+.pd-card-tahsilat .pd-card-icon {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Section */
+.pd-section {
+    margin-bottom: 28px;
+}
+
+.pd-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pd-section-title i {
+    color: #235881;
+}
+
+/* Quick Actions - 6 kisayol tek satirda */
+.pd-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+}
+
+.pd-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+    cursor: pointer;
+}
+
+.pd-action i {
+    font-size: 22px;
+    color: #235881;
+}
+
+.pd-action:hover {
+    background: #f0f7ff;
+    border-color: #93c5fd;
+    box-shadow: 0 2px 8px rgba(35,88,129,0.1);
+    transform: translateY(-1px);
+}
+
+/* Info Row - 2 kart yan yana */
+.pd-info-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.pd-info-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.pd-info-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.pd-info-card h4 i {
+    color: #235881;
+}
+
+.pd-info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pd-info-table td {
+    padding: 6px 0;
+    font-size: 12.5px;
+    color: #4b5563;
+}
+
+.pd-info-table td:first-child {
+    width: 100px;
+    color: #9ca3af;
+}
+
+.pd-info-table strong {
+    color: #111827;
+}
+
+.pd-notifications {
+    min-height: 60px;
+}
+
+.pd-empty {
+    font-size: 12.5px;
+    color: #9ca3af;
+    text-align: center;
+    padding: 16px 0;
+}
+
+/* Responsive - genis ekranlarda 4 stat / 6 quick / 2 info; daralinca azalir */
+@media (max-width: 1280px) {
+    .pd-quick-actions {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .pd-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .pd-quick-actions {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .pd-info-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .pine-dashboard {
+        padding: 14px;
+    }
+
+    .pd-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

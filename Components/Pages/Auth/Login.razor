@@ -1,0 +1,193 @@
+@using MACHINEBISS_Web.Db
+@using MACHINEBISS_Web.Services
+@using Microsoft.EntityFrameworkCore
+@inject AuthService Auth
+@inject IDbContextFactory<FirmaContext> FirmaFactory
+@inject SistemAyarlariService Sistem
+@inject LoginAttemptTracker AttemptTracker
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JS
+
+<div class="login-container">
+    <div class="login-box">
+        <img src="images/pinebi_logo.png" alt="Pinebi" class="login-logo" />
+        <div class="login-title">||MachineBiss ERP||</div>
+        <div class="login-version">v.2.0 Web</div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="form-group">
+            <label>Kullanici Adi</label>
+            <input type="text" class="form-control" @bind="kullaniciAdi" @bind:event="oninput"
+                   @onkeydown="OnKeyDown" placeholder="Kullanici adiniz" autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+            <label>Sifre</label>
+            <div style="position: relative;">
+                <input type="@(showPassword ? "text" : "password")" class="form-control" @bind="sifre" @bind:event="oninput"
+                       @onkeydown="OnKeyDown" placeholder="Sifreniz" autocomplete="current-password" />
+                <button type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9ca3af;"
+                        @onclick="() => showPassword = !showPassword">
+                    <i class="fa @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                </button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" @onclick="GirisYap" disabled="@isLoading" style="margin-top:16px;padding:10px;">
+            @if (isLoading)
+            {
+                <span>Giris yapiliyor...</span>
+            }
+            else
+            {
+                <i class="fa fa-sign-in-alt"></i>
+                <span>Giris Yap</span>
+            }
+        </button>
+
+        <div style="text-align:center;margin-top:12px;">
+            <a class="link" @onclick="SifremiUnuttum" style="cursor:pointer;">Sifremi Unuttum</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string kullaniciAdi = "";
+    private string sifre = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+    private bool showPassword = false;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await GirisYap();
+    }
+
+    private async Task GirisYap()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(kullaniciAdi) || string.IsNullOrWhiteSpace(sifre))
+        {
+            errorMessage = "Kullanici adi ve sifre bos olamaz.";
+            return;
+        }
+
+        var username = kullaniciAdi.Trim();
+
+        // Brute-force korumasi
+        if (AttemptTracker.IsLocked(username, out var remainingMinutes))
+        {
+            errorMessage = $"Hesap guvenlik nedeniyle gecici olarak kilitli. Lutfen {remainingMinutes} dakika sonra tekrar deneyin.";
+            return;
+        }
+
+        isLoading = true;
+
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            var kullanici = await db.Kullanicilar
+                .FirstOrDefaultAsync(s => s.KullaniciAdi == username);
+
+            if (kullanici == null || !PasswordHasher.Verify(sifre, kullanici.SifreHash, out var needsMigration))
+            {
+                AttemptTracker.RegisterFailedAttempt(username);
+                var remaining = AttemptTracker.RemainingAttempts(username);
+                if (remaining > 0 && remaining < 5)
+                {
+                    errorMessage = $"Kullanici adi veya sifre hatali. Kalan deneme hakki: {remaining}";
+                }
+                else
+                {
+                    errorMessage = "Kullanici adi veya sifre hatali.";
+                }
+                isLoading = false;
+                return;
+            }
+
+            // Aktif kontrolu
+            if (kullanici.Aktif == false)
+            {
+                errorMessage = "Bu hesap devre disi birakilmis. Lutfen yoneticinizle iletisime gecin.";
+                isLoading = false;
+                return;
+            }
+
+            // Duz metin sifre tespit edildi → otomatik migration (BCrypt ile hashle)
+            if (needsMigration)
+            {
+                kullanici.SifreHash = PasswordHasher.Hash(sifre);
+            }
+
+            // Lisans kontrolu
+            var lisans = await db.Lisanslar
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.FirmaId == kullanici.FirmaId && l.Aktif == true);
+
+            if (lisans != null && lisans.BitisTarihi.HasValue && lisans.BitisTarihi.Value < DateTime.Today)
+            {
+                errorMessage = "Lisans suresi dolmus! Lutfen yoneticinizle iletisime gecin.";
+                isLoading = false;
+                return;
+            }
+
+            // Audit: son giris tarihi guncelle
+            kullanici.SonGirisTarihi = DateTime.Now;
+            await db.SaveChangesAsync();
+
+            // Basarili giris → brute-force sayaclarini sifirla
+            AttemptTracker.ResetAttempts(username);
+
+            Auth.Login(
+                kullanici.Id,
+                username,
+                kullanici.AdSoyad ?? username,
+                kullanici.Gorevi ?? "Kullanici",
+                kullanici.Id,
+                (kullanici.FirmaId ?? 0).ToString(),
+                kullanici.FirmaId ?? 0,
+                kullanici.Id,
+                kullanici.Rol ?? "Kullanici"
+            );
+
+            // Login bilgisini tarayiciya kaydet (refresh sonrasi restore icin)
+            await Auth.SaveToBrowserAsync(JS);
+        }
+        catch (Exception)
+        {
+            errorMessage = "Giris sirasinda bir hata olustu. Lutfen tekrar deneyin.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SifremiUnuttum()
+    {
+        if (string.IsNullOrWhiteSpace(kullaniciAdi))
+        {
+            errorMessage = "Lutfen kullanici adinizi giriniz.";
+            return;
+        }
+
+        // Guvenlik: kullanici var mi yok mu bilgi vermiyoruz (enumeration engeli)
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            await db.Kullanicilar
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.KullaniciAdi == kullaniciAdi.Trim());
+        }
+        catch { }
+
+        errorMessage = "Eger kayitli bir kullaniciysaniz, sifre sifirlama talimatlari e-posta adresinize gonderilecektir.";
+    }
+}

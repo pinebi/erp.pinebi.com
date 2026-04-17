@@ -1,0 +1,168 @@
+﻿@page "/pine/siparis/liste"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Siparis Listesi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-shopping-cart"></i> Siparis Listesi
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="YeniSiparis">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <div class="form-inline">
+                <label style="min-width:auto;">Tip:</label>
+                <select class="form-control" style="max-width:150px;" @bind="selectedTip" @bind:after="LoadDataAsync">
+                    <option value="">Tumu</option>
+                    <option value="satis">Satis</option>
+                    <option value="satinalma">Satinalma</option>
+                </select>
+            </div>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Cari unvan, belge no..."
+                       @bind="searchText" @bind:event="oninput" @bind:after="AraAsync" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Evrak Seri/Sira</th>
+                        <th>Tarih</th>
+                        <th>Tip</th>
+                        <th>Cari Kodu</th>
+                        <th>Cari Unvan</th>
+                        <th>Belge No</th>
+                        <th>Durum</th>
+                        <th style="text-align:right;">Genel Toplam</th>
+                        <th>Teslim Tarihi</th>
+                        <th>Doviz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoading)
+                    {
+                        <tr><td colspan="10" style="text-align:center;">Yukleniyor...</td></tr>
+                    }
+                    else if (liste != null)
+                    {
+                        @foreach (var item in liste)
+                        {
+                            <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.SipEvrakSeri-@item.SipEvrakSira</td>
+                                <td>@item.SipTarih.ToString("dd.MM.yyyy")</td>
+                                <td>@(item.SipTip == 0 ? "Satis" : "Satinalma")</td>
+                                <td>@item.SipCariKod</td>
+                                <td>@item.SipCariUnvan</td>
+                                <td>@item.SipBelgeNo</td>
+                                <td>@item.SipSiparisDurumu</td>
+                                <td style="text-align:right;">@item.SipGenelToplam.ToString("N2")</td>
+                                <td>@item.SipTeslimTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.SipDovizCinsi</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplam kayit (Sayfa @sayfa / @toplamSayfa)</span>
+            <div>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa <= 1)" @onclick="OncekiSayfa">Onceki</button>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa >= toplamSayfa)" @onclick="SonrakiSayfa">Sonraki</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<SiparisDto> liste = new();
+    private int selectedId;
+    private SiparisDto? selectedItem;
+    private string searchText = "", selectedTip = "";
+    private bool isLoading = true;
+    private int sayfa = 1, sayfaBoyutu = 50, toplam = 0, toplamSayfa = 0;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var url = $"/api/siparis/liste?sayfa={sayfa}&sayfaBoyutu={sayfaBoyutu}";
+            if (!string.IsNullOrWhiteSpace(selectedTip)) url += $"&tip={selectedTip}";
+            if (!string.IsNullOrWhiteSpace(searchText)) url += $"&ara={Uri.EscapeDataString(searchText)}";
+
+            var response = await Http.GetFromJsonAsync<PagedResponse<SiparisDto>>(url);
+            if (response != null)
+            {
+                liste = response.Data ?? new();
+                toplam = response.Toplam;
+                toplamSayfa = response.ToplamSayfa;
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Siparis listesi hatasi: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task AraAsync() { sayfa = 1; await LoadDataAsync(); }
+    private async Task OncekiSayfa() { if (sayfa > 1) { sayfa--; await LoadDataAsync(); } }
+    private async Task SonrakiSayfa() { if (sayfa < toplamSayfa) { sayfa++; await LoadDataAsync(); } }
+
+    private void SelectItem(SiparisDto item) { selectedItem = item; selectedId = item.Id; }
+    private void OnDoubleClick(SiparisDto item) { /* TODO: Navigate to siparis detail */ }
+    private void YeniSiparis() { /* TODO: Navigate to new siparis */ }
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+    private void Yazdir() { /* TODO: Print */ }
+
+    public class SiparisDto
+    {
+        public int Id { get; set; }
+        public int SipTip { get; set; }
+        public string? SipEvrakSeri { get; set; }
+        public int SipEvrakSira { get; set; }
+        public DateTime SipTarih { get; set; }
+        public string SipCariKod { get; set; } = "";
+        public string? SipCariUnvan { get; set; }
+        public string? SipBelgeNo { get; set; }
+        public string SipSiparisDurumu { get; set; } = "";
+        public decimal SipGenelToplam { get; set; }
+        public DateTime? SipTeslimTarihi { get; set; }
+        public string? SipDovizCinsi { get; set; }
+    }
+
+    public class PagedResponse<T>
+    {
+        public bool Success { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

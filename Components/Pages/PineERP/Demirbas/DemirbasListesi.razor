@@ -1,0 +1,176 @@
+﻿@page "/pine/demirbas/liste"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject MACHINEBISS_Web.Services.ConfirmService Confirm
+
+<PageTitle>Demirbas Listesi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-archive"></i> Demirbas Listesi
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="ZimmetleriGoster">
+                <i class="fa fa-list-alt"></i> Zimmetler
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Demirbas kodu, isim, seri no..."
+                       @bind="searchText" @bind:event="oninput" @bind:after="AraAsync" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Kod</th>
+                        <th>Isim</th>
+                        <th>Kategori</th>
+                        <th>Marka</th>
+                        <th>Model</th>
+                        <th>Seri No</th>
+                        <th>Alis Tarihi</th>
+                        <th style="text-align:right;">Alis Fiyati</th>
+                        <th>Lokasyon</th>
+                        <th>Durum</th>
+                        <th>Sorumlu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoading)
+                    {
+                        <tr><td colspan="11" style="text-align:center;">Yukleniyor...</td></tr>
+                    }
+                    else if (liste != null)
+                    {
+                        @foreach (var item in liste)
+                        {
+                            <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.DmrKod</td>
+                                <td>@item.DmrIsim</td>
+                                <td>@item.DmrKategori</td>
+                                <td>@item.DmrMarka</td>
+                                <td>@item.DmrModel</td>
+                                <td>@item.DmrSeriNo</td>
+                                <td>@item.DmrAlisTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td style="text-align:right;">@item.DmrAlisFiyati.ToString("N2")</td>
+                                <td>@item.DmrLokasyon</td>
+                                <td>@item.DmrDurum</td>
+                                <td>@item.DmrSorumluPersonel</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplam kayit (Sayfa @sayfa / @toplamSayfa)</span>
+            <div>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa <= 1)" @onclick="OncekiSayfa">Onceki</button>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa >= toplamSayfa)" @onclick="SonrakiSayfa">Sonraki</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<DemirbasDto> liste = new();
+    private int selectedId;
+    private DemirbasDto? selectedItem;
+    private string searchText = "";
+    private bool isLoading = true;
+    private int sayfa = 1, sayfaBoyutu = 50, toplam = 0, toplamSayfa = 0;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var url = $"/api/demirbas/kartlar?sayfa={sayfa}&sayfaBoyutu={sayfaBoyutu}";
+            if (!string.IsNullOrWhiteSpace(searchText)) url += $"&ara={Uri.EscapeDataString(searchText)}";
+
+            var response = await Http.GetFromJsonAsync<PagedResponse<DemirbasDto>>(url);
+            if (response != null)
+            {
+                liste = response.Data ?? new();
+                toplam = response.Toplam;
+                toplamSayfa = response.ToplamSayfa;
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Demirbas listesi hatasi: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task AraAsync() { sayfa = 1; await LoadDataAsync(); }
+    private async Task OncekiSayfa() { if (sayfa > 1) { sayfa--; await LoadDataAsync(); } }
+    private async Task SonrakiSayfa() { if (sayfa < toplamSayfa) { sayfa++; await LoadDataAsync(); } }
+
+    private void SelectItem(DemirbasDto item) { selectedItem = item; selectedId = item.Id; }
+    private void OnDoubleClick(DemirbasDto item) => Nav.NavigateTo($"/pine/demirbas/kart/{item.Id}");
+    private void Ekle() => Nav.NavigateTo("/pine/demirbas/kart");
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+    private async Task Sil()
+    {
+        if (selectedItem == null) return;
+        if (!await Confirm.AskAsync($"'{selectedItem.DmrIsim ?? selectedItem.DmrKod}' demirbasini silmek istediginize emin misiniz?", "Demirbas Sil")) return;
+        var response = await Http.DeleteAsync($"/api/demirbas/kart/{selectedItem.Id}");
+        if (response.IsSuccessStatusCode) await LoadDataAsync();
+    }
+    private void ZimmetleriGoster() { /* TODO: Navigate to zimmet page */ }
+    private void Yazdir() { /* TODO: Print */ }
+
+    public class DemirbasDto
+    {
+        public int Id { get; set; }
+        public string? DmrKod { get; set; }
+        public string? DmrIsim { get; set; }
+        public string? DmrKategori { get; set; }
+        public string? DmrMarka { get; set; }
+        public string? DmrModel { get; set; }
+        public string? DmrSeriNo { get; set; }
+        public DateTime? DmrAlisTarihi { get; set; }
+        public decimal DmrAlisFiyati { get; set; }
+        public string? DmrLokasyon { get; set; }
+        public string? DmrDurum { get; set; }
+        public string? DmrSorumluPersonel { get; set; }
+    }
+
+    public class PagedResponse<T>
+    {
+        public bool Success { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

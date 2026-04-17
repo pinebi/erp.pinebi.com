@@ -1,0 +1,281 @@
+﻿@page "/efatura/eirsaliye"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>E-Irsaliye Connector</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-truck"></i> E-Irsaliye Connector
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> [F5] Listeyi Yenile
+            </button>
+            <button class="btn btn-success btn-sm" @onclick="Gonder">
+                <i class="fa fa-paper-plane"></i> [F2] Gonder
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+
+        <!-- Split Layout: Irsaliyeler (left) + Satirlar (right) -->
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <!-- Irsaliyeler Grid -->
+            <div style="flex:1.2; min-width:0;">
+                <div class="group-box">
+                    <div class="group-box-title">Irsaliyeler</div>
+                    <div class="grid-container" style="max-height:calc(100vh - 260px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px;">Fis Tipi</th>
+                                    <th style="width:90px;">Tarih</th>
+                                    <th style="width:110px;">Fis No</th>
+                                    <th style="width:100px;">Belge No</th>
+                                    <th style="width:100px;">Cari Kodu</th>
+                                    <th style="min-width:180px;">Unvani</th>
+                                    <th style="width:100px; text-align:right;">Tutar</th>
+                                    <th style="width:100px; text-align:right;">Top. Indirim</th>
+                                    <th style="width:100px; text-align:right;">KDV Matrahi</th>
+                                    <th style="width:100px; text-align:right;">KDV Tutari</th>
+                                    <th style="width:110px; text-align:right;">Toplam Tutar</th>
+                                    <th style="width:110px;">GIB Durum Kodu</th>
+                                    <th style="width:150px;">GIB Gonderim</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (irsaliyeler.Count == 0)
+                                {
+                                    <tr><td colspan="13" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var irsaliye in irsaliyeler)
+                                    {
+                                        <tr class="@(seciliId == irsaliye.Id ? "selected" : "")" @onclick="() => SatirSec(irsaliye)">
+                                            <td>@irsaliye.FisTipi</td>
+                                            <td>@irsaliye.Tarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@irsaliye.FisNo</td>
+                                            <td>@irsaliye.BelgeNo</td>
+                                            <td>@irsaliye.CariKodu</td>
+                                            <td>@irsaliye.Unvani</td>
+                                            <td class="text-right">@irsaliye.Tutar?.ToString("N2")</td>
+                                            <td class="text-right">@irsaliye.ToplamIndirim?.ToString("N2")</td>
+                                            <td class="text-right">@irsaliye.KdvMatrahi?.ToString("N2")</td>
+                                            <td class="text-right">@irsaliye.KdvTutari?.ToString("N2")</td>
+                                            <td class="text-right" style="font-weight:700;">@irsaliye.ToplamTutar?.ToString("N2")</td>
+                                            <td>
+                                                @if (irsaliye.GibDurumKodu == "0000")
+                                                {
+                                                    <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@irsaliye.GibDurumKodu</span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(irsaliye.GibDurumKodu))
+                                                {
+                                                    <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@irsaliye.GibDurumKodu</span>
+                                                }
+                                            </td>
+                                            <td>@irsaliye.GibGonderimDurumu</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                                    <td colspan="6" class="text-right">Toplam:</td>
+                                    <td class="text-right">@irsaliyeler.Sum(f => f.Tutar ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@irsaliyeler.Sum(f => f.ToplamIndirim ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@irsaliyeler.Sum(f => f.KdvMatrahi ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@irsaliyeler.Sum(f => f.KdvTutari ?? 0).ToString("N2")</td>
+                                    <td class="text-right">@irsaliyeler.Sum(f => f.ToplamTutar ?? 0).ToString("N2")</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Satirlar Grid -->
+            <div style="flex:0.8; min-width:0;">
+                <div class="group-box">
+                    <div class="group-box-title">Irsaliye Satirlari</div>
+                    <div class="grid-container" style="max-height:calc(100vh - 260px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:100px;">Stok Kodu</th>
+                                    <th style="min-width:180px;">Stok Cinsi</th>
+                                    <th style="width:80px;">Barkod</th>
+                                    <th style="width:70px; text-align:right;">Miktar</th>
+                                    <th style="width:60px;">Birim</th>
+                                    <th style="width:90px; text-align:right;">Fiyat</th>
+                                    <th style="width:50px;">KDV%</th>
+                                    <th style="width:90px; text-align:right;">KDV Matrahi</th>
+                                    <th style="width:90px; text-align:right;">KDV Tutari</th>
+                                    <th style="width:90px; text-align:right;">Net Tutar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (satirlar.Count == 0)
+                                {
+                                    <tr><td colspan="10" class="text-center text-muted">Irsaliye seciniz</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var satir in satirlar)
+                                    {
+                                        <tr>
+                                            <td>@satir.StokKodu</td>
+                                            <td>@satir.StokCinsi</td>
+                                            <td>@satir.Barkod</td>
+                                            <td class="text-right">@satir.Miktar.ToString("N2")</td>
+                                            <td>@satir.Birim</td>
+                                            <td class="text-right">@satir.Fiyat.ToString("N2")</td>
+                                            <td>@satir.KdvOrani</td>
+                                            <td class="text-right">@satir.KdvMatrahi.ToString("N2")</td>
+                                            <td class="text-right">@satir.KdvTutari.ToString("N2")</td>
+                                            <td class="text-right">@satir.NetTutar.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                                    <td colspan="7" class="text-right">Toplam:</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.KdvMatrahi).ToString("N2")</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.KdvTutari).ToString("N2")</td>
+                                    <td class="text-right">@satirlar.Sum(s => s.NetTutar).ToString("N2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @irsaliyeler.Count irsaliye</span>
+        </div>
+    </div>
+</div>
+
+@if (isGonderiliyor)
+{
+    <div style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="padding:30px; text-align:center; min-width:400px;">
+            <div style="color:#800000; font-weight:bold; font-size:14px; margin-bottom:15px;">
+                <i class="fa fa-spinner fa-spin"></i> E-Irsaliye gonderim islemi devam ediyor...
+            </div>
+            <div style="height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+                <div style="height:100%; background:var(--pinebi-primary); width:60%;"></div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int seciliId = 0;
+    private bool isGonderiliyor = false;
+
+    private List<EIrsaliyeItem> irsaliyeler = new();
+    private List<EIrsaliyeSatirItem> satirlar = new();
+
+    protected override void OnInitialized()
+    {
+        IrsaliyeListesi();
+    }
+
+    private void IrsaliyeListesi()
+    {
+        // TODO: FirmaContext ile veritabanindan veri cekilecek
+        // var trCode = new List<int> { 7, 8, 10 };
+        // var faturaTipi = new List<int> { 1 };
+        // irsaliyeler = db.IrsaliyelerView.AsNoTracking()
+        //     .Where(s => faturaTipi.Contains((int)s.FaturaTipi) && trCode.Contains((int)s.TrCode) && s.Iptal != true && s.GibDurumKodu != "0000")
+        //     .Select(s => new EIrsaliyeItem { ... }).ToList();
+        irsaliyeler = GetPlaceholderData();
+        satirlar.Clear();
+    }
+
+    private void SatirSec(EIrsaliyeItem irsaliye)
+    {
+        seciliId = irsaliye.Id;
+        // TODO: FirmaContext ile irsaliye satirlari cekilecek
+        // satirlar = db.FatIrsSatirlarView.AsNoTracking().Where(s => s.IrsaliyeId == irsaliye.Id).Select(...).ToList();
+        satirlar = GetPlaceholderSatirlar();
+    }
+
+    private void Gonder()
+    {
+        // TODO: Irsaliyeleri e-irsaliye olarak gonder
+        // bgFaturalar.RunWorkerAsync() -> FaturalariHazirla() -> EIrsaliyeGonder()
+        // Her irsaliye icin API call yapilir
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void Yenile()
+    {
+        IrsaliyeListesi();
+    }
+
+    private List<EIrsaliyeItem> GetPlaceholderData()
+    {
+        return new List<EIrsaliyeItem>
+        {
+            new() { Id = 1, FisTipi = "Satis Irsaliyesi", Tarih = DateTime.Today.AddDays(-3), FisNo = "IRS202600001", CariKodu = "C001", Unvani = "ABC Ticaret Ltd. Sti.", Tutar = 8000.00, ToplamIndirim = 0, KdvMatrahi = 8000.00, KdvTutari = 1600.00, ToplamTutar = 9600.00, GibDurumKodu = "", GibGonderimDurumu = "" },
+            new() { Id = 2, FisTipi = "Satis Irsaliyesi", Tarih = DateTime.Today.AddDays(-1), FisNo = "IRS202600002", CariKodu = "C002", Unvani = "XYZ Insaat A.S.", Tutar = 15000.00, ToplamIndirim = 500.00, KdvMatrahi = 14500.00, KdvTutari = 2900.00, ToplamTutar = 17400.00, GibDurumKodu = "0000", GibGonderimDurumu = "Basarili" },
+            new() { Id = 3, FisTipi = "Konsinye Cikis", Tarih = DateTime.Today, FisNo = "IRS202600003", CariKodu = "C004", Unvani = "MNO Lojistik A.S.", Tutar = 3500.00, ToplamIndirim = 0, KdvMatrahi = 3500.00, KdvTutari = 700.00, ToplamTutar = 4200.00, GibDurumKodu = "", GibGonderimDurumu = "" }
+        };
+    }
+
+    private List<EIrsaliyeSatirItem> GetPlaceholderSatirlar()
+    {
+        return new List<EIrsaliyeSatirItem>
+        {
+            new() { StokKodu = "STK001", StokCinsi = "Celik Profil HEA 200", Barkod = "8690001001", Miktar = 50, Birim = "AD", Fiyat = 120.00, KdvOrani = "%20", KdvMatrahi = 6000.00, KdvTutari = 1200.00, NetTutar = 7200.00 },
+            new() { StokKodu = "STK002", StokCinsi = "Civata M12x50", Barkod = "8690001002", Miktar = 500, Birim = "AD", Fiyat = 4.00, KdvOrani = "%20", KdvMatrahi = 2000.00, KdvTutari = 400.00, NetTutar = 2400.00 }
+        };
+    }
+
+    public class EIrsaliyeItem
+    {
+        public int Id { get; set; }
+        public string FisTipi { get; set; } = "";
+        public DateTime? Tarih { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public string CariKodu { get; set; } = "";
+        public string Unvani { get; set; } = "";
+        public double? Tutar { get; set; }
+        public double? ToplamIndirim { get; set; }
+        public double? KdvMatrahi { get; set; }
+        public double? KdvTutari { get; set; }
+        public double? ToplamTutar { get; set; }
+        public string GibDurumKodu { get; set; } = "";
+        public string GibGonderimDurumu { get; set; } = "";
+        public string Guid { get; set; } = "";
+    }
+
+    public class EIrsaliyeSatirItem
+    {
+        public string StokKodu { get; set; } = "";
+        public string StokCinsi { get; set; } = "";
+        public string Barkod { get; set; } = "";
+        public double Miktar { get; set; }
+        public string Birim { get; set; } = "";
+        public double Fiyat { get; set; }
+        public string KdvOrani { get; set; } = "";
+        public double KdvMatrahi { get; set; }
+        public double KdvTutari { get; set; }
+        public double NetTutar { get; set; }
+    }
+}

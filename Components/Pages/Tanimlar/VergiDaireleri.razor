@@ -1,0 +1,111 @@
+@page "/tanimlar/vergidaireleri"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Vergi Daireleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-landmark"></i> Vergi Daireleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="form-control" placeholder="Ara..." @bind="searchText" @bind:event="oninput" style="max-width:250px;" />
+            <button class="btn btn-secondary btn-sm" @onclick="Refresh">
+                <i class="fa fa-sync"></i> Yenile
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Il</th>
+                        <th>Vergi Dairesi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => SelectItem(item)">
+                                <td>@item.Sehir</td>
+                                <td>@item.VergiDairesi</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="btn btn-primary btn-sm" @onclick="() => SelectItem(selectedItem)">
+                <i class="fa fa-check"></i> Sec
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.BlockBiss.VergiDaireleri> list = new();
+    private MACHINEBISS_Web.Models.BlockBiss.VergiDaireleri? selectedItem;
+    private string searchText = "";
+    private string? errorMessage;
+
+    private IEnumerable<MACHINEBISS_Web.Models.BlockBiss.VergiDaireleri> filteredList =>
+        string.IsNullOrWhiteSpace(searchText) ? list :
+        list.Where(x => (x.VergiDairesi ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                        (x.Sehir ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await NetworkFactory.CreateDbContextAsync();
+            list = await ctx.VergiDaireleri.OrderBy(x => x.Sehir).ThenBy(x => x.VergiDairesi).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private void SelectItem(MACHINEBISS_Web.Models.BlockBiss.VergiDaireleri? item)
+    {
+        if (item == null) return;
+        // Return selected VdKodu and VergiDairesi to calling page
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

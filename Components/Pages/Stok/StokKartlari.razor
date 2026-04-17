@@ -1,0 +1,212 @@
+﻿@page "/stok/kartlar"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Stok / Malzeme Kartlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-cubes"></i> Stok / Malzeme Kartlari
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Ekle
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal">
+                <i class="fa fa-trash"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="SatisHareketleri">
+                <i class="fa fa-arrow-up"></i> Satis Hareketleri
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="AlisHareketleri">
+                <i class="fa fa-arrow-down"></i> Alis Hareketleri
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Stok Kodu, Stok Cinsi, Barkod..."
+                       @bind="searchText" @bind:event="oninput" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 260px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Stok Kodu</th>
+                        <th>Barkod</th>
+                        <th>Stok Cinsi</th>
+                        <th>Aciklama</th>
+                        <th>Birim</th>
+                        <th>Kdv %</th>
+                        <th>Doviz Cinsi</th>
+                        <th style="text-align:right;">KDV Haric Satis Fiyati</th>
+                        <th>Urun Grubu</th>
+                        <th>Ozel Kod 1</th>
+                        <th>Ozel Kod 2</th>
+                        <th>Ozel Kod 3</th>
+                        <th>Ozel Kod 4</th>
+                        <th>Ozel Kod 5</th>
+                        <th>Tevkifat Kodu</th>
+                        <th>Tevkifat Carpan</th>
+                        <th>Tevkifat Bolen</th>
+                        <th>Minimum Seviye</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.StokKodu</td>
+                                <td>@item.Barkod</td>
+                                <td>@item.StokCinsi</td>
+                                <td>@item.Aciklama</td>
+                                <td>@item.Birim</td>
+                                <td>@item.Kdv</td>
+                                <td>@item.DovizCinsi</td>
+                                <td style="text-align:right;">@item.KdvHaricSatisFiyati.ToString("N2")</td>
+                                <td>@item.UrunGrubu</td>
+                                <td>@item.OzelKod1</td>
+                                <td>@item.OzelKod2</td>
+                                <td>@item.OzelKod3</td>
+                                <td>@item.OzelKod4</td>
+                                <td>@item.OzelKod5</td>
+                                <td>@item.TevkifatKodu</td>
+                                <td>@item.TevkifatCarpan</td>
+                                <td>@item.TevkifatBolen</td>
+                                <td>@item.MinimumSeviye</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @(filteredList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<StokKartlariViewDto> stokList = new();
+    private List<StokKartlariViewDto> filteredList = new();
+    private StokKartlariViewDto selectedItem;
+    private string searchText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.StokKart.AsNoTracking()
+                .Where(s => !s.KullanimDisi)
+                .OrderBy(s => s.StokKodu)
+                .Take(1000)
+                .ToListAsync();
+            stokList = dbList.Select(s => new StokKartlariViewDto
+            {
+                Id = s.Id, Barkod = s.Barkod, StokKodu = s.StokKodu, StokCinsi = s.StokCinsi,
+                Aciklama = s.Aciklama, Birim = s.Birim, Kdv = s.Kdv,
+                DovizKodu = s.DovizKodu, KdvHaricSatisFiyati = s.KdvHaricSatisFiyati,
+                UrunGrubu = s.UrunGrubu,
+                OzelKod1 = s.OzelKod1, OzelKod2 = s.OzelKod2, OzelKod3 = s.OzelKod3,
+                OzelKod4 = s.OzelKod4, OzelKod5 = s.OzelKod5,
+                TevkifatId = s.TevkifatId, TevkifatKodu = s.TevkifatKodu,
+                TevkifatCarpan = s.TevkifatCarpan, TevkifatBolen = s.TevkifatBolen,
+                MinimumSeviye = s.MinimumSeviye, KullanimDisi = s.KullanimDisi
+            }).ToList();
+            filteredList = stokList;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"StokKartlari DB hatasi: {ex.Message}");
+            stokList = new List<StokKartlariViewDto>();
+            filteredList = stokList;
+        }
+    }
+
+    private string _lastSearch = "";
+    protected override void OnParametersSet()
+    {
+        if (searchText != _lastSearch)
+        {
+            _lastSearch = searchText;
+            FilterList();
+        }
+    }
+
+    private void FilterList()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            filteredList = stokList;
+        else
+            filteredList = stokList.Where(s =>
+                (s.StokKodu ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (s.StokCinsi ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (s.Barkod ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+    }
+
+    private void SelectItem(StokKartlariViewDto item) => selectedItem = item;
+
+    private void OnDoubleClick(StokKartlariViewDto item)
+    {
+        Nav.NavigateTo($"/stok/kart/{item.Id}");
+    }
+
+    private void Ekle() { Nav.NavigateTo("/stok/kart"); }
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+    private void Iptal() { /* TODO: Delete selected via API */ }
+    private void SatisHareketleri() { if (selectedItem != null) Nav.NavigateTo($"/stok/hareketler/{selectedItem.Id}/satis"); }
+    private void AlisHareketleri() { if (selectedItem != null) Nav.NavigateTo($"/stok/hareketler/{selectedItem.Id}/alis"); }
+    private void Yazdir() { /* TODO: Print functionality */ }
+
+    public class StokKartlariViewDto
+    {
+        public int Id { get; set; }
+        public string Barkod { get; set; }
+        public string StokKodu { get; set; }
+        public string StokCinsi { get; set; }
+        public string Aciklama { get; set; }
+        public string Birim { get; set; }
+        public decimal Kdv { get; set; }
+        public string DovizKodu { get; set; }
+        public string DovizCinsi { get; set; }
+        public decimal KdvHaricSatisFiyati { get; set; }
+        public string UrunGrubu { get; set; }
+        public string OzelKod1 { get; set; }
+        public string OzelKod2 { get; set; }
+        public string OzelKod3 { get; set; }
+        public string OzelKod4 { get; set; }
+        public string OzelKod5 { get; set; }
+        public short? TevkifatId { get; set; }
+        public string TevkifatKodu { get; set; }
+        public decimal? TevkifatCarpan { get; set; }
+        public decimal? TevkifatBolen { get; set; }
+        public decimal? MinimumSeviye { get; set; }
+        public bool KullanimDisi { get; set; }
+    }
+}

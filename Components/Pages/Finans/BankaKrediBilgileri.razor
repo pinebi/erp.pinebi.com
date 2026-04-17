@@ -1,0 +1,212 @@
+﻿@page "/finans/bankakredileri"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Banka Kredisi Bilgileri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-landmark"></i> Banka Kredisi Bilgileri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Ekle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="IptalEt" style="color:#dc2626;">
+                <i class="fa fa-trash"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="async () => await Yenile()">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 240px); overflow:auto;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:180px;">Banka Adi</th>
+                        <th style="width:120px;">Kredi Turu</th>
+                        <th style="width:100px;">Baslangic Tarihi</th>
+                        <th style="width:100px;">Bitis Tarihi</th>
+                        <th style="width:60px;">Taksit Sayisi</th>
+                        <th style="width:80px;">Faiz Orani</th>
+                        <th style="width:120px; text-align:right;">Kredi Tutari</th>
+                        <th style="width:120px; text-align:right;">Kredi Faiz Tutari</th>
+                        <th style="width:130px; text-align:right;">Geri Odenecek Tutar</th>
+                        <th style="width:130px; text-align:right;">Aylik Odeme Tutari</th>
+                        <th style="width:200px;">Aciklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (krediBilgileri != null)
+                    {
+                        @foreach (var item in krediBilgileri)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => RowDoubleClick(item)">
+                                <td>@item.BankaAdi</td>
+                                <td>@item.KrediTuru</td>
+                                <td>@item.BaslangicTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.BitisTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td style="text-align:center;">@item.TaksitSayisi</td>
+                                <td style="text-align:right;">@item.FaizOrani</td>
+                                <td style="text-align:right;">@item.KrediTutari.ToString("N2")</td>
+                                <td style="text-align:right;">@item.KrediFaizTutari.ToString("N2")</td>
+                                <td style="text-align:right;">@item.GeriOdenecekTutar.ToString("N2")</td>
+                                <td style="text-align:right;">@item.AylikOdemeTutari.ToString("N2")</td>
+                                <td>@item.Aciklama</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                        <td colspan="6" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamKrediTutari.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamFaizTutari.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamGeriOdeme.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamAylikOdeme.ToString("N2")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Bottom Panel -->
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 0; justify-content:flex-end;">
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Iptal Onay Modal -->
+@if (showIptalModal)
+{
+    <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:400px;">
+            <div class="card-header" style="background:#dc2626;">
+                <i class="fa fa-exclamation-triangle"></i> UYARI
+            </div>
+            <div class="card-body" style="text-align:center; padding:20px;">
+                <p style="font-weight:600;">KAYIT IPTAL EDILECEK! EMIN MISINIZ?</p>
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                    <button class="btn btn-danger" @onclick="IptalOnayla">Evet</button>
+                    <button class="btn btn-outline" @onclick="() => showIptalModal = false">Hayir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BankaKrediItem> krediBilgileri = new();
+    private BankaKrediItem? selectedItem;
+    private bool showIptalModal = false;
+
+    private decimal toplamKrediTutari => krediBilgileri.Sum(x => x.KrediTutari);
+    private decimal toplamFaizTutari => krediBilgileri.Sum(x => x.KrediFaizTutari);
+    private decimal toplamGeriOdeme => krediBilgileri.Sum(x => x.GeriOdenecekTutar);
+    private decimal toplamAylikOdeme => krediBilgileri.Sum(x => x.AylikOdemeTutari);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.BankaKrediBilgileri.AsNoTracking()
+                .Where(k => k.Iptal == null || k.Iptal != true)
+                .OrderByDescending(k => k.Tarih)
+                .Take(500)
+                .ToListAsync();
+            krediBilgileri = dbList.Select(k => new BankaKrediItem
+            {
+                Id = k.Id,
+                BankaAdi = k.BankaAdi,
+                KrediTuru = k.KrediTuru,
+                BaslangicTarihi = k.Tarih,
+                BitisTarihi = k.IlkOdemeTarihi,
+                TaksitSayisi = k.KrediVadesi ?? 0,
+                KrediTutari = (decimal)(k.KrediTutari ?? 0),
+                KrediFaizTutari = (decimal)(k.KrediFaizTutari ?? 0),
+                GeriOdenecekTutar = (decimal)(k.GeriOdenecekTutar ?? 0),
+                AylikOdemeTutari = (decimal)(k.AylikOdemeTutari ?? 0),
+                Iptal = k.Iptal ?? false
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"BankaKrediBilgileri DB hatasi: {ex.Message}");
+            krediBilgileri = new List<BankaKrediItem>();
+        }
+    }
+
+    private void Ekle()
+    {
+        Nav.NavigateTo("/finans/bankakredileri?islem=yeni");
+    }
+
+    private void Duzenle()
+    {
+        if (selectedItem != null)
+            RowDoubleClick(selectedItem);
+    }
+
+    private void RowDoubleClick(BankaKrediItem item)
+    {
+        Nav.NavigateTo($"/finans/bankakredileri?islem=duzenle&id={item.Id}");
+    }
+
+    private void IptalEt()
+    {
+        if (selectedItem == null) return;
+        showIptalModal = true;
+    }
+
+    private async void IptalOnayla()
+    {
+        // TODO: Call API to cancel selected item (set Iptal=1)
+        showIptalModal = false;
+        await Yenile();
+        StateHasChanged();
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Export/print grid
+    }
+
+    private class BankaKrediItem
+    {
+        public int Id { get; set; }
+        public string? BankaAdi { get; set; }
+        public string? KrediTuru { get; set; }
+        public DateTime? BaslangicTarihi { get; set; }
+        public DateTime? BitisTarihi { get; set; }
+        public int TaksitSayisi { get; set; }
+        public string? FaizOrani { get; set; }
+        public decimal KrediTutari { get; set; }
+        public decimal KrediFaizTutari { get; set; }
+        public decimal GeriOdenecekTutar { get; set; }
+        public decimal AylikOdemeTutari { get; set; }
+        public string? Aciklama { get; set; }
+        public bool? Iptal { get; set; }
+    }
+}

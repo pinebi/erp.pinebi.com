@@ -1,0 +1,249 @@
+﻿@page "/tanimlar/ozelkodlar"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Ozel Kodlar</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-tags"></i> Ozel Kodlar
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="form-inline">
+                <label>Kod Tipi:</label>
+                <select class="form-control" @bind="selectedKod" @bind:after="LoadList" style="max-width:200px;">
+                    <option value="1">Ozel Kod 1</option>
+                    <option value="2">Ozel Kod 2</option>
+                    <option value="3">Ozel Kod 3</option>
+                    <option value="4">Ozel Kod 4</option>
+                    <option value="5">Ozel Kod 5</option>
+                </select>
+            </div>
+            <button class="btn btn-success btn-sm" @onclick="AddNew">
+                <i class="fa fa-plus"></i> Ekle
+            </button>
+            <button class="btn btn-warning btn-sm" @onclick="EditSelected">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="DeleteSelected">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="btn btn-primary btn-sm" @onclick="SelectAndReturn">
+                    <i class="fa fa-check"></i> Sec
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="Close">
+                    <i class="fa fa-times"></i> Kapat
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Ozel Kod</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (list != null)
+                    {
+                        @foreach (var item in list)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => SelectAndReturn()">
+                                <td>@item.OzelKod</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:space-between; margin-top:10px;">
+            <span style="font-size:12px; color:var(--pinebi-text-light);">
+                Toplam: @(list?.Count ?? 0) kayit
+            </span>
+        </div>
+    </div>
+</div>
+
+@* Add/Edit Modal *@
+@if (showModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-box" style="min-width:400px;">
+            <div class="modal-header">
+                <span><i class="fa fa-tag"></i> @(editId == 0 ? "Yeni Ozel Kod Ekle" : "Ozel Kod Duzenle")</span>
+                <button class="modal-close" @onclick="() => showModal = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Ozel Kod</label>
+                    <input type="text" class="form-control" @bind="editOzelKod" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" @onclick="SaveModal">
+                    <i class="fa fa-save"></i> Kaydet
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="() => showModal = false">Iptal</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Delete Confirm Modal *@
+@if (showConfirmDelete)
+{
+    <div class="modal-overlay">
+        <div class="modal-box" style="min-width:350px;">
+            <div class="modal-header">
+                <span><i class="fa fa-exclamation-triangle"></i> Uyari</span>
+                <button class="modal-close" @onclick="() => showConfirmDelete = false">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Kayit silinecek! Onayliyor musunuz?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-sm" @onclick="ConfirmDelete">Evet, Sil</button>
+                <button class="btn btn-outline btn-sm" @onclick="() => showConfirmDelete = false">Hayir</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MACHINEBISS_Web.Models.MachineBiss.OzelKodlar> list = new();
+    private MACHINEBISS_Web.Models.MachineBiss.OzelKodlar? selectedItem;
+    private int selectedKod = 1;
+    private bool showModal = false;
+    private bool showConfirmDelete = false;
+    private int editId = 0;
+    private string editOzelKod = "";
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadList();
+    }
+
+    private async Task LoadList()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            list = await ctx.OzelKodlar
+                .Where(x => x.Kod == selectedKod)
+                .OrderBy(x => x.OzelKod)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private void AddNew()
+    {
+        editId = 0;
+        editOzelKod = "";
+        showModal = true;
+    }
+
+    private void EditSelected()
+    {
+        if (selectedItem == null) return;
+        editId = selectedItem.Id;
+        editOzelKod = selectedItem.OzelKod ?? "";
+        showModal = true;
+    }
+
+    private async Task SaveModal()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            if (editId == 0)
+            {
+                var newItem = new MACHINEBISS_Web.Models.MachineBiss.OzelKodlar
+                {
+                    Kod = selectedKod,
+                    OzelKod = editOzelKod
+                };
+                ctx.OzelKodlar.Add(newItem);
+            }
+            else
+            {
+                var existing = await ctx.OzelKodlar.FindAsync(editId);
+                if (existing != null)
+                {
+                    existing.OzelKod = editOzelKod;
+                    ctx.OzelKodlar.Update(existing);
+                }
+            }
+            await ctx.SaveChangesAsync();
+            showModal = false;
+            await LoadList();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Kaydetme hatasi: " + ex.Message;
+        }
+    }
+
+    private void DeleteSelected()
+    {
+        if (selectedItem == null) return;
+        showConfirmDelete = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (selectedItem != null)
+        {
+            try
+            {
+                errorMessage = null;
+                using var ctx = await FirmaFactory.CreateDbContextAsync();
+                var entity = await ctx.OzelKodlar.FindAsync(selectedItem.Id);
+                if (entity != null)
+                {
+                    ctx.OzelKodlar.Remove(entity);
+                    await ctx.SaveChangesAsync();
+                }
+                selectedItem = null;
+                await LoadList();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Silme hatasi: " + ex.Message;
+            }
+        }
+        showConfirmDelete = false;
+    }
+
+    private void SelectAndReturn()
+    {
+        if (selectedItem == null) return;
+        // Return selected OzelKod to calling page
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

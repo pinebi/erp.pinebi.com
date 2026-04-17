@@ -1,0 +1,177 @@
+﻿@page "/pine/tanimlar/birimler"
+@inject HttpClient Http
+
+<PageTitle>Birim Tanimlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-balance-scale"></i> Birim Tanimlari
+    </div>
+    <div class="card-body" style="padding:8px 14px;">
+        <!-- Toolbar -->
+        <div class="toolbar" style="margin-bottom:6px;">
+            <button class="btn btn-success btn-sm" @onclick="Ekle" title="Yeni Birim [F3]">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(!editMode)" title="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal" disabled="@(!editMode)" title="Iptal">
+                <i class="fa fa-times"></i> Iptal
+            </button>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-outline btn-sm" @onclick="LoadDataAsync" title="Listeyi Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+        </div>
+
+        <div style="display:flex; gap:16px;">
+            <!-- Grid -->
+            <div style="flex:2;">
+                <div class="grid-container">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th>Birim Kodu</th>
+                                <th>Birim Ismi</th>
+                                <th>Aciklama</th>
+                                <th>Carpan</th>
+                                <th>Aktif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (liste != null)
+                            {
+                                @foreach (var item in liste)
+                                {
+                                    <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                        @onclick="() => SelectItem(item)">
+                                        <td>@item.BirKod</td>
+                                        <td>@item.BirIsim</td>
+                                        <td>@item.BirAciklama</td>
+                                        <td>@item.BirCarpanAna</td>
+                                        <td>@(item.BirAktif ? "Evet" : "Hayir")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+                    Toplam: @(liste?.Count ?? 0) kayit
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div style="flex:1; min-width:300px;">
+                <div class="group-box">
+                    <span class="group-box-title">@(isNew ? "Yeni Birim" : "Birim Duzenle")</span>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Kod</label>
+                            <input type="text" class="form-control" @bind="formModel.BirKod" disabled="@(!editMode)" style="max-width:120px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Isim</label>
+                            <input type="text" class="form-control" @bind="formModel.BirIsim" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Aciklama</label>
+                            <input type="text" class="form-control" @bind="formModel.BirAciklama" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Carpan</label>
+                            <input type="number" class="form-control" @bind="formModel.BirCarpanAna" disabled="@(!editMode)" style="max-width:120px;" />
+                        </div>
+                        <div class="form-check" style="margin-left:10px;">
+                            <input type="checkbox" @bind="formModel.BirAktif" disabled="@(!editMode)" />
+                            <label>Aktif</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BirimDto>? liste;
+    private int selectedId;
+    private bool editMode = false, isNew = false;
+    private BirimDto formModel = new();
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<BirimDto>>>("/api/tanimlar/birimler");
+            liste = resp?.Data ?? new();
+        }
+        catch { liste = new(); }
+    }
+
+    private void SelectItem(BirimDto item)
+    {
+        selectedId = item.Id;
+        formModel = new BirimDto
+        {
+            Id = item.Id, BirKod = item.BirKod, BirIsim = item.BirIsim,
+            BirAciklama = item.BirAciklama, BirCarpanAna = item.BirCarpanAna, BirAktif = item.BirAktif
+        };
+        editMode = true;
+        isNew = false;
+    }
+
+    private void Ekle()
+    {
+        selectedId = 0;
+        formModel = new BirimDto { BirAktif = true };
+        editMode = true;
+        isNew = true;
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            if (isNew)
+                await Http.PostAsJsonAsync("/api/tanimlar/birim", formModel);
+            else
+                await Http.PutAsJsonAsync($"/api/tanimlar/birim/{formModel.Id}", formModel);
+
+            editMode = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex) { Console.WriteLine($"Kaydetme hatasi: {ex.Message}"); }
+    }
+
+    private void Iptal()
+    {
+        editMode = false;
+        formModel = new();
+    }
+
+    public class BirimDto
+    {
+        public int Id { get; set; }
+        public string? BirKod { get; set; }
+        public string? BirIsim { get; set; }
+        public string? BirAciklama { get; set; }
+        public decimal? BirCarpanAna { get; set; }
+        public bool BirAktif { get; set; }
+    }
+
+    public class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+}

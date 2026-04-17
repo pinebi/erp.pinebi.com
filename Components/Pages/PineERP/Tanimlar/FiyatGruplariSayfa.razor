@@ -1,0 +1,198 @@
+﻿@page "/pine/tanimlar/fiyatgruplari"
+@inject HttpClient Http
+
+<PageTitle>Fiyat Gruplari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-tags"></i> Fiyat Gruplari
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(!editMode)">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Iptal" disabled="@(!editMode)">
+                <i class="fa fa-times"></i> Iptal
+            </button>
+        </div>
+
+        <div style="display:flex; gap:16px;">
+            <!-- Grid -->
+            <div style="flex:2;">
+                <div class="grid-container" style="max-height:calc(100vh - 280px);">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th>Grup No</th>
+                                <th>Isim</th>
+                                <th>Aciklama</th>
+                                <th>Varsayilan Iskonto</th>
+                                <th>Doviz</th>
+                                <th>KDV Dahil</th>
+                                <th>Oncelik</th>
+                                <th>Aktif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (liste != null)
+                            {
+                                @foreach (var item in liste)
+                                {
+                                    <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                        @onclick="() => SelectItem(item)">
+                                        <td>@item.FgrGrupNo</td>
+                                        <td>@item.FgrIsim</td>
+                                        <td>@item.FgrAciklama</td>
+                                        <td>@item.FgrVarsayilanIskonto?.ToString("N2")</td>
+                                        <td>@item.FgrVarsayilanDoviz</td>
+                                        <td>@(item.FgrKdvDahil ? "Evet" : "Hayir")</td>
+                                        <td>@item.FgrOncelikSirasi</td>
+                                        <td>@(item.FgrAktif ? "Evet" : "Hayir")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+                    Toplam: @(liste?.Count ?? 0) kayit
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div style="flex:1; min-width:300px;">
+                <div class="group-box">
+                    <span class="group-box-title">@(isNew ? "Yeni Fiyat Grubu" : "Fiyat Grubu Duzenle")</span>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Grup No</label>
+                            <input type="number" class="form-control" @bind="formModel.FgrGrupNo" disabled="@(!editMode)" style="max-width:100px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Isim</label>
+                            <input type="text" class="form-control" @bind="formModel.FgrIsim" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Aciklama</label>
+                            <input type="text" class="form-control" @bind="formModel.FgrAciklama" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Iskonto %</label>
+                            <input type="number" step="0.01" class="form-control" @bind="formModel.FgrVarsayilanIskonto" disabled="@(!editMode)" style="max-width:100px;" />
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:auto;">Doviz</label>
+                            <input type="text" class="form-control" @bind="formModel.FgrVarsayilanDoviz" disabled="@(!editMode)" style="max-width:60px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Oncelik</label>
+                            <input type="number" class="form-control" @bind="formModel.FgrOncelikSirasi" disabled="@(!editMode)" style="max-width:80px;" />
+                        </div>
+                        <div class="form-check" style="margin-left:10px;">
+                            <input type="checkbox" @bind="formModel.FgrKdvDahil" disabled="@(!editMode)" />
+                            <label>KDV Dahil</label>
+                        </div>
+                        <div class="form-check" style="margin-left:10px;">
+                            <input type="checkbox" @bind="formModel.FgrAktif" disabled="@(!editMode)" />
+                            <label>Aktif</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FiyatGrubuDto>? liste;
+    private int selectedId;
+    private bool editMode = false, isNew = false;
+    private FiyatGrubuDto formModel = new();
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<FiyatGrubuDto>>>("/api/tanimlar/fiyatgruplari");
+            liste = resp?.Data ?? new();
+        }
+        catch { liste = new(); }
+    }
+
+    private void SelectItem(FiyatGrubuDto item)
+    {
+        selectedId = item.Id;
+        formModel = new FiyatGrubuDto
+        {
+            Id = item.Id, FgrGrupNo = item.FgrGrupNo, FgrIsim = item.FgrIsim,
+            FgrAciklama = item.FgrAciklama, FgrVarsayilanIskonto = item.FgrVarsayilanIskonto,
+            FgrVarsayilanDoviz = item.FgrVarsayilanDoviz, FgrKdvDahil = item.FgrKdvDahil,
+            FgrOncelikSirasi = item.FgrOncelikSirasi, FgrAktif = item.FgrAktif
+        };
+        editMode = true;
+        isNew = false;
+    }
+
+    private void Ekle()
+    {
+        selectedId = 0;
+        formModel = new FiyatGrubuDto { FgrAktif = true };
+        editMode = true;
+        isNew = true;
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            if (isNew)
+                await Http.PostAsJsonAsync("/api/tanimlar/fiyatgrubu", formModel);
+            else
+                await Http.PutAsJsonAsync($"/api/tanimlar/fiyatgrubu/{formModel.Id}", formModel);
+
+            editMode = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex) { Console.WriteLine($"Kaydetme hatasi: {ex.Message}"); }
+    }
+
+    private void Iptal()
+    {
+        editMode = false;
+        formModel = new();
+    }
+
+    public class FiyatGrubuDto
+    {
+        public int Id { get; set; }
+        public int FgrGrupNo { get; set; }
+        public string? FgrIsim { get; set; }
+        public string? FgrAciklama { get; set; }
+        public decimal? FgrVarsayilanIskonto { get; set; }
+        public string? FgrVarsayilanDoviz { get; set; }
+        public bool FgrKdvDahil { get; set; }
+        public int? FgrOncelikSirasi { get; set; }
+        public bool FgrAktif { get; set; }
+    }
+
+    public class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+}

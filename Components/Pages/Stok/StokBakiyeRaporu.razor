@@ -1,0 +1,101 @@
+﻿@page "/stok/bakiye"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Stok Bakiye Raporu</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-bar-chart"></i> Stok Bakiye Raporu
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Barkod</th>
+                        <th>Stok Kodu</th>
+                        <th>Stok Adi</th>
+                        <th>Birim</th>
+                        <th>Ozel Kod 1</th>
+                        <th>Ozel Kod 2</th>
+                        <th>Ozel Kod 3</th>
+                        <th>Ozel Kod 4</th>
+                        <th>Ozel Kod 5</th>
+                        <th style="text-align:right;">Giren Miktar</th>
+                        <th style="text-align:right;">Cikan Miktar</th>
+                        <th style="text-align:right;">Stok Bakiyesi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (bakiyeList != null)
+                    {
+                        @foreach (var item in bakiyeList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => selectedItem = item">
+                                <td>@item.Barkod</td>
+                                <td>@item.StokKodu</td>
+                                <td>@item.StokAdi</td>
+                                <td>@item.Birim</td>
+                                <td>@item.OzelKod1</td>
+                                <td>@item.OzelKod2</td>
+                                <td>@item.OzelKod3</td>
+                                <td>@item.OzelKod4</td>
+                                <td>@item.OzelKod5</td>
+                                <td style="text-align:right;">@(item.GirenMiktar?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.CikanMiktar?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.StokBakiyesi?.ToString("N2") ?? "0,00")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>@DateTime.Now.ToString("dd.MM.yyyy") Tarih Itibariyle Stok Bakiye Raporu</span>
+            <span>Toplam: @(bakiyeList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<StokBakiyeDto> bakiyeList = new();
+    private StokBakiyeDto selectedItem;
+
+    protected override void OnInitialized()
+    {
+        // TODO: Load data from API
+    }
+
+    private async void Yazdir() { await JS.InvokeVoidAsync("window.print"); }
+
+    public class StokBakiyeDto
+    {
+        public int Id { get; set; }
+        public string Barkod { get; set; }
+        public string StokKodu { get; set; }
+        public string StokAdi { get; set; }
+        public string Birim { get; set; }
+        public string OzelKod1 { get; set; }
+        public string OzelKod2 { get; set; }
+        public string OzelKod3 { get; set; }
+        public string OzelKod4 { get; set; }
+        public string OzelKod5 { get; set; }
+        public double? GirenMiktar { get; set; }
+        public double? CikanMiktar { get; set; }
+        public double? StokBakiyesi { get; set; }
+    }
+}

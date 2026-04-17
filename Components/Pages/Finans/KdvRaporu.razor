@@ -1,0 +1,353 @@
+﻿@page "/finans/kdvraporu"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>KDV Raporu</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-percentage"></i> KDV Raporu
+    </div>
+    <div class="card-body">
+        <div style="display:flex; gap:12px;">
+            <!-- Left Panel - Month Buttons -->
+            <div style="min-width:110px;">
+                <div class="group-box" style="padding:8px;">
+                    <span class="group-box-title">Yil</span>
+                    <div style="margin-top:6px;">
+                        <select class="form-control" @bind="selectedYil" style="text-align:center; font-weight:600; font-size:13px;">
+                            @for (int i = 0; i < 3; i++)
+                            {
+                                var yil = DateTime.Now.Year - i;
+                                <option value="@yil">@yil</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; margin-top:10px;">
+                        @foreach (var ay in aylar)
+                        {
+                            <button class="btn btn-sm @(selectedAy == ay.Key ? "btn-primary" : "btn-outline")"
+                                    style="width:100%; justify-content:center; @(currentMonth == ay.Key ? "font-weight:700; color:darkred;" : "")"
+                                    @onclick="() => AySecildi(ay.Key)">
+                                @ay.Value
+                            </button>
+                        }
+                        <hr style="margin:4px 0; border-color:#e5e7eb;" />
+                        <button class="btn btn-sm @(selectedAy == 0 ? "btn-primary" : "btn-outline")"
+                                style="width:100%; justify-content:center; font-weight:700;"
+                                @onclick="TumYil">
+                            Tum Yil
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Grids -->
+            <div style="flex:1; display:flex; flex-direction:column; gap:12px;">
+                <!-- Two grids side by side -->
+                <div style="display:flex; gap:12px; flex:1;">
+                    <!-- Alis Faturalari Grid -->
+                    <div style="flex:1; display:flex; flex-direction:column;">
+                        <div style="background:var(--pinebi-primary); color:white; padding:6px 10px; font-weight:600; font-size:12px; border-radius:4px 4px 0 0;">
+                            @alisCaption
+                        </div>
+                        <!-- Filter Row -->
+                        <div style="display:flex; gap:4px; background:#f9fafb; padding:4px; border:1px solid var(--pinebi-border); border-top:none;">
+                            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterAlisUnvan" @bind:event="oninput" style="flex:1; padding:3px 6px; font-size:11px;" />
+                        </div>
+                        <div class="grid-container" style="max-height:calc(100vh - 340px); overflow:auto; flex:1;">
+                            <table class="data-grid">
+                                <thead>
+                                    <tr>
+                                        <th style="width:80px;">Fatura Turu</th>
+                                        <th style="width:80px;">Tarih</th>
+                                        <th style="width:80px;">Fis No</th>
+                                        <th style="width:80px;">Cari Kodu</th>
+                                        <th style="width:160px;">Unvani</th>
+                                        <th style="width:100px; text-align:right;">TL Tutar</th>
+                                        <th style="width:100px; text-align:right;">TL Top. Indirim</th>
+                                        <th style="width:100px; text-align:right;">TL KDV Matrahi</th>
+                                        <th style="width:100px; text-align:right;">TL KDV Tutari</th>
+                                        <th style="width:100px; text-align:right;">TL Toplam Tutar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (alisListesi != null)
+                                    {
+                                        @foreach (var item in filteredAlisListesi)
+                                        {
+                                            <tr>
+                                                <td>@item.FaturaTuru</td>
+                                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                                <td>@item.FisNo</td>
+                                                <td>@item.CariKodu</td>
+                                                <td>@item.Unvani</td>
+                                                <td style="text-align:right;">@item.TLTutar.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLToplamIndirim.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLKdvMatrahi.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLKdvTutari.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLToplamTutar.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                                        <td colspan="5" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                                        <td style="text-align:right; padding:6px 8px;">@alisToplamTutar.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@alisToplamIndirim.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@alisToplamKdvMatrahi.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@alisToplamKdvTutari.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@alisToplamGenelTutar.ToString("N2")</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Satis Faturalari Grid -->
+                    <div style="flex:1; display:flex; flex-direction:column;">
+                        <div style="background:var(--pinebi-primary); color:white; padding:6px 10px; font-weight:600; font-size:12px; border-radius:4px 4px 0 0;">
+                            @satisCaption
+                        </div>
+                        <!-- Filter Row -->
+                        <div style="display:flex; gap:4px; background:#f9fafb; padding:4px; border:1px solid var(--pinebi-border); border-top:none;">
+                            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterSatisUnvan" @bind:event="oninput" style="flex:1; padding:3px 6px; font-size:11px;" />
+                        </div>
+                        <div class="grid-container" style="max-height:calc(100vh - 340px); overflow:auto; flex:1;">
+                            <table class="data-grid">
+                                <thead>
+                                    <tr>
+                                        <th style="width:80px;">Fatura Turu</th>
+                                        <th style="width:80px;">Tarih</th>
+                                        <th style="width:80px;">Fis No</th>
+                                        <th style="width:80px;">Cari Kodu</th>
+                                        <th style="width:160px;">Unvani</th>
+                                        <th style="width:100px; text-align:right;">TL Tutar</th>
+                                        <th style="width:100px; text-align:right;">TL Top. Indirim</th>
+                                        <th style="width:100px; text-align:right;">TL KDV Matrahi</th>
+                                        <th style="width:100px; text-align:right;">TL KDV Tutari</th>
+                                        <th style="width:100px; text-align:right;">TL Toplam Tutar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (satisListesi != null)
+                                    {
+                                        @foreach (var item in filteredSatisListesi)
+                                        {
+                                            <tr>
+                                                <td>@item.FaturaTuru</td>
+                                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                                <td>@item.FisNo</td>
+                                                <td>@item.CariKodu</td>
+                                                <td>@item.Unvani</td>
+                                                <td style="text-align:right;">@item.TLTutar.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLToplamIndirim.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLKdvMatrahi.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLKdvTutari.ToString("N2")</td>
+                                                <td style="text-align:right;">@item.TLToplamTutar.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                                        <td colspan="5" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                                        <td style="text-align:right; padding:6px 8px;">@satisToplamTutar.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@satisToplamIndirim.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@satisToplamKdvMatrahi.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@satisToplamKdvTutari.ToString("N2")</td>
+                                        <td style="text-align:right; padding:6px 8px;">@satisToplamGenelTutar.ToString("N2")</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KDV Summary Label -->
+                <div style="text-align:right; padding:8px 0;">
+                    <span style="font-size:15px; font-weight:700; color:maroon;">
+                        Toplam Odenecek KDV Tutari : @odenecekKdv.ToString("N2")
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Panel -->
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 0; flex-wrap:wrap; border-top:1px solid var(--pinebi-border); margin-top:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarih" style="width:140px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarih" style="width:140px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="async () => await YenileAsync()">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> [F4] Yazdir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int selectedYil = DateTime.Now.Year;
+    private int selectedAy = DateTime.Now.Month;
+    private int currentMonth = DateTime.Now.Month;
+
+    private DateTime baslangicTarih = new DateTime(DateTime.Now.Year, 1, 1);
+    private DateTime bitisTarih = DateTime.Today;
+
+    private string filterAlisUnvan = "";
+    private string filterSatisUnvan = "";
+
+    private string alisCaption => $"{baslangicTarih:dd.MM.yyyy} - {bitisTarih:dd.MM.yyyy} Tarihleri Arasi Alis Faturalari";
+    private string satisCaption => $"{baslangicTarih:dd.MM.yyyy} - {bitisTarih:dd.MM.yyyy} Tarihleri Arasi Satis Faturalari";
+
+    private Dictionary<int, string> aylar = new()
+    {
+        { 1, "Ocak" }, { 2, "Subat" }, { 3, "Mart" }, { 4, "Nisan" },
+        { 5, "Mayis" }, { 6, "Haziran" }, { 7, "Temmuz" }, { 8, "Agustos" },
+        { 9, "Eylul" }, { 10, "Ekim" }, { 11, "Kasim" }, { 12, "Aralik" }
+    };
+
+    private List<KdvFaturaItem> alisListesi = new();
+    private List<KdvFaturaItem> satisListesi = new();
+
+    private IEnumerable<KdvFaturaItem> filteredAlisListesi => alisListesi.Where(x =>
+        string.IsNullOrEmpty(filterAlisUnvan) || (x.Unvani ?? "").Contains(filterAlisUnvan, StringComparison.OrdinalIgnoreCase)
+    );
+
+    private IEnumerable<KdvFaturaItem> filteredSatisListesi => satisListesi.Where(x =>
+        string.IsNullOrEmpty(filterSatisUnvan) || (x.Unvani ?? "").Contains(filterSatisUnvan, StringComparison.OrdinalIgnoreCase)
+    );
+
+    // Alis Toplamlar
+    private decimal alisToplamTutar => filteredAlisListesi.Sum(x => x.TLTutar);
+    private decimal alisToplamIndirim => filteredAlisListesi.Sum(x => x.TLToplamIndirim);
+    private decimal alisToplamKdvMatrahi => filteredAlisListesi.Sum(x => x.TLKdvMatrahi);
+    private decimal alisToplamKdvTutari => filteredAlisListesi.Sum(x => x.TLKdvTutari);
+    private decimal alisToplamGenelTutar => filteredAlisListesi.Sum(x => x.TLToplamTutar);
+
+    // Satis Toplamlar
+    private decimal satisToplamTutar => filteredSatisListesi.Sum(x => x.TLTutar);
+    private decimal satisToplamIndirim => filteredSatisListesi.Sum(x => x.TLToplamIndirim);
+    private decimal satisToplamKdvMatrahi => filteredSatisListesi.Sum(x => x.TLKdvMatrahi);
+    private decimal satisToplamKdvTutari => filteredSatisListesi.Sum(x => x.TLKdvTutari);
+    private decimal satisToplamGenelTutar => filteredSatisListesi.Sum(x => x.TLToplamTutar);
+
+    // Odenecek KDV = Satis KDV - Alis KDV
+    private decimal odenecekKdv => satisToplamKdvTutari - alisToplamKdvTutari;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AySecildiAsync(currentMonth);
+    }
+
+    private async void AySecildi(int ay)
+    {
+        await AySecildiAsync(ay);
+        StateHasChanged();
+    }
+
+    private async Task AySecildiAsync(int ay)
+    {
+        selectedAy = ay;
+        int gunSayisi = DateTime.DaysInMonth(selectedYil, ay);
+        baslangicTarih = new DateTime(selectedYil, ay, 1);
+        bitisTarih = new DateTime(selectedYil, ay, gunSayisi);
+        await YenileAsync();
+    }
+
+    private async void TumYil()
+    {
+        selectedAy = 0;
+        baslangicTarih = new DateTime(selectedYil, 1, 1);
+        bitisTarih = new DateTime(selectedYil, 12, 31);
+        await YenileAsync();
+        StateHasChanged();
+    }
+
+    private async Task YenileAsync()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            // Alis Faturalari: TrCode=1 (Alis Faturasi)
+            var alisData = await db.FaturalarView.AsNoTracking()
+                .Where(f => f.TrCode == 1 && f.Tarih >= baslangicTarih && f.Tarih <= bitisTarih && (f.Iptal != true))
+                .OrderBy(f => f.Tarih)
+                .Take(500)
+                .ToListAsync();
+
+            alisListesi = alisData.Select(f => new KdvFaturaItem
+            {
+                FaturaTuru = f.FaturaTuru,
+                Tarih = f.Tarih,
+                FisNo = f.FisNo,
+                CariKodu = f.CariKodu,
+                Unvani = f.Unvani,
+                TLTutar = (decimal)(f.TLTutar ?? 0),
+                TLToplamIndirim = (decimal)(f.TLToplamIndirim ?? 0),
+                TLKdvMatrahi = (decimal)(f.TLKdvMatrahi ?? 0),
+                TLKdvTutari = (decimal)(f.TLKdvTutari ?? 0),
+                TLToplamTutar = (decimal)(f.TLToplamTutar ?? 0)
+            }).ToList();
+
+            // Satis Faturalari: TrCode in [7, 8] (Satis Faturasi, Satis Iade)
+            var satisData = await db.FaturalarView.AsNoTracking()
+                .Where(f => (f.TrCode == 7 || f.TrCode == 8) && f.Tarih >= baslangicTarih && f.Tarih <= bitisTarih && (f.Iptal != true))
+                .OrderBy(f => f.Tarih)
+                .Take(500)
+                .ToListAsync();
+
+            satisListesi = satisData.Select(f => new KdvFaturaItem
+            {
+                FaturaTuru = f.FaturaTuru,
+                Tarih = f.Tarih,
+                FisNo = f.FisNo,
+                CariKodu = f.CariKodu,
+                Unvani = f.Unvani,
+                TLTutar = (decimal)(f.TLTutar ?? 0),
+                TLToplamIndirim = (decimal)(f.TLToplamIndirim ?? 0),
+                TLKdvMatrahi = (decimal)(f.TLKdvMatrahi ?? 0),
+                TLKdvTutari = (decimal)(f.TLKdvTutari ?? 0),
+                TLToplamTutar = (decimal)(f.TLToplamTutar ?? 0)
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"KdvRaporu DB hatasi: {ex.Message}");
+            alisListesi = new List<KdvFaturaItem>();
+            satisListesi = new List<KdvFaturaItem>();
+        }
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Export/print grids
+    }
+
+    private class KdvFaturaItem
+    {
+        public string? FaturaTuru { get; set; }
+        public DateTime Tarih { get; set; }
+        public string? FisNo { get; set; }
+        public string? CariKodu { get; set; }
+        public string? Unvani { get; set; }
+        public decimal TLTutar { get; set; }
+        public decimal TLToplamIndirim { get; set; }
+        public decimal TLKdvMatrahi { get; set; }
+        public decimal TLKdvTutari { get; set; }
+        public decimal TLToplamTutar { get; set; }
+    }
+}

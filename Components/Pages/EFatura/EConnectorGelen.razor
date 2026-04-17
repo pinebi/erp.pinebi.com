@@ -1,0 +1,178 @@
+﻿@page "/efatura/gelen"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Gelen E-Fatura Red/Onay</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-inbox"></i> Gelen E-Fatura Red/Onay
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="GelenFaturalariGetir" disabled="@isYukleniyor">
+                <i class="fa fa-download"></i> [F5] Gelen Faturalari Getir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 240px); margin-top:10px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:70px;">Ref No</th>
+                        <th style="width:80px;">Request No</th>
+                        <th style="width:100px;">Fatura Turu</th>
+                        <th style="width:80px;">Fatura Tipi</th>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:130px;">Fatura No</th>
+                        <th style="min-width:200px;">Tedarikci</th>
+                        <th style="width:120px;">Vergi Dairesi</th>
+                        <th style="width:100px;">Vergi No</th>
+                        <th style="width:80px;">Doviz Kodu</th>
+                        <th style="width:100px; text-align:right;">Top. Iskonto</th>
+                        <th style="width:100px; text-align:right;">KDV Matrahi</th>
+                        <th style="width:100px; text-align:right;">KDV Tutari</th>
+                        <th style="width:110px; text-align:right;">Toplam Tutar</th>
+                        <th style="width:280px;">ETTN</th>
+                        <th style="width:120px;">Durumu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (gelenFaturalar.Count == 0)
+                    {
+                        <tr><td colspan="16" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var fatura in gelenFaturalar)
+                        {
+                            <tr class="@(seciliId == fatura.Id ? "selected" : "")" @onclick="() => seciliId = fatura.Id">
+                                <td>@fatura.ReferenceNo</td>
+                                <td>@fatura.RequestNumber</td>
+                                <td>@fatura.ProfileID</td>
+                                <td>@fatura.FaturaTipi</td>
+                                <td>@fatura.Tarih?.ToString("dd.MM.yyyy")</td>
+                                <td>@fatura.FaturaNo</td>
+                                <td>@fatura.Tedarikci</td>
+                                <td>@fatura.VergiDairesi</td>
+                                <td>@fatura.VergiNo</td>
+                                <td>@fatura.DovizKodu</td>
+                                <td class="text-right">@fatura.ToplamIskonto.ToString("N2")</td>
+                                <td class="text-right">@fatura.KdvMatrahi.ToString("N2")</td>
+                                <td class="text-right">@fatura.KdvTutari.ToString("N2")</td>
+                                <td class="text-right" style="font-weight:700;">@fatura.ToplamTutar.ToString("N2")</td>
+                                <td style="font-size:11px;">@fatura.ETTN</td>
+                                <td>
+                                    @if (fatura.Durumu == "Onaylandi")
+                                    {
+                                        <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.Durumu</span>
+                                    }
+                                    else if (fatura.Durumu == "Reddedildi")
+                                    {
+                                        <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.Durumu</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="background:#eab308; color:black; padding:2px 8px; border-radius:3px; font-size:11px;">@fatura.Durumu</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                        <td colspan="10" class="text-right">Toplam:</td>
+                        <td class="text-right">@gelenFaturalar.Sum(f => f.ToplamIskonto).ToString("N2")</td>
+                        <td class="text-right">@gelenFaturalar.Sum(f => f.KdvMatrahi).ToString("N2")</td>
+                        <td class="text-right">@gelenFaturalar.Sum(f => f.KdvTutari).ToString("N2")</td>
+                        <td class="text-right">@gelenFaturalar.Sum(f => f.ToplamTutar).ToString("N2")</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @gelenFaturalar.Count kayit</span>
+            @if (isYukleniyor)
+            {
+                <span style="color:#800000; font-weight:bold;"><i class="fa fa-spinner fa-spin"></i> Gelen faturalar aliniyor...</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private int seciliId = 0;
+    private bool isYukleniyor = false;
+
+    private List<GelenFaturaItem> gelenFaturalar = new();
+
+    protected override void OnInitialized()
+    {
+        GelenFaturalariGetir();
+    }
+
+    private void GelenFaturalariGetir()
+    {
+        // TODO: Innova API uzerinden gelen faturalari cek
+        // clas.Ayarlar();
+        // var maxNumber = db.GelenFaturalarView.Max(p => (int?)p.RequestNumber) ?? 0;
+        // for (int i = 0; i < 25; i++) { GelenFatura(x); }
+        // Ardindan grid'e yukle
+        gelenFaturalar = GetPlaceholderData();
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private List<GelenFaturaItem> GetPlaceholderData()
+    {
+        return new List<GelenFaturaItem>
+        {
+            new() { Id = 1, ReferenceNo = 100001, RequestNumber = 1, ProfileID = "TICARIFATURA", FaturaTipi = "SATIS", Tarih = DateTime.Today.AddDays(-5), FaturaNo = "GBF2026000001", Tedarikci = "ABC Tedarik A.S.", VergiDairesi = "Adapazari", VergiNo = "1234567890", DovizKodu = "TRY", ToplamIskonto = 0, KdvMatrahi = 15000.00, KdvTutari = 3000.00, ToplamTutar = 18000.00, ETTN = "550e8400-e29b-41d4-a716-446655440001", Durumu = "Onay bekleniyor" },
+            new() { Id = 2, ReferenceNo = 100002, RequestNumber = 2, ProfileID = "TEMELFATURA", FaturaTipi = "SATIS", Tarih = DateTime.Today.AddDays(-3), FaturaNo = "GBF2026000002", Tedarikci = "XYZ Malzeme Ltd.", VergiDairesi = "Mecidiyekoy", VergiNo = "9876543210", DovizKodu = "TRY", ToplamIskonto = 500.00, KdvMatrahi = 8500.00, KdvTutari = 1700.00, ToplamTutar = 10200.00, ETTN = "550e8400-e29b-41d4-a716-446655440002", Durumu = "Onaylandi" },
+            new() { Id = 3, ReferenceNo = 100003, RequestNumber = 3, ProfileID = "TICARIFATURA", FaturaTipi = "SATIS", Tarih = DateTime.Today.AddDays(-1), FaturaNo = "GBF2026000003", Tedarikci = "DEF Uretim San.", VergiDairesi = "Kadikoy", VergiNo = "1122334455", DovizKodu = "USD", ToplamIskonto = 0, KdvMatrahi = 5000.00, KdvTutari = 1000.00, ToplamTutar = 6000.00, ETTN = "550e8400-e29b-41d4-a716-446655440003", Durumu = "Onay bekleniyor" }
+        };
+    }
+
+    public class GelenFaturaItem
+    {
+        public int Id { get; set; }
+        public int ReferenceNo { get; set; }
+        public int RequestNumber { get; set; }
+        public string ProfileID { get; set; } = "";
+        public string FaturaTipi { get; set; } = "";
+        public DateTime? Tarih { get; set; }
+        public string FaturaNo { get; set; } = "";
+        public string Tedarikci { get; set; } = "";
+        public string VergiDairesi { get; set; } = "";
+        public string VergiNo { get; set; } = "";
+        public string DovizKodu { get; set; } = "";
+        public double ToplamIskonto { get; set; }
+        public double KdvMatrahi { get; set; }
+        public double KdvTutari { get; set; }
+        public double ToplamTutar { get; set; }
+        public string ETTN { get; set; } = "";
+        public string Durumu { get; set; } = "";
+        public string SenderAlias { get; set; } = "";
+        public string ReceiverAlias { get; set; } = "";
+        public string Adres { get; set; } = "";
+        public string Ilce { get; set; } = "";
+        public string Sehir { get; set; } = "";
+        public string Ulke { get; set; } = "";
+        public string FatUrl { get; set; } = "";
+        public string TevkifatKodu { get; set; } = "";
+        public string TevkifatAciklama { get; set; } = "";
+        public double TevkifatYuzdesi { get; set; }
+    }
+}

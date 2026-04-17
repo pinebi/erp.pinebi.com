@@ -1,0 +1,328 @@
+﻿@page "/pine/cari/liste"
+@using MACHINEBISS_Web.Models.PineERP.Cari
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<PageTitle>Cari Hesaplar</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-address-book"></i> Cari Hesaplar
+    </div>
+    <div class="card-body" style="padding:8px 14px;">
+        <!-- Toolbar -->
+        <div class="toolbar" style="margin-bottom:6px;">
+            <button class="btn btn-success btn-sm" @onclick="Yeni">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle" disabled="@(seciliHesap == null)">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil" disabled="@(seciliHesap == null)">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Filtrele">
+                <i class="fa fa-filter"></i> Filtrele
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelExport">
+                <i class="fa fa-file-excel-o"></i> Excel
+            </button>
+            <span class="toolbar-sep"></span>
+            <div class="form-inline" style="gap:4px;">
+                <label style="min-width:auto; font-size:11px;">Tip:</label>
+                <select class="form-control" @bind="filtreTip" @bind:after="VeriYukle" style="width:110px;">
+                    <option value="">Hepsi</option>
+                    <option value="0">Musteri</option>
+                    <option value="1">Tedarikci</option>
+                    <option value="2">Her Ikisi</option>
+                </select>
+            </div>
+            <div class="form-inline" style="gap:4px;">
+                <label style="min-width:auto; font-size:11px;">Grup:</label>
+                <select class="form-control" @bind="filtreGrup" @bind:after="VeriYukle" style="width:130px;">
+                    <option value="">Tumu</option>
+                    @if (gruplar != null)
+                    {
+                        @foreach (var g in gruplar)
+                        {
+                            <option value="@g.CgrKod">@g.CgrAdi</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="toolbar-search" style="margin-left:auto;">
+                <i class="fa fa-search"></i>
+                <input type="text" class="form-control" placeholder="Kod, Unvan, Vergi No, Telefon..."
+                       @bind="aramaText" @bind:event="oninput" @onkeydown="OnSearchKeyDown"
+                       style="width:280px;" />
+                @if (!string.IsNullOrEmpty(aramaText))
+                {
+                    <button class="btn btn-sm btn-outline" @onclick="@(() => { aramaText = ""; VeriYukle(); })" title="Aramayi Temizle" style="padding:0 8px; color:#dc2626;">
+                        <i class="fa fa-times"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">Cari Kodu</th>
+                        <th style="min-width:200px;">Unvani</th>
+                        <th style="width:90px;">Tipi</th>
+                        <th style="width:100px;">Grup</th>
+                        <th style="width:120px;">Telefon</th>
+                        <th style="width:100px;">Sehir</th>
+                        <th style="width:110px;">Vergi No</th>
+                        <th style="width:120px; text-align:right;">Risk Limiti</th>
+                        <th style="width:120px; text-align:right;">Bakiye</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (hesaplar != null)
+                    {
+                        @foreach (var item in hesaplar)
+                        {
+                            var bakiye = item.CarToplamBorc - item.CarToplamAlacak;
+                            <tr class="@(seciliHesap?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => seciliHesap = item"
+                                @ondblclick="() => DuzenleById(item.Id)">
+                                <td>@item.CarKod</td>
+                                <td>@item.CarUnvan1</td>
+                                <td>@TipAdi(item.CarTipi)</td>
+                                <td>@item.CarGrupKodu</td>
+                                <td>@item.CarTel1</td>
+                                <td>@SehirKoduToAdi(item.CarSehirKodu)</td>
+                                <td>@item.CarVergiNo</td>
+                                <td style="text-align:right;">@item.CarRiskLimiti.ToString("N2")</td>
+                                <td style="text-align:right; color:@(bakiye >= 0 ? "inherit" : "#dc2626");">
+                                    @bakiye.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplam kayit | Sayfa: @sayfa / @toplamSayfa</span>
+            <div style="display:flex; gap:4px;">
+                <button class="btn btn-outline btn-sm" @onclick="IlkSayfa" disabled="@(sayfa <= 1)">
+                    <i class="fa fa-angle-double-left"></i>
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="OncekiSayfa" disabled="@(sayfa <= 1)">
+                    <i class="fa fa-angle-left"></i>
+                </button>
+                <span style="padding:4px 8px; font-size:12px;">@sayfa / @toplamSayfa</span>
+                <button class="btn btn-outline btn-sm" @onclick="SonrakiSayfa" disabled="@(sayfa >= toplamSayfa)">
+                    <i class="fa fa-angle-right"></i>
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="SonSayfa" disabled="@(sayfa >= toplamSayfa)">
+                    <i class="fa fa-angle-double-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Silme Onay Dialog -->
+@if (silmeOnayGoster)
+{
+    <div class="modal-backdrop" @onclick="() => silmeOnayGoster = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="card">
+                <div class="card-header" style="background:#dc2626; color:white;">
+                    <i class="fa fa-exclamation-triangle"></i> Silme Onay
+                </div>
+                <div class="card-body" style="padding:20px;">
+                    <p><strong>@seciliHesap?.CarKod</strong> - @seciliHesap?.CarUnvan1</p>
+                    <p>Bu cari hesabi silmek istediginizden emin misiniz?</p>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                        <button class="btn btn-secondary btn-sm" @onclick="() => silmeOnayGoster = false">Vazgec</button>
+                        <button class="btn btn-danger btn-sm" @onclick="SilOnayla">Evet, Sil</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Data
+    private List<PineCariHesaplar>? hesaplar;
+    private List<PineCariGruplari>? gruplar;
+    private PineCariHesaplar? seciliHesap;
+
+    // Filters
+    private string aramaText = "";
+    private string filtreTip = "";
+    private string filtreGrup = "";
+
+    // Pagination
+    private int sayfa = 1;
+    private int boyut = 50;
+    private int toplam = 0;
+    private int toplamSayfa = 1;
+
+    // UI State
+    private bool silmeOnayGoster = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GruplariYukle();
+        await VeriYukle();
+    }
+
+    private async Task GruplariYukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResponse<List<PineCariGruplari>>>("/api/cari/gruplar");
+            gruplar = resp?.Data ?? new();
+        }
+        catch { gruplar = new(); }
+    }
+
+    private async Task VeriYukle()
+    {
+        try
+        {
+            var url = $"/api/cari/hesaplar?sayfa={sayfa}&boyut={boyut}";
+
+            if (!string.IsNullOrWhiteSpace(aramaText))
+                url += $"&arama={Uri.EscapeDataString(aramaText)}";
+
+            if (!string.IsNullOrWhiteSpace(filtreTip))
+                url += $"&tip={filtreTip}";
+
+            if (!string.IsNullOrWhiteSpace(filtreGrup))
+                url += $"&grup={Uri.EscapeDataString(filtreGrup)}";
+
+            var resp = await Http.GetFromJsonAsync<PagedApiResponseDto<PineCariHesaplar>>(url);
+            if (resp != null && resp.Success)
+            {
+                hesaplar = resp.Data ?? new();
+                toplam = resp.Toplam;
+                toplamSayfa = resp.ToplamSayfa > 0 ? resp.ToplamSayfa : 1;
+            }
+            else
+            {
+                hesaplar = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CariListesi veri yukle hatasi: {ex.Message}");
+            hesaplar = new();
+        }
+
+        seciliHesap = null;
+    }
+
+    // ── Navigation ───────────────────────────────────────
+    private void Yeni() => Nav.NavigateTo("/pine/cari/kart");
+    private void Duzenle()
+    {
+        if (seciliHesap != null) DuzenleById(seciliHesap.Id);
+    }
+    private void DuzenleById(int id) => Nav.NavigateTo($"/pine/cari/kart/{id}");
+
+    // ── Delete ───────────────────────────────────────────
+    private void Sil()
+    {
+        if (seciliHesap != null) silmeOnayGoster = true;
+    }
+
+    private async Task SilOnayla()
+    {
+        if (seciliHesap == null) return;
+        try
+        {
+            var resp = await Http.DeleteAsync($"/api/cari/hesap/{seciliHesap.Id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                silmeOnayGoster = false;
+                await VeriYukle();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Silme hatasi: {ex.Message}");
+        }
+        silmeOnayGoster = false;
+    }
+
+    // ── Pagination ───────────────────────────────────────
+    private async Task IlkSayfa() { sayfa = 1; await VeriYukle(); }
+    private async Task OncekiSayfa() { if (sayfa > 1) { sayfa--; await VeriYukle(); } }
+    private async Task SonrakiSayfa() { if (sayfa < toplamSayfa) { sayfa++; await VeriYukle(); } }
+    private async Task SonSayfa() { sayfa = toplamSayfa; await VeriYukle(); }
+
+    // ── Search ───────────────────────────────────────────
+    private async Task OnSearchKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            sayfa = 1;
+            await VeriYukle();
+        }
+    }
+
+    private async Task Filtrele()
+    {
+        sayfa = 1;
+        await VeriYukle();
+    }
+
+    // ── Print/Export ─────────────────────────────────────
+    private async Task Yazdir() => await JS.InvokeVoidAsync("window.print");
+    private async Task ExcelExport()
+    {
+        // TODO: Export to Excel
+        await JS.InvokeVoidAsync("alert", "Excel export islevi yakinda eklenecektir.");
+    }
+
+    // ── Helpers ──────────────────────────────────────────
+    private string TipAdi(int tip) => tip switch
+    {
+        0 => "Musteri",
+        1 => "Tedarikci",
+        2 => "Her Ikisi",
+        _ => "-"
+    };
+
+    private string SehirKoduToAdi(int kod)
+    {
+        // Basit sehir kodu -> adi donusumu
+        if (kod <= 0) return "";
+        return kod.ToString("00");
+    }
+
+    // ── DTO Classes ─────────────────────────────────────
+    private class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public T? Data { get; set; }
+    }
+
+    private class PagedApiResponseDto<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

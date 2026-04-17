@@ -1,0 +1,254 @@
+﻿@page "/pine/cari/hareketler"
+@using MACHINEBISS_Web.Models.PineERP.Cari
+@using System.Net.Http.Json
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Cari Hareketleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-exchange"></i> Cari Hareketleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick='() => Nav.NavigateTo("/pine/cari/liste")'>
+                <i class="fa fa-arrow-left"></i> Cari Listesi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelExport">
+                <i class="fa fa-file-excel-o"></i> Excel
+            </button>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px; align-items:center; flex-wrap:wrap;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Cari:</label>
+                <select class="form-control" @bind="secilenCariKod" style="max-width:350px;">
+                    <option value="">-- Tum Cariler --</option>
+                    @if (cariListesi != null)
+                    {
+                        @foreach (var c in cariListesi)
+                        {
+                            <option value="@c.CarKod">@c.CarKod - @c.CarUnvan1</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Baslangic:</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Bitis:</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="VeriYukle">
+                <i class="fa fa-search"></i> Sorgula
+            </button>
+        </div>
+
+        <!-- Summary Cards -->
+        @if (hareketler != null && hareketler.Count > 0)
+        {
+            var toplamBorc = hareketler.Where(h => h.ChaTip == 0).Sum(h => h.ChaMeblag);
+            var toplamAlacak = hareketler.Where(h => h.ChaTip == 1).Sum(h => h.ChaMeblag);
+            var bakiye = toplamBorc - toplamAlacak;
+
+            <div style="display:flex; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:160px; padding:8px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px;">
+                    <div style="font-size:11px; color:#16a34a;">Toplam Borc</div>
+                    <div style="font-size:16px; font-weight:700; color:#16a34a;">@toplamBorc.ToString("N2") TL</div>
+                </div>
+                <div style="flex:1; min-width:160px; padding:8px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px;">
+                    <div style="font-size:11px; color:#dc2626;">Toplam Alacak</div>
+                    <div style="font-size:16px; font-weight:700; color:#dc2626;">@toplamAlacak.ToString("N2") TL</div>
+                </div>
+                <div style="flex:1; min-width:160px; padding:8px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px;">
+                    <div style="font-size:11px; color:#2563eb;">Bakiye</div>
+                    <div style="font-size:16px; font-weight:700; color:@(bakiye >= 0 ? "#2563eb" : "#dc2626");">@bakiye.ToString("N2") TL</div>
+                </div>
+            </div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 360px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:60px;">Evrak Seri</th>
+                        <th style="width:70px;">Evrak Sira</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="min-width:200px;">Aciklama</th>
+                        <th style="width:90px;">Islem</th>
+                        <th style="width:120px; text-align:right;">Borc</th>
+                        <th style="width:120px; text-align:right;">Alacak</th>
+                        <th style="width:120px; text-align:right;">Bakiye</th>
+                        <th style="width:60px;">Doviz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (hareketler != null)
+                    {
+                        decimal bakiyeRunning = 0;
+                        @foreach (var item in hareketler)
+                        {
+                            var borc = item.ChaTip == 0 ? item.ChaMeblag : 0;
+                            var alacak = item.ChaTip == 1 ? item.ChaMeblag : 0;
+                            bakiyeRunning += borc - alacak;
+
+                            <tr class="@(seciliHareket?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => seciliHareket = item">
+                                <td>@item.ChaTarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.ChaEvrakSeri</td>
+                                <td>@item.ChaEvrakSira</td>
+                                <td>@item.ChaBelgeNo</td>
+                                <td>@item.ChaAciklama1</td>
+                                <td>@IslemTipAdi(item.ChaCins)</td>
+                                <td style="text-align:right; color:#16a34a; font-weight:@(borc > 0 ? "600" : "normal");">
+                                    @(borc > 0 ? borc.ToString("N2") : "")
+                                </td>
+                                <td style="text-align:right; color:#dc2626; font-weight:@(alacak > 0 ? "600" : "normal");">
+                                    @(alacak > 0 ? alacak.ToString("N2") : "")
+                                </td>
+                                <td style="text-align:right; font-weight:600; color:@(bakiyeRunning >= 0 ? "inherit" : "#dc2626");">
+                                    @bakiyeRunning.ToString("N2")
+                                </td>
+                                <td>@(item.ChaDovizCinsi ?? "TL")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                @if (hareketler != null && hareketler.Count > 0)
+                {
+                    var tBorc = hareketler.Where(h => h.ChaTip == 0).Sum(h => h.ChaMeblag);
+                    var tAlacak = hareketler.Where(h => h.ChaTip == 1).Sum(h => h.ChaMeblag);
+                    <tfoot>
+                        <tr style="background:var(--pinebi-primary); color:white; font-weight:600;">
+                            <td colspan="6" style="text-align:right;">Toplam:</td>
+                            <td style="text-align:right;">@tBorc.ToString("N2")</td>
+                            <td style="text-align:right;">@tAlacak.ToString("N2")</td>
+                            <td style="text-align:right;">@((tBorc - tAlacak).ToString("N2"))</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>
+                @baslangicTarihi.ToString("dd.MM.yyyy") - @bitisTarihi.ToString("dd.MM.yyyy")
+                @if (!string.IsNullOrWhiteSpace(secilenCariKod)) { <text> | Cari: @secilenCariKod</text> }
+            </span>
+            <span>Toplam: @(hareketler?.Count ?? 0) hareket</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Data
+    private List<PineCariHesapHareketleri>? hareketler;
+    private List<PineCariHesaplar>? cariListesi;
+    private PineCariHesapHareketleri? seciliHareket;
+
+    // Filters
+    private string secilenCariKod = "";
+    private DateTime baslangicTarihi = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime bitisTarihi = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CariListesiYukle();
+        await VeriYukle();
+    }
+
+    private async Task CariListesiYukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<PagedResp<PineCariHesaplar>>("/api/cari/hesaplar?sayfa=1&boyut=1000");
+            cariListesi = resp?.Data ?? new();
+        }
+        catch { cariListesi = new(); }
+    }
+
+    private async Task VeriYukle()
+    {
+        try
+        {
+            var url = $"/api/cari/hareketler?baslangic={baslangicTarihi:yyyy-MM-dd}&bitis={bitisTarihi:yyyy-MM-dd}";
+
+            if (!string.IsNullOrWhiteSpace(secilenCariKod))
+                url += $"&cariKod={Uri.EscapeDataString(secilenCariKod)}";
+
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<PineCariHesapHareketleri>>>(url);
+            if (resp?.Success == true)
+            {
+                // Sort ascending for running balance calculation
+                hareketler = (resp.Data ?? new())
+                    .OrderBy(h => h.ChaTarih)
+                    .ThenBy(h => h.Id)
+                    .ToList();
+            }
+            else
+            {
+                hareketler = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Hareket yukleme hatasi: {ex.Message}");
+            hareketler = new();
+        }
+
+        seciliHareket = null;
+    }
+
+    // ── Print/Export ─────────────────────────────────────
+    private async Task Yazdir() => await JS.InvokeVoidAsync("window.print");
+    private async Task ExcelExport()
+    {
+        await JS.InvokeVoidAsync("alert", "Excel export islevi yakinda eklenecektir.");
+    }
+
+    // ── Helpers ──────────────────────────────────────────
+    private string IslemTipAdi(int tip) => tip switch
+    {
+        1 => "Nakit",
+        2 => "Havale",
+        3 => "Kredi Karti",
+        4 => "Cek",
+        5 => "Senet",
+        6 => "Fatura",
+        7 => "Virman",
+        _ => "-"
+    };
+
+    // ── DTO ──────────────────────────────────────────────
+    private class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public T? Data { get; set; }
+    }
+
+    private class PagedResp<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

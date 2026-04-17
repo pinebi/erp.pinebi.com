@@ -1,0 +1,47 @@
+﻿@page "/envanter"
+@inject NavigationManager Nav
+
+<PageTitle>Envanter Yonetimi</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-boxes"></i> Envanter Yonetimi</div>
+    <div class="card-body">
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm"><i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Duzenle</button>
+            <button class="btn btn-danger btn-sm"><i class="fa fa-trash"></i> Sil</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-print"></i> Yazdir</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-file-excel"></i> Excel Aktar</button>
+        </div>
+        <div class="form-row mb-2">
+            <div class="form-inline">
+                <label>Ara</label>
+                <input type="text" class="form-control" placeholder="Envanter ara..." style="max-width:250px;" />
+            </div>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-search"></i> Ara</button>
+        </div>
+        <div class="grid-container" style="max-height:500px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Envanter Kodu</th>
+                        <th>Envanter Adi</th>
+                        <th>Kategori</th>
+                        <th>Marka</th>
+                        <th>Model</th>
+                        <th>Seri No</th>
+                        <th>Lokasyon</th>
+                        <th>Durum</th>
+                        <th>Satin Alma Tarihi</th>
+                        <th>Garanti Bitis</th>
+                        <th>Deger</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="12" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

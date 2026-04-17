@@ -1,0 +1,72 @@
+﻿@page "/ayarlar/fatura-alanlari"
+@inject MACHINEBISS_Web.Services.FaturaAlanAyarlariService AlanAyar
+@inject NavigationManager Nav
+
+<PageTitle>Fatura Alan Ayarlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-columns"></i> Fatura / Irsaliye / Siparis Kolon Ayarlari
+        <span style="margin-left:auto; font-size:11px; font-weight:400;">Admin tarafindan acilip kapatilabilir</span>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info" style="font-size:12px;">
+            <i class="fa fa-info-circle"></i> Asagidaki ayarlar fatura, irsaliye, siparis ve teklif formlarindaki satirlarda hangi kolonlarin gorunecegini belirler.
+            Kapali olan kolonlar formlarda gizlenir.
+        </div>
+
+        <div class="grid-container">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">Durum</th>
+                        <th>Kolon Adi</th>
+                        <th style="width:100px;">Kolon ID</th>
+                        <th style="width:120px;">Islem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kolon in kolonlar)
+                    {
+                        <tr>
+                            <td style="text-align:center;">
+                                @if (kolon.Gorunur)
+                                {
+                                    <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Acik</span>
+                                }
+                                else
+                                {
+                                    <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Kapali</span>
+                                }
+                            </td>
+                            <td><strong>@kolon.KolonAdi</strong></td>
+                            <td class="text-muted" style="font-size:11px;">@kolon.KolonId</td>
+                            <td>
+                                <button class="btn btn-sm @(kolon.Gorunur ? "btn-danger" : "btn-success")"
+                                        @onclick="() => Toggle(kolon.KolonId, !kolon.Gorunur)">
+                                    <i class="fa @(kolon.Gorunur ? "fa-eye-slash" : "fa-eye")"></i>
+                                    @(kolon.Gorunur ? "Kapat" : "Ac")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Services.FaturaKolonAyar> kolonlar = new();
+
+    protected override void OnInitialized()
+    {
+        kolonlar = AlanAyar.KolonlariGetir("fatura");
+    }
+
+    private void Toggle(string kolonId, bool gorunur)
+    {
+        AlanAyar.KolonGorunurlukDegistir(kolonId, gorunur);
+        kolonlar = AlanAyar.KolonlariGetir("fatura");
+    }
+}

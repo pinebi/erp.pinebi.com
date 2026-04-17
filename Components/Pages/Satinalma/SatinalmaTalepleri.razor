@@ -1,0 +1,181 @@
+﻿@page "/satinalma/talepler"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Satinalma Talepleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-clipboard-list"></i> Satinalma Talepleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-primary btn-sm" @onclick="Yeni">
+                <i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <div style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></div>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelExport">
+                <i class="fa fa-file-excel"></i> Excel
+            </button>
+            <div style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></div>
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+            <div style="flex:1;"></div>
+            <div class="form-inline">
+                <i class="fa fa-search" style="color:var(--pinebi-text-light);"></i>
+                <input type="text" class="form-control" placeholder="Ara..." @bind="aramaMetni" @bind:event="oninput" style="max-width:200px; padding:4px 8px;" />
+            </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 230px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">Tarih</th>
+                        <th style="width:100px;">Fis No</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="width:100px;">Proje Kodu</th>
+                        <th style="min-width:150px;">Proje Adi</th>
+                        <th style="min-width:200px;">Aciklama</th>
+                        <th style="width:120px;">Talep Eden</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filtrelenmisListe != null)
+                    {
+                        @foreach (var item in filtrelenmisListe)
+                        {
+                            <tr class="@(seciliId == item.Id ? "selected" : "")" @onclick="() => SatirSec(item.Id)" @ondblclick="() => SatirDuzenle(item.Id)">
+                                <td>@item.Tarih?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.FisNo</td>
+                                <td>@item.BelgeNo</td>
+                                <td>@item.ProjeKodu</td>
+                                <td>@item.ProjeAdi</td>
+                                <td>@item.Aciklama</td>
+                                <td>@item.TalepEden</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0 0 0;">
+            <span style="font-size:12px; color:var(--pinebi-text-light);">
+                Toplam: @(filtrelenmisListe?.Count ?? 0) kayit
+            </span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string aramaMetni = "";
+    private int? seciliId;
+
+    private List<SatinalmaTalebiDto> liste = new();
+    private List<SatinalmaTalebiDto> filtrelenmisListe => string.IsNullOrWhiteSpace(aramaMetni)
+        ? liste
+        : liste.Where(x =>
+            (x.FisNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.BelgeNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.ProjeKodu ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.ProjeAdi ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.Aciklama ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.TalepEden ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.SatinAlmaTalepleri.AsNoTracking()
+                .OrderByDescending(x => x.Tarih)
+                .Take(500)
+                .ToListAsync();
+            liste = dbList.Select(x => new SatinalmaTalebiDto
+            {
+                Id = x.Id, Tarih = x.Tarih, ProformaId = x.ProformaId,
+                FisNo = x.FisNo, BelgeNo = x.BelgeNo, ProjeId = x.ProjeId,
+                ProjeKodu = x.ProjeKodu, ProjeAdi = x.ProjeAdi,
+                Aciklama = x.Aciklama, TalepEden = x.TalepEden
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SatinalmaTalepleri DB hatasi: {ex.Message}");
+            liste = new List<SatinalmaTalebiDto>();
+        }
+    }
+
+    private void SatirSec(int id)
+    {
+        seciliId = id;
+    }
+
+    private void SatirDuzenle(int id)
+    {
+        seciliId = id;
+        Duzenle();
+    }
+
+    private void Yeni()
+    {
+        Nav.NavigateTo("/satis/fatura/yeni?tip=satinalma-talep");
+    }
+
+    private void Duzenle()
+    {
+        if (seciliId == null) return;
+        Nav.NavigateTo($"/satis/fatura/{seciliId}");
+    }
+
+    private void Sil()
+    {
+        if (seciliId == null) return;
+        // TODO: Silme onay dialog ve silme islemi
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void ExcelExport()
+    { /* Excel export - coming soon */
+        // TODO: Excel export islemi
+    }
+
+    public class SatinalmaTalebiDto
+    {
+        public int Id { get; set; }
+        public DateTime? Tarih { get; set; }
+        public int? ProformaId { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public int? ProjeId { get; set; }
+        public string ProjeKodu { get; set; } = "";
+        public string ProjeAdi { get; set; } = "";
+        public string Aciklama { get; set; } = "";
+        public string TalepEden { get; set; } = "";
+    }
+}

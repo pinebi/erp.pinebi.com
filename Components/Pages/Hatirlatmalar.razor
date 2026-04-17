@@ -1,0 +1,47 @@
+﻿@page "/hatirlatmalar"
+@inject NavigationManager Nav
+
+<PageTitle>Hatirlatmalar</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-bell"></i> Hatirlatmalar</div>
+    <div class="card-body">
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm"><i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Duzenle</button>
+            <button class="btn btn-danger btn-sm"><i class="fa fa-trash"></i> Sil</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-check"></i> Okundu</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-ban"></i> Iptal</button>
+        </div>
+        <div class="form-row mb-2">
+            <div class="form-inline">
+                <label>Baslangic</label>
+                <input type="date" class="form-control" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label>Bitis</label>
+                <input type="date" class="form-control" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-search"></i> Listele</button>
+        </div>
+        <div class="grid-container" style="max-height:500px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Hatirlatma Tarihi</th>
+                        <th>Hatirlatma Saati</th>
+                        <th>Konu</th>
+                        <th>Aciklama</th>
+                        <th>Olusturan</th>
+                        <th>Okundu</th>
+                        <th>Iptal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="8" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

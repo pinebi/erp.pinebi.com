@@ -1,0 +1,228 @@
+﻿@page "/cari/hareketler"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Cari Hareketler</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-exchange"></i> Cari Hareketler
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick="Tahsilat">
+                <i class="fa fa-check"></i> Tahsilat
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Odeme">
+                <i class="fa fa-minus-circle"></i> Odeme
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="BorcDevri">
+                <i class="fa fa-calendar"></i> Borc Devri
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="AlacakDevri">
+                <i class="fa fa-calendar"></i> Alacak Devri
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="IptalEt">
+                <i class="fa fa-ban"></i> Iptal Et
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="SatisFaturalari">
+                <i class="fa fa-file-text-o"></i> Satis Faturalari
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="AlisFaturalari">
+                <i class="fa fa-file-text-o"></i> Alis Faturalari
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="VerilenTeklifler">
+                <i class="fa fa-file-text-o"></i> Verilen Teklifler
+            </button>
+        </div>
+
+        <!-- Date Filter Bar -->
+        <div class="form-row" style="margin-bottom:8px; align-items:center;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="async () => await Yenile()">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Saat</th>
+                        <th>Cari Kodu</th>
+                        <th>Unvani</th>
+                        <th>Fis No</th>
+                        <th>Belge No</th>
+                        <th>Aciklama 1</th>
+                        <th>Aciklama 2</th>
+                        <th>Hareket Tipi</th>
+                        <th style="text-align:right;">Borc</th>
+                        <th style="text-align:right;">Alacak</th>
+                        <th>Doviz</th>
+                        <th>Iptal Eden</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (hareketList != null)
+                    {
+                        @foreach (var item in hareketList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => selectedItem = item"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.Saat.ToString("HH:mm")</td>
+                                <td>@item.CariKodu</td>
+                                <td>@item.Unvani</td>
+                                <td>@item.FisNo</td>
+                                <td>@item.BelgeNo</td>
+                                <td>@item.Aciklama1</td>
+                                <td>@item.Aciklama2</td>
+                                <td>@item.HareketTipi</td>
+                                <td style="text-align:right;">@item.Borc.ToString("N2")</td>
+                                <td style="text-align:right;">@item.Alacak.ToString("N2")</td>
+                                <td>@item.Doviz</td>
+                                <td>@item.IptalEden</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:600;">
+                        <td colspan="9" style="text-align:right;">Toplam:</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.Borc).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.Alacak).ToString("N2") ?? "0,00")</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>@baslangicTarihi.ToString("dd.MM.yyyy") - @bitisTarihi.ToString("dd.MM.yyyy") Tarihleri Arasi Cari Hareket Raporu</span>
+            <span>Toplam: @(hareketList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime baslangicTarihi = DateTime.Today.AddDays(-30);
+    private DateTime bitisTarihi = DateTime.Today;
+    private List<CariHareketlerViewDto> hareketList = new();
+    private CariHareketlerViewDto? selectedItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.CariHareketlerView.AsNoTracking()
+                .Where(c => c.Tarih >= baslangicTarihi && c.Tarih <= bitisTarihi && c.Iptal != true)
+                .OrderByDescending(c => c.Tarih)
+                .Take(500)
+                .ToListAsync();
+            hareketList = dbList.Select(c => new CariHareketlerViewDto
+            {
+                Id = c.Id, Tarih = c.Tarih, Saat = c.Saat ?? DateTime.MinValue,
+                CariId = c.CariId, CariKodu = c.CariKodu, Unvani = c.Unvani,
+                FisId = c.FisId, FisNo = c.FisNo, BelgeNo = c.BelgeNo,
+                Aciklama1 = c.Aciklama1, Aciklama2 = c.Aciklama2,
+                IslemId = c.IslemId, OdemeId = c.OdemeId,
+                HareketTipi = c.HareketTipi,
+                Borc = c.Borc, Alacak = c.Alacak,
+                Doviz = c.Doviz, Iptal = c.Iptal,
+                IptalEden = c.IptalEden, Kaynak = c.Kaynak,
+                VirmanCekId = c.VirmanCekId
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CariHareketler DB hatasi: {ex.Message}");
+            hareketList = new List<CariHareketlerViewDto>();
+        }
+    }
+
+    private void OnDoubleClick(CariHareketlerViewDto item)
+    {
+        Nav.NavigateTo($"/cari/hareketler?islem=duzenle&id={item.Id}");
+    }
+
+    private void Tahsilat()
+    {
+        Nav.NavigateTo("/cari/hareketler?islem=tahsilat");
+    }
+
+    private void Odeme()
+    {
+        Nav.NavigateTo("/cari/hareketler?islem=odeme");
+    }
+
+    private void BorcDevri() { Nav.NavigateTo("/cari/borcalacak"); }
+    private void AlacakDevri() { Nav.NavigateTo("/cari/borcalacak"); }
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+    private void IptalEt()
+    {
+        // TODO: Iptal islemi - show confirmation dialog and set Iptal=1
+    }
+    private void SatisFaturalari() { Nav.NavigateTo("/satis/faturalar"); }
+    private void AlisFaturalari() { Nav.NavigateTo("/satinalma/faturalar"); }
+    private void VerilenTeklifler() { Nav.NavigateTo("/satis/teklifler"); }
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Print functionality
+    }
+
+    public class CariHareketlerViewDto
+    {
+        public int Id { get; set; }
+        public DateTime Tarih { get; set; }
+        public DateTime Saat { get; set; }
+        public int CariId { get; set; }
+        public string? CariKodu { get; set; }
+        public string? Unvani { get; set; }
+        public int? FisId { get; set; }
+        public string? FisNo { get; set; }
+        public string? BelgeNo { get; set; }
+        public string? Aciklama1 { get; set; }
+        public string? Aciklama2 { get; set; }
+        public int IslemId { get; set; }
+        public int OdemeId { get; set; }
+        public string? HareketTipi { get; set; }
+        public decimal Borc { get; set; }
+        public decimal Alacak { get; set; }
+        public string? Doviz { get; set; }
+        public bool? Iptal { get; set; }
+        public string? IptalEden { get; set; }
+        public string? Kaynak { get; set; }
+        public int? VirmanCekId { get; set; }
+    }
+}

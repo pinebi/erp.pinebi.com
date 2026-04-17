@@ -1,0 +1,364 @@
+﻿@page "/finans/kasa"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Kasa Hareketleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-money-bill-wave"></i> Kasa Hareketleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="KasaGirisi">
+                <i class="fa fa-plus-circle"></i> Kasa Girisi
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="KasaCikisi">
+                <i class="fa fa-minus-circle"></i> Kasa Cikisi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="IptalEt" style="color:#dc2626;">
+                <i class="fa fa-ban"></i> Iptal Et
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+        </div>
+
+        <!-- Grid Caption -->
+        <div style="background:var(--pinebi-primary); color:white; padding:6px 10px; font-weight:600; font-size:12px; border-radius:4px 4px 0 0;">
+            @gridCaption
+        </div>
+
+        <!-- Filter Row -->
+        <div style="display:flex; gap:4px; background:#f9fafb; padding:4px; border:1px solid var(--pinebi-border); border-top:none;">
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterTarih" @bind:event="oninput" style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterSaat" @bind:event="oninput" style="flex:0.7; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterAciklama1" @bind:event="oninput" style="flex:2; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterAciklama2" @bind:event="oninput" style="flex:2; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." @bind="filterUnvan" @bind:event="oninput" style="flex:1.5; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:1; padding:3px 6px; font-size:11px;" />
+            <input type="text" class="form-control" placeholder="Filtre..." style="flex:0.5; padding:3px 6px; font-size:11px;" />
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 310px); overflow:auto;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:60px;">Saat</th>
+                        <th style="width:250px;">Aciklama1</th>
+                        <th style="width:250px;">Aciklama2</th>
+                        <th style="width:180px;">Unvan</th>
+                        <th style="width:110px; text-align:right;">Kasa Girisi</th>
+                        <th style="width:110px; text-align:right;">Kasa Cikisi</th>
+                        <th style="width:50px;">Doviz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (kasaHareketleri != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => RowDoubleClick(item)">
+                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.Saat.ToString("HH:mm")</td>
+                                <td>@item.Aciklama1</td>
+                                <td>@item.Aciklama2</td>
+                                <td>@item.Unvan</td>
+                                <td style="text-align:right;">@item.KasaGirisi.ToString("N2")</td>
+                                <td style="text-align:right;">@item.KasaCikisi.ToString("N2")</td>
+                                <td>@item.Doviz</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                        <td colspan="5" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamGiris.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamCikis.ToString("N2")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Bottom Panel -->
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 0; flex-wrap:wrap;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarih" style="width:140px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarih" style="width:140px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Yenile">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> [F4] Yazdir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Iptal Onay Modal -->
+@if (showIptalModal)
+{
+    <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:400px;">
+            <div class="card-header" style="background:#dc2626;">
+                <i class="fa fa-exclamation-triangle"></i> UYARI
+            </div>
+            <div class="card-body" style="text-align:center; padding:20px;">
+                <p style="font-weight:600;">ISLEM IPTAL EDILECEK! EMIN MISINIZ?</p>
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                    <button class="btn btn-danger" @onclick="IptalOnayla">Evet</button>
+                    <button class="btn btn-outline" @onclick="() => showIptalModal = false">Hayir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== KASA GIRIS/CIKIS MODAL ===== *@
+@if (kasaModalAcik)
+{
+    <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:450px;">
+            <div class="card-header">
+                <i class="fa @(kasaIslemTipi == "Giris" ? "fa-plus-circle" : "fa-minus-circle")"></i>
+                Kasa @(kasaIslemTipi == "Giris" ? "Girisi" : "Cikisi") @(duzenleId.HasValue ? "(Duzenleme)" : "")
+                <button class="btn btn-sm" style="float:right;" @onclick="() => kasaModalAcik = false">X</button>
+            </div>
+            <div class="card-body" style="padding:16px;">
+                <div style="margin-bottom:12px;">
+                    <label>Tutar:</label>
+                    <input type="number" class="form-control" @bind="kasaTutar" step="0.01" />
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Aciklama 1:</label>
+                    <input type="text" class="form-control" @bind="kasaAciklama1" />
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label>Aciklama 2:</label>
+                    <input type="text" class="form-control" @bind="kasaAciklama2" />
+                </div>
+                @if (!string.IsNullOrEmpty(kasaMesaj))
+                {
+                    <div style="color:red; margin-bottom:8px;">@kasaMesaj</div>
+                }
+                <div style="text-align:right;">
+                    <button class="btn btn-success btn-sm" @onclick="KasaKaydet">
+                        <i class="fa fa-save"></i> Kaydet
+                    </button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => kasaModalAcik = false">Vazgec</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private DateTime baslangicTarih = DateTime.Today.AddDays(-30);
+    private DateTime bitisTarih = DateTime.Today;
+    private string gridCaption => $"{baslangicTarih:dd.MM.yyyy} - {bitisTarih:dd.MM.yyyy} Tarihleri Arasi Kasa Hareket Raporu";
+
+    private string filterTarih = "";
+    private string filterSaat = "";
+    private string filterAciklama1 = "";
+    private string filterAciklama2 = "";
+    private string filterUnvan = "";
+
+    private List<KasaHareketiItem> kasaHareketleri = new();
+    private KasaHareketiItem? selectedItem;
+    private bool showIptalModal = false;
+
+    private IEnumerable<KasaHareketiItem> filteredList => kasaHareketleri.Where(x =>
+        (string.IsNullOrEmpty(filterTarih) || x.Tarih.ToString("dd.MM.yyyy").Contains(filterTarih, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterSaat) || x.Saat.ToString("HH:mm").Contains(filterSaat, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterAciklama1) || (x.Aciklama1 ?? "").Contains(filterAciklama1, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterAciklama2) || (x.Aciklama2 ?? "").Contains(filterAciklama2, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(filterUnvan) || (x.Unvan ?? "").Contains(filterUnvan, StringComparison.OrdinalIgnoreCase))
+    );
+
+    private decimal toplamGiris => filteredList.Sum(x => x.KasaGirisi);
+    private decimal toplamCikis => filteredList.Sum(x => x.KasaCikisi);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.KasaHareketleriView.AsNoTracking()
+                .Where(k => k.Tarih >= baslangicTarih && k.Tarih <= bitisTarih && k.Iptal != true)
+                .OrderByDescending(k => k.Tarih)
+                .Take(500)
+                .ToListAsync();
+            kasaHareketleri = dbList.Select(k => new KasaHareketiItem
+            {
+                Id = k.Id, FisId = k.FisId ?? 0, IslemId = k.IslemId, KasaId = k.KasaId,
+                Tarih = k.Tarih, Saat = k.Saat,
+                Aciklama1 = k.Aciklama1, Aciklama2 = k.Aciklama2,
+                KasaGirisi = (decimal)k.KasaGirisi, KasaCikisi = (decimal)k.KasaCikisi,
+                Doviz = k.Doviz, IslemAciklama = k.IslemAciklama, Iptal = k.Iptal
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"KasaHareketleri DB hatasi: {ex.Message}");
+            kasaHareketleri = new List<KasaHareketiItem>();
+        }
+    }
+
+    // ===== KASA GIRIS/CIKIS MODAL =====
+    private bool kasaModalAcik = false;
+    private string kasaIslemTipi = "Giris"; // Giris veya Cikis
+    private decimal kasaTutar = 0;
+    private string kasaAciklama1 = "";
+    private string kasaAciklama2 = "";
+    private int kasaDovizId = 0;
+    private string kasaMesaj = "";
+    private int? duzenleId = null;
+
+    private void KasaGirisi()
+    {
+        kasaIslemTipi = "Giris";
+        kasaTutar = 0; kasaAciklama1 = ""; kasaAciklama2 = ""; kasaMesaj = ""; duzenleId = null;
+        kasaModalAcik = true;
+    }
+
+    private void KasaCikisi()
+    {
+        kasaIslemTipi = "Cikis";
+        kasaTutar = 0; kasaAciklama1 = ""; kasaAciklama2 = ""; kasaMesaj = ""; duzenleId = null;
+        kasaModalAcik = true;
+    }
+
+    private void Duzenle()
+    {
+        if (selectedItem == null) return;
+        kasaIslemTipi = selectedItem.KasaGirisi > 0 ? "Giris" : "Cikis";
+        kasaTutar = selectedItem.KasaGirisi > 0 ? selectedItem.KasaGirisi : selectedItem.KasaCikisi;
+        kasaAciklama1 = selectedItem.Aciklama1 ?? "";
+        kasaAciklama2 = selectedItem.Aciklama2 ?? "";
+        duzenleId = selectedItem.Id;
+        kasaMesaj = "";
+        kasaModalAcik = true;
+    }
+
+    private void RowDoubleClick(KasaHareketiItem item)
+    {
+        selectedItem = item;
+        Duzenle();
+    }
+
+    private async Task KasaKaydet()
+    {
+        if (kasaTutar <= 0) { kasaMesaj = "Tutar giriniz!"; return; }
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            if (duzenleId.HasValue)
+            {
+                var kayit = await db.KasaHareketleri.FirstOrDefaultAsync(k => k.Id == duzenleId.Value);
+                if (kayit != null)
+                {
+                    kayit.Aciklama1 = kasaAciklama1;
+                    kayit.Aciklama2 = kasaAciklama2;
+                    kayit.Tutar = kasaTutar;
+                    await db.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                var fisNo = "KH" + DateTime.Now.ToString("yyyyMMddHHmmss");
+                db.KasaHareketleri.Add(new MACHINEBISS_Web.Models.MachineBiss.KasaHareketleri
+                {
+                    Tarih = DateTime.Now,
+                    FisNo = fisNo,
+                    KasaId = 1,
+                    IslemId = kasaIslemTipi == "Giris" ? 1 : 2,
+                    Aciklama1 = kasaAciklama1,
+                    Aciklama2 = kasaAciklama2,
+                    Tutar = kasaTutar,
+                    DovizId = "TL",
+                    Iptal = false
+                });
+                await db.SaveChangesAsync();
+            }
+            kasaModalAcik = false;
+            Yenile();
+        }
+        catch (Exception ex) { kasaMesaj = $"Hata: {ex.Message}"; }
+    }
+
+    private void IptalEt()
+    {
+        if (selectedItem == null) return;
+        showIptalModal = true;
+    }
+
+    private async Task IptalOnayla()
+    {
+        if (selectedItem == null) { showIptalModal = false; return; }
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var kayit = await db.KasaHareketleri.FirstOrDefaultAsync(k => k.Id == selectedItem.Id);
+            if (kayit != null)
+            {
+                kayit.Iptal = true;
+                await db.SaveChangesAsync();
+            }
+            showIptalModal = false;
+            Yenile();
+        }
+        catch (Exception ex) { Console.WriteLine($"Iptal hatasi: {ex.Message}"); showIptalModal = false; }
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Export/print grid
+    }
+
+    private class KasaHareketiItem
+    {
+        public int Id { get; set; }
+        public int FisId { get; set; }
+        public int IslemId { get; set; }
+        public int KasaId { get; set; }
+        public DateTime Tarih { get; set; }
+        public DateTime Saat { get; set; }
+        public string? Aciklama1 { get; set; }
+        public string? Aciklama2 { get; set; }
+        public string? Unvan { get; set; }
+        public decimal KasaGirisi { get; set; }
+        public decimal KasaCikisi { get; set; }
+        public string? Doviz { get; set; }
+        public int DovizId { get; set; }
+        public string? IslemAciklama { get; set; }
+        public bool? Iptal { get; set; }
+    }
+}

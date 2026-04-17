@@ -1,0 +1,252 @@
+﻿@page "/pine/uretim"
+@inject HttpClient Http
+
+<PageTitle>Uretim Yonetimi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-industry"></i> Uretim Yonetimi
+    </div>
+    <div class="card-body">
+        <!-- Tab Control -->
+        <div class="xtab">
+            <div class="xtab-header">
+                <div class="xtab-header-item @(activeTab == 0 ? "active" : "")" @onclick="() => { activeTab = 0; LoadReceteler(); }">
+                    Urun Receteleri
+                </div>
+                <div class="xtab-header-item @(activeTab == 1 ? "active" : "")" @onclick="() => { activeTab = 1; LoadIsEmirleri(); }">
+                    Is Emirleri
+                </div>
+                <div class="xtab-header-item @(activeTab == 2 ? "active" : "")" @onclick="() => { activeTab = 2; LoadOperasyonlar(); }">
+                    Operasyonlar
+                </div>
+            </div>
+
+            <div class="xtab-body" style="padding:10px;">
+                @if (activeTab == 0)
+                {
+                    <!-- RECETELER -->
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="YeniRecete">
+                            <i class="fa fa-plus"></i> Yeni
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:calc(100vh - 340px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Stok Kodu</th>
+                                    <th>Recete No</th>
+                                    <th>Isim</th>
+                                    <th>Miktar</th>
+                                    <th>Birim</th>
+                                    <th>Aktif</th>
+                                    <th>Aciklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (receteler != null)
+                                {
+                                    @foreach (var r in receteler)
+                                    {
+                                        <tr class="@(selectedReceteId == r.Id ? "selected" : "")" @onclick="() => selectedReceteId = r.Id">
+                                            <td>@r.UrcStokKod</td>
+                                            <td>@r.UrcReceteNo</td>
+                                            <td>@r.UrcIsim</td>
+                                            <td>@r.UrcMiktar.ToString("N2")</td>
+                                            <td>@r.UrcBirim</td>
+                                            <td>@(r.UrcAktif ? "Evet" : "Hayir")</td>
+                                            <td>@r.UrcAciklama</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 1)
+                {
+                    <!-- IS EMIRLERI -->
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="YeniIsEmri">
+                            <i class="fa fa-plus"></i> Yeni
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:calc(100vh - 340px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Is Emri No</th>
+                                    <th>Tarih</th>
+                                    <th>Stok Kodu</th>
+                                    <th>Miktar</th>
+                                    <th>Tamamlanan</th>
+                                    <th>Baslangic</th>
+                                    <th>Bitis</th>
+                                    <th>Durum</th>
+                                    <th>Sorumlu</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (isEmirleri != null)
+                                {
+                                    @foreach (var ie in isEmirleri)
+                                    {
+                                        <tr class="@(selectedIsEmriId == ie.Id ? "selected" : "")" @onclick="() => selectedIsEmriId = ie.Id">
+                                            <td>@ie.IseNo</td>
+                                            <td>@ie.IseTarih?.ToString("dd.MM.yyyy")</td>
+                                            <td>@ie.IseStokKod</td>
+                                            <td>@ie.IseMiktar.ToString("N2")</td>
+                                            <td>@ie.IseTamamlanan.ToString("N2")</td>
+                                            <td>@ie.IseBaslangic?.ToString("dd.MM.yyyy")</td>
+                                            <td>@ie.IseBitis?.ToString("dd.MM.yyyy")</td>
+                                            <td>@ie.IseDurum</td>
+                                            <td>@ie.IseSorumlu</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (activeTab == 2)
+                {
+                    <!-- OPERASYONLAR -->
+                    <div class="toolbar">
+                        <button class="btn btn-success btn-sm" @onclick="YeniOperasyon">
+                            <i class="fa fa-plus"></i> Yeni
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:calc(100vh - 340px);">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th>Kod</th>
+                                    <th>Isim</th>
+                                    <th>Is Merkezi</th>
+                                    <th>Standart Sure</th>
+                                    <th style="text-align:right;">Maliyet</th>
+                                    <th>Aktif</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (operasyonlar != null)
+                                {
+                                    @foreach (var op in operasyonlar)
+                                    {
+                                        <tr class="@(selectedOpId == op.Id ? "selected" : "")" @onclick="() => selectedOpId = op.Id">
+                                            <td>@op.UopKod</td>
+                                            <td>@op.UopIsim</td>
+                                            <td>@op.UopIsMerkezi</td>
+                                            <td>@op.UopStandartSure.ToString("N2")</td>
+                                            <td style="text-align:right;">@op.UopMaliyet.ToString("N2")</td>
+                                            <td>@(op.UopAktif ? "Evet" : "Hayir")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplamKayit kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int activeTab = 0;
+    private int selectedReceteId, selectedIsEmriId, selectedOpId;
+    private int toplamKayit = 0;
+
+    private List<ReceteDto>? receteler;
+    private List<IsEmriDto>? isEmirleri;
+    private List<OperasyonDto>? operasyonlar;
+
+    protected override async Task OnInitializedAsync() => await LoadReceteler();
+
+    private async Task LoadReceteler()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<PagedResp<ReceteDto>>("/api/uretim/receteler?sayfaBoyutu=200");
+            receteler = resp?.Data ?? new();
+            toplamKayit = resp?.Toplam ?? 0;
+        }
+        catch { receteler = new(); }
+    }
+
+    private async Task LoadIsEmirleri()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<PagedResp<IsEmriDto>>("/api/uretim/isemirleri?sayfaBoyutu=200");
+            isEmirleri = resp?.Data ?? new();
+            toplamKayit = resp?.Toplam ?? 0;
+        }
+        catch { isEmirleri = new(); }
+    }
+
+    private async Task LoadOperasyonlar()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<PagedResp<OperasyonDto>>("/api/uretim/operasyonlar?sayfaBoyutu=200");
+            operasyonlar = resp?.Data ?? new();
+            toplamKayit = resp?.Toplam ?? 0;
+        }
+        catch { operasyonlar = new(); }
+    }
+
+    private void YeniRecete() { /* TODO */ }
+    private void YeniIsEmri() { /* TODO */ }
+    private void YeniOperasyon() { /* TODO */ }
+
+    public class ReceteDto
+    {
+        public int Id { get; set; }
+        public string? UrcStokKod { get; set; }
+        public int UrcReceteNo { get; set; }
+        public string? UrcIsim { get; set; }
+        public decimal UrcMiktar { get; set; }
+        public string? UrcBirim { get; set; }
+        public bool UrcAktif { get; set; }
+        public string? UrcAciklama { get; set; }
+    }
+
+    public class IsEmriDto
+    {
+        public int Id { get; set; }
+        public string? IseNo { get; set; }
+        public DateTime? IseTarih { get; set; }
+        public string? IseStokKod { get; set; }
+        public decimal IseMiktar { get; set; }
+        public decimal IseTamamlanan { get; set; }
+        public DateTime? IseBaslangic { get; set; }
+        public DateTime? IseBitis { get; set; }
+        public string? IseDurum { get; set; }
+        public string? IseSorumlu { get; set; }
+    }
+
+    public class OperasyonDto
+    {
+        public int Id { get; set; }
+        public string? UopKod { get; set; }
+        public string? UopIsim { get; set; }
+        public string? UopIsMerkezi { get; set; }
+        public decimal UopStandartSure { get; set; }
+        public decimal UopMaliyet { get; set; }
+        public bool UopAktif { get; set; }
+    }
+
+    public class PagedResp<T>
+    {
+        public bool Success { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

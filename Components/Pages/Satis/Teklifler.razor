@@ -1,0 +1,333 @@
+﻿@page "/satis/teklifler"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Teklifler</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-file-text-o"></i> Teklifler
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="YeniSatisTeklifi">
+                <i class="fa fa-plus"></i> Satis Teklifi
+            </button>
+            <button class="btn btn-success btn-sm" @onclick="YeniSatinalmaTeklifi">
+                <i class="fa fa-plus"></i> Satinalma Teklifi
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal">
+                <i class="fa fa-ban"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-sm" style="background:#16a34a; color:white;" @onclick="Onayla">
+                <i class="fa fa-check"></i> Onaylandi
+            </button>
+            <button class="btn btn-sm" style="background:#dc2626; color:white;" @onclick="Reddet">
+                <i class="fa fa-times"></i> Onaylanmadi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelAktar">
+                <i class="fa fa-file-excel-o"></i> Excel Aktar
+            </button>
+        </div>
+
+        <!-- Filtre Alani -->
+        <div class="form-row" style="margin-bottom:10px;">
+            <div class="form-inline">
+                <label style="min-width:60px;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:30px;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Listele">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div class="form-check" style="margin-left:10px;">
+                <input type="checkbox" @bind="iptalListele" @bind:after="IptalFiltrele" />
+                <label>Iptal Teklifleri Listele</label>
+            </div>
+            <div class="form-inline" style="margin-left:auto;">
+                <label style="min-width:30px;">Ara</label>
+                <input type="text" class="form-control" placeholder="Teklif no, cari kodu, unvan..." @bind="aramaMetni" @bind:event="oninput" style="max-width:250px;" />
+            </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:100px;">Teklif Durumu</th>
+                        <th style="width:100px;">Satis Faturasi</th>
+                        <th style="width:90px;">Fis Tipi</th>
+                        <th style="width:80px;">Fatura Turu</th>
+                        <th style="width:90px;">Tarih</th>
+                        <th style="width:50px;">Saat</th>
+                        <th style="width:90px;">Sevk Tarihi</th>
+                        <th style="width:110px;">Fis No</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="width:100px;">Proje No</th>
+                        <th style="width:100px;">Cari Kodu</th>
+                        <th style="min-width:200px;">Unvani</th>
+                        <th style="width:90px;">Vade Tarihi</th>
+                        <th style="width:90px;">Opsiyon Tarihi</th>
+                        <th style="width:70px;">Doviz Cinsi</th>
+                        <th style="width:100px;">Personel</th>
+                        <th style="min-width:150px;">Aciklama</th>
+                        <th style="width:100px; text-align:right;">Tutar</th>
+                        <th style="width:100px; text-align:right;">Toplam Indirim</th>
+                        <th style="width:100px; text-align:right;">KDV Matrahi</th>
+                        <th style="width:100px; text-align:right;">KDV Tutari</th>
+                        <th style="width:100px; text-align:right;">Toplam Tutar</th>
+                        <th style="width:110px; text-align:right;">Odenecek Tutar</th>
+                        <th style="width:100px; text-align:right;">TL Tutar</th>
+                        <th style="width:100px; text-align:right;">TL Top. Indirim</th>
+                        <th style="width:100px; text-align:right;">TL KDV Matrahi</th>
+                        <th style="width:100px; text-align:right;">TL KDV Tutari</th>
+                        <th style="width:100px; text-align:right;">TL Toplam Tutar</th>
+                        <th style="width:110px; text-align:right;">TL Odenecek Tutar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var teklif in filtreliTeklifler)
+                    {
+                        <tr class="@(seciliId == teklif.Id ? "selected" : "")" @onclick="() => SatirSec(teklif.Id)" @ondblclick="Duzenle">
+                            <td>
+                                @if (teklif.FaturaDurumu == "Onaylandi")
+                                {
+                                    <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Onaylandi</span>
+                                }
+                                else if (teklif.FaturaDurumu == "Onaylanmadi")
+                                {
+                                    <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Onaylanmadi</span>
+                                }
+                                else
+                                {
+                                    <span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">Beklemede</span>
+                                }
+                            </td>
+                            <td>@teklif.ProformaNo</td>
+                            <td>@teklif.Fis</td>
+                            <td>@teklif.FaturaTuru</td>
+                            <td>@teklif.Tarih.ToString("dd.MM.yyyy")</td>
+                            <td>@teklif.Saat?.ToString(@"hh\:mm")</td>
+                            <td>@teklif.SevkTarihi?.ToString("dd.MM.yyyy")</td>
+                            <td>@teklif.FisNo</td>
+                            <td>@teklif.BelgeNo</td>
+                            <td>@teklif.ProjeNo</td>
+                            <td>@teklif.CariKodu</td>
+                            <td>@teklif.Unvani</td>
+                            <td>@teklif.VadeTarihi?.ToString("dd.MM.yyyy")</td>
+                            <td>@teklif.OpsiyonTarihi?.ToString("dd.MM.yyyy")</td>
+                            <td>@teklif.DovizCinsi</td>
+                            <td>@teklif.Personel</td>
+                            <td>@teklif.Aciklama1</td>
+                            <td class="text-right">@teklif.Tutar?.ToString("N2")</td>
+                            <td class="text-right">@teklif.ToplamIndirim?.ToString("N2")</td>
+                            <td class="text-right">@teklif.KdvMatrahi?.ToString("N2")</td>
+                            <td class="text-right">@teklif.KdvTutari?.ToString("N2")</td>
+                            <td class="text-right">@teklif.ToplamTutar?.ToString("N2")</td>
+                            <td class="text-right" style="font-weight:700;">@teklif.OdenecekTutar?.ToString("N2")</td>
+                            <td class="text-right">@teklif.TLTutar?.ToString("N2")</td>
+                            <td class="text-right">@teklif.TLToplamIndirim?.ToString("N2")</td>
+                            <td class="text-right">@teklif.TLKdvMatrahi?.ToString("N2")</td>
+                            <td class="text-right">@teklif.TLKdvTutari?.ToString("N2")</td>
+                            <td class="text-right">@teklif.TLToplamTutar?.ToString("N2")</td>
+                            <td class="text-right" style="font-weight:700;">@teklif.TLOdenecekTutar?.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:700;">
+                        <td colspan="17" class="text-right">Toplam:</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.Tutar ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.ToplamIndirim ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.KdvMatrahi ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.KdvTutari ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.ToplamTutar ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.OdenecekTutar ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLTutar ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLToplamIndirim ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLKdvMatrahi ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLKdvTutari ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLToplamTutar ?? 0).ToString("N2")</td>
+                        <td class="text-right">@filtreliTeklifler.Sum(t => t.TLOdenecekTutar ?? 0).ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @filtreliTeklifler.Count kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime baslangicTarihi = DateTime.Today.AddDays(-90);
+    private DateTime bitisTarihi = DateTime.Today;
+    private bool iptalListele = false;
+    private string aramaMetni = "";
+    private int seciliId = 0;
+
+    private List<TeklifItem> teklifler = new();
+    private List<TeklifItem> filtreliTeklifler => string.IsNullOrWhiteSpace(aramaMetni)
+        ? teklifler
+        : teklifler.Where(t =>
+            (t.FisNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (t.CariKodu ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (t.Unvani ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (t.BelgeNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (t.ProjeNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Listele();
+    }
+
+    private async Task Listele()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var trCode = new List<int> { 12, 13 };
+            var dbList = await db.TekliflerView.AsNoTracking()
+                .Where(s => trCode.Contains(s.TrCode) && s.Tarih >= baslangicTarihi && s.Tarih <= bitisTarihi && (iptalListele || s.Iptal != true))
+                .OrderByDescending(s => s.Tarih)
+                .Take(500)
+                .ToListAsync();
+            teklifler = dbList.Select(t => new TeklifItem
+            {
+                Id = t.Id, Fis = t.Fis, FaturaTuru = t.FaturaTuru, FaturaDurumu = t.FaturaDurumu,
+                ProformaNo = t.ProformaNo, Tarih = t.Tarih, Saat = t.Saat, SevkTarihi = t.SevkTarihi,
+                FisNo = t.FisNo, BelgeNo = t.BelgeNo, ProjeNo = t.ProjeNo,
+                CariKodu = t.CariKodu, Unvani = t.Unvani, VadeTarihi = t.VadeTarihi,
+                OpsiyonTarihi = t.OpsiyonTarihi, DovizCinsi = t.DovizCinsi, Personel = t.Personel,
+                Aciklama1 = t.Aciklama1, Iptal = t.Iptal,
+                Tutar = t.Tutar, ToplamIndirim = t.ToplamIndirim, KdvMatrahi = t.KdvMatrahi,
+                KdvTutari = t.KdvTutari, ToplamTutar = t.ToplamTutar, OdenecekTutar = t.OdenecekTutar,
+                TLTutar = t.TLTutar, TLToplamIndirim = t.TLToplamIndirim, TLKdvMatrahi = t.TLKdvMatrahi,
+                TLKdvTutari = t.TLKdvTutari, TLToplamTutar = t.TLToplamTutar, TLOdenecekTutar = t.TLOdenecekTutar
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Teklifler DB hatasi: {ex.Message}");
+            teklifler = GetPlaceholderData();
+        }
+    }
+
+    private async Task IptalFiltrele()
+    {
+        await Listele();
+    }
+
+    private void SatirSec(int id) => seciliId = id;
+
+    private void YeniSatisTeklifi()
+    {
+        Nav.NavigateTo("/satis/fatura/yeni?tip=teklif");
+    }
+
+    private void YeniSatinalmaTeklifi()
+    {
+        Nav.NavigateTo("/satis/fatura/yeni?tip=satinalma-teklif");
+    }
+
+    private void Duzenle()
+    {
+        if (seciliId == 0) return;
+        Nav.NavigateTo($"/satis/fatura/{seciliId}");
+    }
+
+    private void Iptal()
+    {
+        if (seciliId == 0) return;
+        // TODO: Teklif iptal islemi
+    }
+
+    private void Onayla()
+    {
+        if (seciliId == 0) return;
+        // TODO: Teklif durumunu "Onaylandi" olarak guncelle
+        var teklif = teklifler.FirstOrDefault(t => t.Id == seciliId);
+        if (teklif != null) teklif.FaturaDurumu = "Onaylandi";
+    }
+
+    private void Reddet()
+    {
+        if (seciliId == 0) return;
+        // TODO: Teklif durumunu "Onaylanmadi" olarak guncelle
+        var teklif = teklifler.FirstOrDefault(t => t.Id == seciliId);
+        if (teklif != null) teklif.FaturaDurumu = "Onaylanmadi";
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void ExcelAktar()
+    { /* Excel export - coming soon */
+        // TODO: Excel export islemi
+    }
+
+    private List<TeklifItem> GetPlaceholderData()
+    {
+        return new List<TeklifItem>
+        {
+            new() { Id = 1, Fis = "Satis Teklifi", FaturaTuru = "Teklif", FaturaDurumu = "Onaylandi", Tarih = DateTime.Today.AddDays(-15), Saat = new TimeSpan(10, 0, 0), FisNo = "TKL202600001", CariKodu = "C001", Unvani = "ABC Ticaret Ltd. Sti.", DovizCinsi = "TL", Personel = "Ahmet Yilmaz", ProjeNo = "PRJ-001", OpsiyonTarihi = DateTime.Today.AddDays(15), Tutar = 45000.00, ToplamIndirim = 2000.00, KdvMatrahi = 43000.00, KdvTutari = 7740.00, ToplamTutar = 50740.00, OdenecekTutar = 50740.00, TLTutar = 45000.00, TLToplamIndirim = 2000.00, TLKdvMatrahi = 43000.00, TLKdvTutari = 7740.00, TLToplamTutar = 50740.00, TLOdenecekTutar = 50740.00, VadeTarihi = DateTime.Today.AddDays(60), ProformaNo = "HTA202600001" },
+            new() { Id = 2, Fis = "Satis Teklifi", FaturaTuru = "Teklif", FaturaDurumu = "Beklemede", Tarih = DateTime.Today.AddDays(-8), Saat = new TimeSpan(14, 30, 0), FisNo = "TKL202600002", CariKodu = "C002", Unvani = "XYZ Insaat A.S.", DovizCinsi = "USD", Personel = "Mehmet Demir", ProjeNo = "PRJ-002", OpsiyonTarihi = DateTime.Today.AddDays(20), Tutar = 12000.00, ToplamIndirim = 500.00, KdvMatrahi = 11500.00, KdvTutari = 2070.00, ToplamTutar = 13570.00, OdenecekTutar = 13570.00, TLTutar = 390000.00, TLToplamIndirim = 16250.00, TLKdvMatrahi = 373750.00, TLKdvTutari = 67275.00, TLToplamTutar = 441025.00, TLOdenecekTutar = 441025.00, VadeTarihi = DateTime.Today.AddDays(90) },
+            new() { Id = 3, Fis = "Satinalma Teklifi", FaturaTuru = "Teklif", FaturaDurumu = "Onaylanmadi", Tarih = DateTime.Today.AddDays(-3), Saat = new TimeSpan(11, 15, 0), FisNo = "TKL202600003", CariKodu = "C003", Unvani = "DEF Makina San. Tic. A.S.", DovizCinsi = "EUR", Personel = "Ahmet Yilmaz", ProjeNo = "PRJ-003", OpsiyonTarihi = DateTime.Today.AddDays(10), Tutar = 8000.00, ToplamIndirim = 0, KdvMatrahi = 8000.00, KdvTutari = 1440.00, ToplamTutar = 9440.00, OdenecekTutar = 9440.00, TLTutar = 280000.00, TLToplamIndirim = 0, TLKdvMatrahi = 280000.00, TLKdvTutari = 50400.00, TLToplamTutar = 330400.00, TLOdenecekTutar = 330400.00, VadeTarihi = DateTime.Today.AddDays(45) }
+        };
+    }
+
+    public class TeklifItem
+    {
+        public int Id { get; set; }
+        public string Fis { get; set; } = "";
+        public string FaturaTuru { get; set; } = "";
+        public string FaturaDurumu { get; set; } = "";
+        public string ProformaNo { get; set; } = "";
+        public DateTime Tarih { get; set; }
+        public TimeSpan? Saat { get; set; }
+        public DateTime? SevkTarihi { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public string ProjeNo { get; set; } = "";
+        public string CariKodu { get; set; } = "";
+        public string Unvani { get; set; } = "";
+        public DateTime? VadeTarihi { get; set; }
+        public DateTime? OpsiyonTarihi { get; set; }
+        public string DovizCinsi { get; set; } = "";
+        public string Personel { get; set; } = "";
+        public string Aciklama1 { get; set; } = "";
+        public bool? Iptal { get; set; }
+        public double? Tutar { get; set; }
+        public double? ToplamIndirim { get; set; }
+        public double? KdvMatrahi { get; set; }
+        public double? KdvTutari { get; set; }
+        public double? ToplamTutar { get; set; }
+        public double? OdenecekTutar { get; set; }
+        public double? TLTutar { get; set; }
+        public double? TLToplamIndirim { get; set; }
+        public double? TLKdvMatrahi { get; set; }
+        public double? TLKdvTutari { get; set; }
+        public double? TLToplamTutar { get; set; }
+        public double? TLOdenecekTutar { get; set; }
+    }
+}

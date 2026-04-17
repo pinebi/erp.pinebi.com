@@ -1,0 +1,111 @@
+@page "/tanimlar/birimler"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Birim Setleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-ruler"></i> Birim Setleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="form-control" placeholder="Ara..." @bind="searchText" @bind:event="oninput" style="max-width:250px;" />
+            <button class="btn btn-secondary btn-sm" @onclick="Refresh">
+                <i class="fa fa-sync"></i> Yenile
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">Birim Kodu</th>
+                        <th>Birim Adi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => SelectItem(item)">
+                                <td>@item.BirimKodu</td>
+                                <td>@item.BirimAdi</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="btn btn-primary btn-sm" @onclick="() => SelectItem(selectedItem)">
+                <i class="fa fa-check"></i> Sec
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.MachineBiss.Birimler> list = new();
+    private MACHINEBISS_Web.Models.MachineBiss.Birimler? selectedItem;
+    private string searchText = "";
+    private string? errorMessage;
+
+    private IEnumerable<MACHINEBISS_Web.Models.MachineBiss.Birimler> filteredList =>
+        string.IsNullOrWhiteSpace(searchText) ? list :
+        list.Where(x => (x.BirimKodu ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                        (x.BirimAdi ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            list = await ctx.Birimler.OrderBy(x => x.BirimKodu).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private void SelectItem(MACHINEBISS_Web.Models.MachineBiss.Birimler? item)
+    {
+        if (item == null) return;
+        // Return selected BirimKodu to calling page
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

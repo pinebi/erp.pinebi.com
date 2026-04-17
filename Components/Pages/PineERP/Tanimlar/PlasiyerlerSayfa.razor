@@ -1,0 +1,203 @@
+@page "/pine/tanimlar/plasiyerler"
+@inject HttpClient Http
+
+<PageTitle>Plasiyer Tanimlari</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-user-tie"></i> Plasiyer Tanimlari
+    </div>
+    <div class="card-body" style="padding:8px 14px;">
+        <!-- Toolbar -->
+        <div class="toolbar" style="margin-bottom:6px;">
+            <button class="btn btn-success btn-sm" @onclick="Ekle" title="Yeni Plasiyer">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(!editMode)" title="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal" disabled="@(!editMode)" title="Iptal">
+                <i class="fa fa-times"></i> Iptal
+            </button>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-outline btn-sm" @onclick="LoadDataAsync" title="Listeyi Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+        </div>
+
+        <div style="display:flex; gap:16px;">
+            <!-- Grid -->
+            <div style="flex:2;">
+                <div class="grid-container">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th>Kod</th>
+                                <th>Isim</th>
+                                <th>Telefon</th>
+                                <th>Email</th>
+                                <th>Bolge</th>
+                                <th>Aktif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (liste != null)
+                            {
+                                @foreach (var item in liste)
+                                {
+                                    <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                        @onclick="() => SelectItem(item)">
+                                        <td>@item.PlsKod</td>
+                                        <td>@item.PlsIsim</td>
+                                        <td>@item.PlsTel</td>
+                                        <td>@item.PlsEmail</td>
+                                        <td>@item.PlsBolge</td>
+                                        <td>@(item.PlsAktif ? "Evet" : "Hayir")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+                    Toplam: @(liste?.Count ?? 0) kayit
+                </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div style="flex:1; min-width:300px;">
+                <div class="group-box">
+                    <span class="group-box-title">@(isNew ? "Yeni Plasiyer" : "Plasiyer Duzenle")</span>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Kod</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsKod" disabled="@(!editMode)" style="max-width:120px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Isim</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsIsim" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Telefon</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsTel" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Email</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsEmail" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Bolge</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsBolge" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Hedef Satis</label>
+                            <input type="number" class="form-control" @bind="formModel.PlsHedefSatis" disabled="@(!editMode)" step="0.01" style="max-width:150px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label>Aciklama</label>
+                            <input type="text" class="form-control" @bind="formModel.PlsAciklama" disabled="@(!editMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input type="checkbox" @bind="formModel.PlsAktif" disabled="@(!editMode)" />
+                            <label>Aktif</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<PlasiyerDto>? liste;
+    private int selectedId;
+    private bool editMode = false, isNew = false;
+    private PlasiyerDto formModel = new();
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<PlasiyerDto>>>("/api/tanimlar/plasiyerler");
+            liste = resp?.Data ?? new();
+        }
+        catch { liste = new(); }
+    }
+
+    private void SelectItem(PlasiyerDto item)
+    {
+        selectedId = item.Id;
+        formModel = new PlasiyerDto
+        {
+            Id = item.Id, PlsKod = item.PlsKod, PlsIsim = item.PlsIsim,
+            PlsTel = item.PlsTel, PlsEmail = item.PlsEmail, PlsBolge = item.PlsBolge,
+            PlsHedefSatis = item.PlsHedefSatis, PlsAciklama = item.PlsAciklama, PlsAktif = item.PlsAktif
+        };
+        editMode = true;
+        isNew = false;
+    }
+
+    private void Ekle()
+    {
+        selectedId = 0;
+        formModel = new PlasiyerDto { PlsAktif = true };
+        editMode = true;
+        isNew = true;
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            if (isNew)
+                await Http.PostAsJsonAsync("/api/tanimlar/plasiyer", formModel);
+            else
+                await Http.PutAsJsonAsync($"/api/tanimlar/plasiyer/{formModel.Id}", formModel);
+
+            editMode = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex) { Console.WriteLine($"Kaydetme hatasi: {ex.Message}"); }
+    }
+
+    private void Iptal()
+    {
+        editMode = false;
+        formModel = new();
+    }
+
+    public class PlasiyerDto
+    {
+        public int Id { get; set; }
+        public string? PlsKod { get; set; }
+        public string? PlsIsim { get; set; }
+        public string? PlsTel { get; set; }
+        public string? PlsEmail { get; set; }
+        public string? PlsBolge { get; set; }
+        public decimal? PlsHedefSatis { get; set; }
+        public string? PlsAciklama { get; set; }
+        public bool PlsAktif { get; set; }
+    }
+
+    public class ApiResp<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+}

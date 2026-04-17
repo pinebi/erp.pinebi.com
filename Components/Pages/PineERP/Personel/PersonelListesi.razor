@@ -1,0 +1,177 @@
+﻿@page "/pine/personel/liste"
+@inject NavigationManager Nav
+@inject MACHINEBISS_Web.Services.ConfirmService Confirm
+@inject HttpClient Http
+@using System.Text.Json
+
+<PageTitle>Personel Listesi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-users"></i> Personel Listesi
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="IzinleriGoster">
+                <i class="fa fa-calendar"></i> Izinler
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Personel kodu, ad soyad, TC kimlik..."
+                       @bind="searchText" @bind:event="oninput" @bind:after="AraAsync" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Personel Kodu</th>
+                        <th>Ad Soyad</th>
+                        <th>TC Kimlik</th>
+                        <th>Departman</th>
+                        <th>Pozisyon</th>
+                        <th>Gorev</th>
+                        <th>Telefon</th>
+                        <th>E-Posta</th>
+                        <th>Ise Giris</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoading)
+                    {
+                        <tr><td colspan="10" style="text-align:center;">Yukleniyor...</td></tr>
+                    }
+                    else if (liste != null)
+                    {
+                        @foreach (var item in liste)
+                        {
+                            <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.PerKod</td>
+                                <td>@item.PerAdsoyad</td>
+                                <td>@item.PerTcKimlik</td>
+                                <td>@item.PerDepartmanKodu</td>
+                                <td>@item.PerPozisyonKodu</td>
+                                <td>@item.PerGorev</td>
+                                <td>@item.PerGsm</td>
+                                <td>@item.PerEmail</td>
+                                <td>@item.PerIseGiris?.ToString("dd.MM.yyyy")</td>
+                                <td>@(item.PerIstenAyrildi ? "Ayrildi" : "Aktif")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplam kayit (Sayfa @sayfa / @toplamSayfa)</span>
+            <div>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa <= 1)" @onclick="OncekiSayfa">Onceki</button>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa >= toplamSayfa)" @onclick="SonrakiSayfa">Sonraki</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<PersonelDto> liste = new();
+    private int selectedId;
+    private PersonelDto? selectedItem;
+    private string searchText = "";
+    private bool isLoading = true;
+    private int sayfa = 1, sayfaBoyutu = 50, toplam = 0, toplamSayfa = 0;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var url = $"/api/personel/kartlar?sayfa={sayfa}&sayfaBoyutu={sayfaBoyutu}";
+            if (!string.IsNullOrWhiteSpace(searchText)) url += $"&ara={Uri.EscapeDataString(searchText)}";
+
+            var response = await Http.GetFromJsonAsync<PagedResponse<PersonelDto>>(url);
+            if (response != null)
+            {
+                liste = response.Data ?? new();
+                toplam = response.Toplam;
+                toplamSayfa = response.ToplamSayfa;
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Personel listesi hatasi: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task AraAsync() { sayfa = 1; await LoadDataAsync(); }
+    private async Task OncekiSayfa() { if (sayfa > 1) { sayfa--; await LoadDataAsync(); } }
+    private async Task SonrakiSayfa() { if (sayfa < toplamSayfa) { sayfa++; await LoadDataAsync(); } }
+
+    private void SelectItem(PersonelDto item) { selectedItem = item; selectedId = item.Id; }
+    private void OnDoubleClick(PersonelDto item) => Nav.NavigateTo($"/pine/personel/kart/{item.Id}");
+    private void Ekle() => Nav.NavigateTo("/pine/personel/kart");
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+
+    private async Task Sil()
+    {
+        if (selectedItem == null) return;
+        if (!await Confirm.AskAsync($"'{selectedItem.PerAdsoyad}' personelini silmek istediginize emin misiniz?", "Personel Sil")) return;
+        var response = await Http.DeleteAsync($"/api/personel/kart/{selectedItem.Id}");
+        if (response.IsSuccessStatusCode) await LoadDataAsync();
+    }
+
+    private void IzinleriGoster() { /* TODO: Navigate to izin page */ }
+    private void Yazdir() { /* TODO: Print */ }
+
+    public class PersonelDto
+    {
+        public int Id { get; set; }
+        public string? PerKod { get; set; }
+        public string? PerAdsoyad { get; set; }
+        public string? PerTcKimlik { get; set; }
+        public string? PerDepartmanKodu { get; set; }
+        public string? PerPozisyonKodu { get; set; }
+        public string? PerGorev { get; set; }
+        public string? PerGsm { get; set; }
+        public string? PerEmail { get; set; }
+        public DateTime? PerIseGiris { get; set; }
+        public bool PerIstenAyrildi { get; set; }
+    }
+
+    public class PagedResponse<T>
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

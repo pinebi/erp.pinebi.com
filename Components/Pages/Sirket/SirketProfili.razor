@@ -1,0 +1,1048 @@
+﻿@page "/sirket/profil"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@inject MACHINEBISS_Web.Services.AuthService Auth
+@using Microsoft.EntityFrameworkCore
+@using MACHINEBISS_Web.Models.BlockBiss
+@using MACHINEBISS_Web.Models.MachineBiss
+
+<PageTitle>Sirket Profili</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-building"></i> Sirket Profili
+    </div>
+    <div class="card-body">
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <!-- Left Column: Company Info -->
+            <div style="flex:2; min-width:500px;">
+                <!-- Sirket Bilgileri -->
+                <div class="group-box">
+                    <span class="group-box-title">Sirket Bilgileri</span>
+
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Firma Unvani</label>
+                            <input type="text" class="form-control" @bind="firmaUnvani" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Adres</label>
+                            <textarea class="form-control" rows="3" @bind="adres" style="resize:vertical;"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Ulke</label>
+                            <select class="form-control" @bind="ulke" style="max-width:200px;">
+                                <option value="">Seciniz</option>
+                                @if (ulkelerListesi != null)
+                                {
+                                    foreach (var u in ulkelerListesi)
+                                    {
+                                        <option value="@u.Ulke">@u.Ulke</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:60px;">Sehir</label>
+                            <select class="form-control" @bind="sehirId" @bind:after="SehirChanged" style="max-width:200px;">
+                                <option value="0">Seciniz</option>
+                                @if (sehirlerListesi != null)
+                                {
+                                    foreach (var s in sehirlerListesi)
+                                    {
+                                        <option value="@s.Id">@s.SehirAdi</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:40px;">Ilce</label>
+                            <select class="form-control" @bind="ilceId" style="max-width:200px;">
+                                <option value="0">Seciniz</option>
+                                @if (ilcelerListesi != null)
+                                {
+                                    foreach (var il in ilcelerListesi)
+                                    {
+                                        <option value="@il.Id">@il.IlceAdi</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">VD Kodu</label>
+                            <input type="text" class="form-control" @bind="vdKodu" style="max-width:120px;" />
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:80px;">Vergi Dairesi</label>
+                            <input type="text" class="form-control" @bind="vd" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Vergi No</label>
+                            <input type="text" class="form-control" @bind="vn" style="max-width:200px;" />
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:80px;">Mersis No</label>
+                            <input type="text" class="form-control" @bind="mersisNo" style="max-width:200px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Ticaret Sicil No</label>
+                            <input type="text" class="form-control" @bind="ticSicNo" style="max-width:200px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Telefon</label>
+                            <input type="text" class="form-control" @bind="telefon" style="max-width:200px;" />
+                        </div>
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:80px;">GSM</label>
+                            <input type="text" class="form-control" @bind="gsm" style="max-width:200px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Faks</label>
+                            <input type="text" class="form-control" @bind="faks" style="max-width:200px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">Web</label>
+                            <input type="text" class="form-control" @bind="web" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:120px;">E-Posta</label>
+                            <input type="text" class="form-control" @bind="ePosta" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- E-Fatura Ayarlari -->
+                <div class="group-box">
+                    <span class="group-box-title">E-Fatura / E-Irsaliye Ayarlari</span>
+
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input type="checkbox" @bind="eFaturaAktif" />
+                            <label style="font-weight:700;">E-Fatura Aktif</label>
+                        </div>
+                        <div class="form-check" style="margin-left:20px;">
+                            <input type="checkbox" @bind="eIrsaliyeAktif" />
+                            <label style="font-weight:700;">E-Irsaliye Aktif</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:170px;">E-Fatura Gelen URN Mail</label>
+                            <input type="text" class="form-control" @bind="eFaturaGelenUrn" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:170px;">E-Fatura Giden URN Mail</label>
+                            <input type="text" class="form-control" @bind="eFaturaGidenUrn" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline" style="flex:1;">
+                            <label style="min-width:170px;">E-Irsaliye URN Mail</label>
+                            <input type="text" class="form-control" @bind="eIrsaliyeUrn" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parametreler -->
+                <div class="group-box">
+                    <span class="group-box-title">Parametreler</span>
+
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input type="checkbox" @bind="cariOtomatikKod" />
+                            <label>Cari Kodu Otomatik Olustur</label>
+                        </div>
+                        <div class="form-check" style="margin-left:20px;">
+                            <input type="checkbox" @bind="stokOtomatikKod" />
+                            <label>Stok Kodu Otomatik Olustur</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Ortaklar, Mail, Hizmetler, FTP -->
+            <div style="flex:1; min-width:400px;">
+                <!-- Sirket Ortaklari -->
+                <div class="group-box">
+                    <span class="group-box-title">Sirket Ortaklari</span>
+                    <div class="toolbar" style="padding:4px 0;">
+                        <button class="btn btn-success btn-sm" @onclick="OrtakEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="OrtakSil">
+                            <i class="fa fa-trash"></i> Sil
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:180px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:120px;">Ad Soyad</th>
+                                    <th style="width:100px;">Gorevi</th>
+                                    <th style="width:100px;">Telefon</th>
+                                    <th style="width:80px;">Ortaklik %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (ortaklar != null)
+                                {
+                                    foreach (var o in ortaklar)
+                                    {
+                                        <tr class="@(seciliOrtakId == o.Id ? "selected-row" : "")"
+                                            @onclick="() => seciliOrtakId = o.Id"
+                                            style="cursor:pointer;">
+                                            <td>@o.AdSoyad</td>
+                                            <td>@o.Gorevi</td>
+                                            <td>@o.Telefon</td>
+                                            <td style="text-align:right;">@o.OrtaklikPayi</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Kurumsal Mail -->
+                <div class="group-box">
+                    <span class="group-box-title">Kurumsal Mail Adresleri</span>
+                    <div class="toolbar" style="padding:4px 0;">
+                        <button class="btn btn-success btn-sm" @onclick="MailEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="MailSil">
+                            <i class="fa fa-trash"></i> Sil
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:150px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:100px;">Birim</th>
+                                    <th style="min-width:150px;">E-Mail</th>
+                                    <th style="width:80px;">Dahili Tel</th>
+                                    <th style="width:60px;">Paylas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (mailListesi != null)
+                                {
+                                    foreach (var m in mailListesi)
+                                    {
+                                        <tr class="@(seciliMailId == m.Id ? "selected-row" : "")"
+                                            @onclick="() => seciliMailId = m.Id"
+                                            style="cursor:pointer;">
+                                            <td>@m.Birim</td>
+                                            <td>@m.EMail</td>
+                                            <td>@m.DahiliTel</td>
+                                            <td>@(m.Paylas ? "Evet" : "Hayir")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Hizmetler -->
+                <div class="group-box">
+                    <span class="group-box-title">Sunulan Hizmetler</span>
+                    <div class="toolbar" style="padding:4px 0;">
+                        <button class="btn btn-success btn-sm" @onclick="HizmetEkle">
+                            <i class="fa fa-plus"></i> Ekle
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="HizmetSil">
+                            <i class="fa fa-trash"></i> Sil
+                        </button>
+                    </div>
+                    <div class="grid-container" style="max-height:150px;">
+                        <table class="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="min-width:200px;">Hizmet Adi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (hizmetListesi != null)
+                                {
+                                    foreach (var h in hizmetListesi)
+                                    {
+                                        <tr class="@(seciliHizmetId == h.Id ? "selected-row" : "")"
+                                            @onclick="() => seciliHizmetId = h.Id"
+                                            style="cursor:pointer;">
+                                            <td>@h.HizmetAdi</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- FTP Dosyalari -->
+                <div class="group-box">
+                    <span class="group-box-title">FTP Dosyalari</span>
+                    <div class="toolbar" style="padding:4px 0;">
+                        <button class="btn btn-success btn-sm" @onclick="DosyaYukle">
+                            <i class="fa fa-upload"></i> Yukle
+                        </button>
+                        <button class="btn btn-primary btn-sm" @onclick="DosyaIndir">
+                            <i class="fa fa-download"></i> Indir
+                        </button>
+                        <button class="btn btn-danger btn-sm" @onclick="DosyaSil">
+                            <i class="fa fa-trash"></i> Sil
+                        </button>
+                    </div>
+                    <div style="border:1px solid var(--pinebi-border); border-radius:4px; max-height:150px; overflow-y:auto; background:white; padding:4px;">
+                        @if (ftpDosyalar != null)
+                        {
+                            foreach (var d in ftpDosyalar)
+                            {
+                                <div style="padding:3px 6px; font-size:12px; cursor:pointer; border-bottom:1px solid #f3f4f6;
+                                    @(seciliFtpDosya == d ? "background:#e0e7ff; font-weight:600;" : "")"
+                                     @onclick="() => seciliFtpDosya = d">
+                                    <i class="fa fa-file-o"></i> @d
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom: Logo + Resim -->
+        <div style="display:flex; gap:16px; margin-top:12px; align-items:center;">
+            <div style="border:1px solid var(--pinebi-border); border-radius:4px; padding:8px; text-align:center; min-width:180px;">
+                <div style="width:150px; height:80px; border:1px dashed var(--pinebi-border); border-radius:4px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px; background:#f9fafb;">
+                    <i class="fa fa-image" style="font-size:28px; color:var(--pinebi-text-light);"></i>
+                </div>
+                <span style="font-size:11px; color:var(--pinebi-text-light);">Firma Logosu</span>
+            </div>
+            <div style="border:1px solid var(--pinebi-border); border-radius:4px; padding:8px; text-align:center; min-width:180px;">
+                <div style="width:150px; height:80px; border:1px dashed var(--pinebi-border); border-radius:4px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px; background:#f9fafb;">
+                    <i class="fa fa-image" style="font-size:28px; color:var(--pinebi-text-light);"></i>
+                </div>
+                <span style="font-size:11px; color:var(--pinebi-text-light);">Firma Kase / Imza</span>
+            </div>
+
+            <div style="margin-left:auto;">
+                <button class="btn btn-primary" style="margin-right:8px;" @onclick="Kaydet" disabled="@kaydediliyor">
+                    <i class="fa fa-save"></i> [F2] Kaydet
+                </button>
+                <button class="btn btn-secondary" @onclick="Kapat">
+                    <i class="fa fa-times"></i> [Esc] Kapat
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mesaj))
+        {
+            <div class="alert @(mesajTipi == "success" ? "alert-success" : "alert-danger")" style="margin-top:10px;">
+                @mesaj
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // Sirket Bilgileri
+    private string firmaUnvani = "";
+    private string adres = "";
+    private string ulke = "";
+    private int sehirId;
+    private int ilceId;
+    private string vdKodu = "";
+    private string vd = "";
+    private string vn = "";
+    private string mersisNo = "";
+    private string ticSicNo = "";
+    private string telefon = "";
+    private string gsm = "";
+    private string faks = "";
+    private string web = "";
+    private string ePosta = "";
+
+    // E-Fatura
+    private bool eFaturaAktif;
+    private bool eIrsaliyeAktif;
+    private string eFaturaGelenUrn = "";
+    private string eFaturaGidenUrn = "";
+    private string eIrsaliyeUrn = "";
+
+    // Parametreler
+    private bool cariOtomatikKod;
+    private bool stokOtomatikKod;
+
+    // Lookup lists
+    private List<Ulkeler> ulkelerListesi = new();
+    private List<Sehirler> sehirlerListesi = new();
+    private List<Ilceler> ilcelerListesi = new();
+
+    // Lists
+    private List<OrtakItem> ortaklar = new();
+    private List<MailItem> mailListesi = new();
+    private List<HizmetItem> hizmetListesi = new();
+    private List<string> ftpDosyalar = new();
+
+    // Selection tracking
+    private int seciliOrtakId;
+    private int seciliMailId;
+    private int seciliHizmetId;
+    private string seciliFtpDosya = "";
+
+    // UI state
+    private string mesaj = "";
+    private string mesajTipi = "success";
+    private bool kaydediliyor;
+
+    // Loaded entity ID
+    private int sirketBilgileriId;
+    private int sirketNo;
+
+    private string ftpKlasorYolu = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await VerileriYukle();
+    }
+
+    private async Task VerileriYukle()
+    {
+        try
+        {
+            int.TryParse(Auth.SirketKodu, out sirketNo);
+
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+
+            // Lookup verileri
+            ulkelerListesi = await networkDb.Ulkeler.AsNoTracking().ToListAsync();
+            sehirlerListesi = await networkDb.Sehirler.AsNoTracking().OrderBy(s => s.SehirAdi).ToListAsync();
+
+            // Sirket bilgilerini yukle
+            var sirket = await networkDb.SirketBilgileri.FirstOrDefaultAsync(s => s.SirketNo == sirketNo);
+            if (sirket != null)
+            {
+                sirketBilgileriId = sirket.Id;
+                firmaUnvani = sirket.FirmaUnvani ?? "";
+                adres = sirket.Adres ?? "";
+                ulke = sirket.Ulke ?? "";
+                sehirId = sirket.SehirId ?? 0;
+                ilceId = sirket.IlceId ?? 0;
+                vdKodu = sirket.VdKodu ?? "";
+                vd = sirket.Vd ?? "";
+                vn = sirket.Vn ?? "";
+                mersisNo = sirket.MersisNo ?? "";
+                ticSicNo = sirket.TicaretSicilNo ?? "";
+                telefon = sirket.Telefon ?? "";
+                gsm = sirket.Gsm ?? "";
+                faks = sirket.Faks ?? "";
+                web = sirket.Web ?? "";
+                ePosta = sirket.EPosta ?? "";
+                eFaturaAktif = sirket.EFaturaMukellefi;
+                eIrsaliyeAktif = sirket.EIrsaliyeMukellefi;
+                eFaturaGelenUrn = sirket.EFaturaGelenUrnMail ?? "";
+                eFaturaGidenUrn = sirket.EFaturaGidenUrnMail ?? "";
+                eIrsaliyeUrn = sirket.EIrsaliyeUrnMail ?? "";
+            }
+
+            // Ilce listesini sehire gore yukle
+            if (sehirId > 0)
+            {
+                ilcelerListesi = await networkDb.Ilceler.AsNoTracking()
+                    .Where(i => i.SehirId == sehirId)
+                    .OrderBy(i => i.IlceAdi)
+                    .ToListAsync();
+            }
+
+            // Mail listesi
+            var mailler = await networkDb.SirketMail.AsNoTracking()
+                .Where(m => m.SirketNo == sirketNo)
+                .ToListAsync();
+            mailListesi = mailler.Select(m => new MailItem
+            {
+                Id = m.Id,
+                Birim = m.Birim ?? "",
+                EMail = m.EMail ?? "",
+                DahiliTel = m.DahiliTel ?? "",
+                Paylas = m.Paylas ?? false
+            }).ToList();
+
+            // Hizmet listesi
+            var hizmetler = await networkDb.Hizmetler.AsNoTracking()
+                .Where(h => h.SirketNo == sirketNo && h.Aktif)
+                .ToListAsync();
+            hizmetListesi = hizmetler.Select(h => new HizmetItem
+            {
+                Id = h.Id,
+                HizmetAdi = h.HizmetAdi ?? ""
+            }).ToList();
+
+            // Ortaklar (FirmaContext)
+            using var firmaDb = await FirmaFactory.CreateDbContextAsync();
+            var ortaklarDb = await firmaDb.SirketOrtaklari.AsNoTracking().ToListAsync();
+            ortaklar = ortaklarDb.Select(o => new OrtakItem
+            {
+                Id = o.Id,
+                AdSoyad = o.AdSoyad ?? "",
+                Gorevi = o.Gorevi ?? "",
+                Telefon = o.Telefon ?? "",
+                OrtaklikPayi = (decimal)o.OrtaklikPayi
+            }).ToList();
+
+            // Parametreler (VarsayilanDegerler)
+            var varsayilan = await firmaDb.VarsayilanDegerler.AsNoTracking().FirstOrDefaultAsync();
+            if (varsayilan != null)
+            {
+                cariOtomatikKod = varsayilan.CariTakibi;
+                stokOtomatikKod = varsayilan.StokTakibi;
+            }
+
+            // FTP dosya listesi
+            await FtpDosyalariYukle();
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Veriler yuklenirken hata olustu: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    private async Task FtpDosyalariYukle()
+    {
+        try
+        {
+            // Sirket belgeleri klasoru
+            ftpKlasorYolu = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PineERP", "SirketBelgeleri", sirketNo.ToString());
+            if (Directory.Exists(ftpKlasorYolu))
+            {
+                ftpDosyalar = Directory.GetFiles(ftpKlasorYolu)
+                    .Select(f => Path.GetFileName(f))
+                    .ToList();
+            }
+            else
+            {
+                ftpDosyalar = new List<string>();
+            }
+        }
+        catch
+        {
+            ftpDosyalar = new List<string>();
+        }
+    }
+
+    private async Task SehirChanged()
+    {
+        try
+        {
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+            ilcelerListesi = await networkDb.Ilceler.AsNoTracking()
+                .Where(i => i.SehirId == sehirId)
+                .OrderBy(i => i.IlceAdi)
+                .ToListAsync();
+            ilceId = 0;
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Ilce listesi yuklenirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== KAYDET ====================
+    private async Task Kaydet()
+    {
+        try
+        {
+            kaydediliyor = true;
+            mesaj = "";
+
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+            var sirket = await networkDb.SirketBilgileri.FirstOrDefaultAsync(s => s.SirketNo == sirketNo);
+            if (sirket != null)
+            {
+                sirket.FirmaUnvani = firmaUnvani;
+                sirket.Adres = adres;
+                sirket.Ulke = ulke;
+                sirket.SehirId = sehirId > 0 ? sehirId : null;
+                sirket.IlceId = ilceId > 0 ? ilceId : null;
+                sirket.VdKodu = vdKodu;
+                sirket.Vd = vd;
+                sirket.Vn = vn;
+                sirket.MersisNo = mersisNo;
+                sirket.TicaretSicilNo = ticSicNo;
+                sirket.Telefon = telefon;
+                sirket.Gsm = gsm;
+                sirket.Faks = faks;
+                sirket.Web = web;
+                sirket.EPosta = ePosta;
+                sirket.EFaturaMukellefi = eFaturaAktif;
+                sirket.EIrsaliyeMukellefi = eIrsaliyeAktif;
+                sirket.EFaturaGelenUrnMail = eFaturaGelenUrn;
+                sirket.EFaturaGidenUrnMail = eFaturaGidenUrn;
+                sirket.EIrsaliyeUrnMail = eIrsaliyeUrn;
+
+                // Sehir ve Ilce adlarini da guncelle
+                if (sehirId > 0)
+                {
+                    var sehir = await networkDb.Sehirler.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sehirId);
+                    sirket.Sehir = sehir?.SehirAdi;
+                }
+                else
+                {
+                    sirket.Sehir = null;
+                }
+
+                if (ilceId > 0)
+                {
+                    var ilce = await networkDb.Ilceler.AsNoTracking().FirstOrDefaultAsync(i => i.Id == ilceId);
+                    sirket.Ilce = ilce?.IlceAdi;
+                }
+                else
+                {
+                    sirket.Ilce = null;
+                }
+
+                networkDb.Entry(sirket).State = EntityState.Modified;
+                await networkDb.SaveChangesAsync();
+            }
+
+            // Parametreleri kaydet (VarsayilanDegerler)
+            using var firmaDb = await FirmaFactory.CreateDbContextAsync();
+            var varsayilan = await firmaDb.VarsayilanDegerler.FirstOrDefaultAsync();
+            if (varsayilan != null)
+            {
+                varsayilan.CariTakibi = cariOtomatikKod;
+                varsayilan.StokTakibi = stokOtomatikKod;
+                firmaDb.Entry(varsayilan).State = EntityState.Modified;
+                await firmaDb.SaveChangesAsync();
+            }
+
+            mesaj = "Sirket bilgileri basariyla kaydedildi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Kaydetme hatasi: {ex.Message}";
+            mesajTipi = "danger";
+        }
+        finally
+        {
+            kaydediliyor = false;
+        }
+    }
+
+    // ==================== KAPAT ====================
+    private void Kapat()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+
+    // ==================== ORTAK EKLE ====================
+    private async Task OrtakEkle()
+    {
+        try
+        {
+            mesaj = "";
+            using var firmaDb = await FirmaFactory.CreateDbContextAsync();
+
+            var yeniOrtak = new MACHINEBISS_Web.Models.MachineBiss.SirketOrtaklari
+            {
+                AdSoyad = "Yeni Ortak",
+                Gorevi = "",
+                Telefon = "",
+                DahiliTel = "",
+                EPosta = "",
+                Adres = "",
+                Sehir = "",
+                Ilce = "",
+                DogumTarihi = DateTime.Today,
+                OrtaklikPayi = 0
+            };
+
+            firmaDb.SirketOrtaklari.Add(yeniOrtak);
+            await firmaDb.SaveChangesAsync();
+
+            // Listeyi yenile
+            var ortaklarDb = await firmaDb.SirketOrtaklari.AsNoTracking().ToListAsync();
+            ortaklar = ortaklarDb.Select(o => new OrtakItem
+            {
+                Id = o.Id,
+                AdSoyad = o.AdSoyad ?? "",
+                Gorevi = o.Gorevi ?? "",
+                Telefon = o.Telefon ?? "",
+                OrtaklikPayi = (decimal)o.OrtaklikPayi
+            }).ToList();
+
+            seciliOrtakId = yeniOrtak.Id;
+            mesaj = "Yeni ortak eklendi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Ortak eklenirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== ORTAK SIL ====================
+    private async Task OrtakSil()
+    {
+        try
+        {
+            mesaj = "";
+            if (seciliOrtakId <= 0)
+            {
+                mesaj = "Lutfen silmek icin bir ortak seciniz.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            using var firmaDb = await FirmaFactory.CreateDbContextAsync();
+            var ortak = await firmaDb.SirketOrtaklari.FirstOrDefaultAsync(o => o.Id == seciliOrtakId);
+            if (ortak != null)
+            {
+                firmaDb.SirketOrtaklari.Remove(ortak);
+                await firmaDb.SaveChangesAsync();
+            }
+
+            // Listeyi yenile
+            var ortaklarDb = await firmaDb.SirketOrtaklari.AsNoTracking().ToListAsync();
+            ortaklar = ortaklarDb.Select(o => new OrtakItem
+            {
+                Id = o.Id,
+                AdSoyad = o.AdSoyad ?? "",
+                Gorevi = o.Gorevi ?? "",
+                Telefon = o.Telefon ?? "",
+                OrtaklikPayi = (decimal)o.OrtaklikPayi
+            }).ToList();
+
+            seciliOrtakId = 0;
+            mesaj = "Ortak silindi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Ortak silinirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== MAIL EKLE ====================
+    private async Task MailEkle()
+    {
+        try
+        {
+            mesaj = "";
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+
+            var yeniMail = new MACHINEBISS_Web.Models.BlockBiss.SirketMail
+            {
+                SirketNo = sirketNo,
+                Birim = "Yeni Birim",
+                EMail = "",
+                DahiliTel = "",
+                Paylas = false
+            };
+
+            networkDb.SirketMail.Add(yeniMail);
+            await networkDb.SaveChangesAsync();
+
+            // Listeyi yenile
+            var mailler = await networkDb.SirketMail.AsNoTracking()
+                .Where(m => m.SirketNo == sirketNo)
+                .ToListAsync();
+            mailListesi = mailler.Select(m => new MailItem
+            {
+                Id = m.Id,
+                Birim = m.Birim ?? "",
+                EMail = m.EMail ?? "",
+                DahiliTel = m.DahiliTel ?? "",
+                Paylas = m.Paylas ?? false
+            }).ToList();
+
+            seciliMailId = yeniMail.Id;
+            mesaj = "Yeni mail adresi eklendi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Mail eklenirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== MAIL SIL ====================
+    private async Task MailSil()
+    {
+        try
+        {
+            mesaj = "";
+            if (seciliMailId <= 0)
+            {
+                mesaj = "Lutfen silmek icin bir mail adresi seciniz.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+            var mail = await networkDb.SirketMail.FirstOrDefaultAsync(m => m.Id == seciliMailId);
+            if (mail != null)
+            {
+                networkDb.SirketMail.Remove(mail);
+                await networkDb.SaveChangesAsync();
+            }
+
+            // Listeyi yenile
+            var mailler = await networkDb.SirketMail.AsNoTracking()
+                .Where(m => m.SirketNo == sirketNo)
+                .ToListAsync();
+            mailListesi = mailler.Select(m => new MailItem
+            {
+                Id = m.Id,
+                Birim = m.Birim ?? "",
+                EMail = m.EMail ?? "",
+                DahiliTel = m.DahiliTel ?? "",
+                Paylas = m.Paylas ?? false
+            }).ToList();
+
+            seciliMailId = 0;
+            mesaj = "Mail adresi silindi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Mail silinirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== HIZMET EKLE ====================
+    private async Task HizmetEkle()
+    {
+        try
+        {
+            mesaj = "";
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+
+            var yeniHizmet = new Hizmetler
+            {
+                SirketNo = sirketNo,
+                HizmetKodu = "",
+                HizmetAdi = "Yeni Hizmet",
+                Aktif = true
+            };
+
+            networkDb.Hizmetler.Add(yeniHizmet);
+            await networkDb.SaveChangesAsync();
+
+            // Listeyi yenile
+            var hizmetler = await networkDb.Hizmetler.AsNoTracking()
+                .Where(h => h.SirketNo == sirketNo && h.Aktif)
+                .ToListAsync();
+            hizmetListesi = hizmetler.Select(h => new HizmetItem
+            {
+                Id = h.Id,
+                HizmetAdi = h.HizmetAdi ?? ""
+            }).ToList();
+
+            seciliHizmetId = yeniHizmet.Id;
+            mesaj = "Yeni hizmet eklendi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Hizmet eklenirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== HIZMET SIL ====================
+    private async Task HizmetSil()
+    {
+        try
+        {
+            mesaj = "";
+            if (seciliHizmetId <= 0)
+            {
+                mesaj = "Lutfen silmek icin bir hizmet seciniz.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            using var networkDb = await NetworkFactory.CreateDbContextAsync();
+            var hizmet = await networkDb.Hizmetler.FirstOrDefaultAsync(h => h.Id == seciliHizmetId);
+            if (hizmet != null)
+            {
+                // Soft delete - Aktif = false
+                hizmet.Aktif = false;
+                networkDb.Entry(hizmet).State = EntityState.Modified;
+                await networkDb.SaveChangesAsync();
+            }
+
+            // Listeyi yenile
+            var hizmetler = await networkDb.Hizmetler.AsNoTracking()
+                .Where(h => h.SirketNo == sirketNo && h.Aktif)
+                .ToListAsync();
+            hizmetListesi = hizmetler.Select(h => new HizmetItem
+            {
+                Id = h.Id,
+                HizmetAdi = h.HizmetAdi ?? ""
+            }).ToList();
+
+            seciliHizmetId = 0;
+            mesaj = "Hizmet silindi.";
+            mesajTipi = "success";
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Hizmet silinirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== DOSYA YUKLE ====================
+    private async Task DosyaYukle()
+    {
+        try
+        {
+            mesaj = "";
+
+            // Klasor yoksa olustur
+            if (!string.IsNullOrEmpty(ftpKlasorYolu) && !Directory.Exists(ftpKlasorYolu))
+            {
+                Directory.CreateDirectory(ftpKlasorYolu);
+            }
+
+            // TODO: Blazor Server dosya yukleme icin InputFile component'i ile entegrasyon yapilacak.
+            // Ornek kullanim: <InputFile OnChange="DosyaSecildi" /> ile dosya secimi,
+            // ardindan IBrowserFile.OpenReadStream() ile icerik okunarak ftpKlasorYolu altina kaydedilecek.
+            mesaj = "Dosya yukleme icin InputFile entegrasyonu yapilacak. (TODO)";
+            mesajTipi = "success";
+
+            await FtpDosyalariYukle();
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Dosya yuklenirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== DOSYA INDIR ====================
+    private async Task DosyaIndir()
+    {
+        try
+        {
+            mesaj = "";
+            if (string.IsNullOrEmpty(seciliFtpDosya))
+            {
+                mesaj = "Lutfen indirmek icin bir dosya seciniz.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            var dosyaYolu = Path.Combine(ftpKlasorYolu, seciliFtpDosya);
+            if (!File.Exists(dosyaYolu))
+            {
+                mesaj = "Secilen dosya bulunamadi.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            // TODO: Blazor Server'da dosya indirme icin JS interop kullanilacak.
+            // Ornek: IJSRuntime.InvokeVoidAsync("saveAsFile", dosyaAdi, Convert.ToBase64String(dosyaIcerigi))
+            // seklinde bir JS fonksiyonu ile dosya indirilecek.
+            mesaj = $"Dosya indirme icin JS interop entegrasyonu yapilacak: {seciliFtpDosya} (TODO)";
+            mesajTipi = "success";
+
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Dosya indirilirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== DOSYA SIL ====================
+    private async Task DosyaSil()
+    {
+        try
+        {
+            mesaj = "";
+            if (string.IsNullOrEmpty(seciliFtpDosya))
+            {
+                mesaj = "Lutfen silmek icin bir dosya seciniz.";
+                mesajTipi = "danger";
+                return;
+            }
+
+            var dosyaYolu = Path.Combine(ftpKlasorYolu, seciliFtpDosya);
+            if (File.Exists(dosyaYolu))
+            {
+                File.Delete(dosyaYolu);
+                mesaj = $"{seciliFtpDosya} dosyasi silindi.";
+                mesajTipi = "success";
+            }
+            else
+            {
+                mesaj = "Secilen dosya bulunamadi.";
+                mesajTipi = "danger";
+            }
+
+            seciliFtpDosya = "";
+            await FtpDosyalariYukle();
+        }
+        catch (Exception ex)
+        {
+            mesaj = $"Dosya silinirken hata: {ex.Message}";
+            mesajTipi = "danger";
+        }
+    }
+
+    // ==================== VIEWMODEL CLASSES ====================
+    public class OrtakItem
+    {
+        public int Id { get; set; }
+        public string AdSoyad { get; set; } = "";
+        public string Gorevi { get; set; } = "";
+        public string Telefon { get; set; } = "";
+        public decimal? OrtaklikPayi { get; set; }
+    }
+
+    public class MailItem
+    {
+        public int Id { get; set; }
+        public string Birim { get; set; } = "";
+        public string EMail { get; set; } = "";
+        public string DahiliTel { get; set; } = "";
+        public bool Paylas { get; set; }
+    }
+
+    public class HizmetItem
+    {
+        public int Id { get; set; }
+        public string HizmetAdi { get; set; } = "";
+    }
+}

@@ -1,0 +1,160 @@
+﻿@page "/efatura/gidenirsaliye"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Giden E-Irsaliyeler</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-truck"></i> Giden E-Irsaliyeler
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick="FaturaGoster">
+                <i class="fa fa-eye"></i> Fatura Goster
+            </button>
+        </div>
+
+        <!-- Filtre Alani -->
+        <div class="form-row" style="margin-bottom:10px; margin-top:10px;">
+            <div class="form-inline">
+                <label style="min-width:60px;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:150px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:30px;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:150px;" />
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> [F5] Yenile
+            </button>
+            <span style="margin-left:auto;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 300px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:130px;">Irsaliye No</th>
+                        <th style="width:280px;">Irsaliye ETTN</th>
+                        <th style="width:130px;">Olusturma Tarihi</th>
+                        <th style="width:90px;">Irsaliye Tarihi</th>
+                        <th style="min-width:200px;">Cari Unvani</th>
+                        <th style="width:100px;">Vergi No</th>
+                        <th style="width:200px;">Durum Aciklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (gidenIrsaliyeler.Count == 0)
+                    {
+                        <tr><td colspan="7" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var irsaliye in gidenIrsaliyeler)
+                        {
+                            <tr class="@(seciliId == irsaliye.Id ? "selected" : "")" @onclick="() => seciliId = irsaliye.Id">
+                                <td>@irsaliye.IrsaliyeNo</td>
+                                <td style="font-size:11px;">@irsaliye.IrsaliyeETTN</td>
+                                <td>@irsaliye.OlusturmaTarihi?.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@irsaliye.IrsaliyeTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@irsaliye.CariUnvani</td>
+                                <td>@irsaliye.VergiNo</td>
+                                <td>
+                                    @if (irsaliye.DurumKodu == "0000" || irsaliye.DurumKodu == "0")
+                                    {
+                                        <span style="background:#16a34a; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@irsaliye.DurumAciklama</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(irsaliye.DurumKodu))
+                                    {
+                                        <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:3px; font-size:11px;">@irsaliye.DurumAciklama</span>
+                                    }
+                                    else
+                                    {
+                                        @irsaliye.DurumAciklama
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Kayit Sayisi -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span class="text-muted">Toplam @gidenIrsaliyeler.Count kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime baslangicTarihi = new DateTime(DateTime.Now.Year, 1, 1);
+    private DateTime bitisTarihi = DateTime.Today;
+    private int seciliId = 0;
+
+    private List<GidenIrsaliyeItem> gidenIrsaliyeler = new();
+
+    protected override void OnInitialized()
+    {
+        Listele();
+    }
+
+    private void Listele()
+    {
+        // TODO: FirmaContext ile veritabanindan veri cekilecek
+        // gidenIrsaliyeler = db.GidenEIrsaliyelerView
+        //     .Where(g => g.createdAt >= baslangicTarihi && g.createdAt <= bitisTarihi)
+        //     .Select(s => new GidenIrsaliyeItem { ... }).ToList();
+        gidenIrsaliyeler = GetPlaceholderData();
+    }
+
+    private void Yenile()
+    {
+        Listele();
+    }
+
+    private void FaturaGoster()
+    {
+        if (seciliId == 0) return;
+        var irsaliye = gidenIrsaliyeler.FirstOrDefault(f => f.Id == seciliId);
+        if (irsaliye == null || string.IsNullOrWhiteSpace(irsaliye.FaturaUrl)) return;
+        // TODO: Irsaliye URL'sini goster (popup veya yeni tab)
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+        // gridView1.ViewCaption = txtIlk + "-" + txtSon + " Tarihleri arasi giden irsaliyeler";
+    }
+
+    private List<GidenIrsaliyeItem> GetPlaceholderData()
+    {
+        return new List<GidenIrsaliyeItem>
+        {
+            new() { Id = 1, IrsaliyeNo = "IRS202600001", IrsaliyeETTN = "660e8400-e29b-41d4-a716-446655440001", OlusturmaTarihi = DateTime.Today.AddDays(-3).AddHours(11).AddMinutes(30), IrsaliyeTarihi = DateTime.Today.AddDays(-4), CariUnvani = "ABC Ticaret Ltd. Sti.", VergiNo = "1234567890", DurumKodu = "0000", DurumAciklama = "Basarili" },
+            new() { Id = 2, IrsaliyeNo = "IRS202600002", IrsaliyeETTN = "660e8400-e29b-41d4-a716-446655440002", OlusturmaTarihi = DateTime.Today.AddDays(-1).AddHours(9).AddMinutes(45), IrsaliyeTarihi = DateTime.Today.AddDays(-2), CariUnvani = "XYZ Insaat A.S.", VergiNo = "9876543210", DurumKodu = "0000", DurumAciklama = "Basarili", FaturaUrl = "https://eirsaliye.example.com/view/2" },
+            new() { Id = 3, IrsaliyeNo = "IRS202600003", IrsaliyeETTN = "660e8400-e29b-41d4-a716-446655440003", OlusturmaTarihi = DateTime.Today.AddHours(14), IrsaliyeTarihi = DateTime.Today.AddDays(-1), CariUnvani = "MNO Lojistik A.S.", VergiNo = "5566778899", DurumKodu = "1001", DurumAciklama = "Gonderilemedi - Alici bulunamadi" }
+        };
+    }
+
+    public class GidenIrsaliyeItem
+    {
+        public int Id { get; set; }
+        public int FaturaId { get; set; }
+        public string IrsaliyeNo { get; set; } = "";
+        public string IrsaliyeETTN { get; set; } = "";
+        public DateTime? OlusturmaTarihi { get; set; }
+        public DateTime? IrsaliyeTarihi { get; set; }
+        public string CariUnvani { get; set; } = "";
+        public string VergiNo { get; set; } = "";
+        public string DurumKodu { get; set; } = "";
+        public string DurumAciklama { get; set; } = "";
+        public string FaturaUrl { get; set; } = "";
+    }
+}

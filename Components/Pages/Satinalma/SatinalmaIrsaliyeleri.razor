@@ -1,0 +1,247 @@
+﻿@page "/satinalma/irsaliyeler"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Satinalma Irsaliyeleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-truck"></i> Satinalma Irsaliyeleri
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-primary btn-sm" @onclick="Yeni">
+                <i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal">
+                <i class="fa fa-ban"></i> Iptal
+            </button>
+            <div style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></div>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="ExcelExport">
+                <i class="fa fa-file-excel"></i> Excel
+            </button>
+            <div style="border-left:1px solid var(--pinebi-border); height:20px; margin:0 4px;"></div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Baslangic</label>
+                <input type="date" class="form-control" @bind="baslangicTarihi" style="max-width:140px; padding:4px 8px;" />
+            </div>
+            <div class="form-inline">
+                <label style="min-width:auto;">Bitis</label>
+                <input type="date" class="form-control" @bind="bitisTarihi" style="max-width:140px; padding:4px 8px;" />
+            </div>
+            <button class="btn btn-outline btn-sm" @onclick="Yenile">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+            <div style="flex:1;"></div>
+            <div class="form-inline">
+                <i class="fa fa-search" style="color:var(--pinebi-text-light);"></i>
+                <input type="text" class="form-control" placeholder="Ara..." @bind="aramaMetni" @bind:event="oninput" style="max-width:200px; padding:4px 8px;" />
+            </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 260px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:70px;">Fis</th>
+                        <th style="width:90px;">Fatura Turu</th>
+                        <th style="width:80px;">Tarih</th>
+                        <th style="width:70px;">Saat</th>
+                        <th style="width:80px;">Sevk Tarihi</th>
+                        <th style="width:110px;">Fis No</th>
+                        <th style="width:100px;">Belge No</th>
+                        <th style="width:100px;">Cari Kodu</th>
+                        <th style="min-width:180px;">Unvani</th>
+                        <th style="width:80px;">Vade Tarihi</th>
+                        <th style="width:80px;">Doviz Kodu</th>
+                        <th style="width:100px;">Personel</th>
+                        <th style="min-width:120px;">Aciklama1</th>
+                        <th style="width:100px; text-align:right;">Tutar</th>
+                        <th style="width:100px; text-align:right;">Toplam Indirim</th>
+                        <th style="width:100px; text-align:right;">Kdv Matrahi</th>
+                        <th style="width:100px; text-align:right;">Kdv Tutari</th>
+                        <th style="width:110px; text-align:right;">Toplam Tutar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filtrelenmisListe != null)
+                    {
+                        @foreach (var item in filtrelenmisListe)
+                        {
+                            <tr class="@(seciliId == item.Id ? "selected" : "")" @onclick="() => SatirSec(item.Id)" @ondblclick="() => SatirDuzenle(item.Id)">
+                                <td>@item.Fis</td>
+                                <td>@item.FaturaTuru</td>
+                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.Saat?.ToString(@"hh\:mm")</td>
+                                <td>@item.SevkTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.FisNo</td>
+                                <td>@item.BelgeNo</td>
+                                <td>@item.CariKodu</td>
+                                <td>@item.Unvani</td>
+                                <td>@item.VadeTarihi?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.DovizKodu</td>
+                                <td>@item.Personel</td>
+                                <td>@item.Aciklama1</td>
+                                <td class="text-right">@item.Tutar?.ToString("N2")</td>
+                                <td class="text-right">@item.ToplamIndirim?.ToString("N2")</td>
+                                <td class="text-right">@item.KdvMatrahi?.ToString("N2")</td>
+                                <td class="text-right">@item.KdvTutari?.ToString("N2")</td>
+                                <td class="text-right" style="font-weight:600;">@item.ToplamTutar?.ToString("N2")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:600;">
+                        <td colspan="13" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                        <td class="text-right" style="padding:6px 8px;">@(filtrelenmisListe?.Sum(x => x.Tutar ?? 0).ToString("N2"))</td>
+                        <td class="text-right" style="padding:6px 8px;">@(filtrelenmisListe?.Sum(x => x.ToplamIndirim ?? 0).ToString("N2"))</td>
+                        <td class="text-right" style="padding:6px 8px;">@(filtrelenmisListe?.Sum(x => x.KdvMatrahi ?? 0).ToString("N2"))</td>
+                        <td class="text-right" style="padding:6px 8px;">@(filtrelenmisListe?.Sum(x => x.KdvTutari ?? 0).ToString("N2"))</td>
+                        <td class="text-right" style="padding:6px 8px;">@(filtrelenmisListe?.Sum(x => x.ToplamTutar ?? 0).ToString("N2"))</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0 0 0;">
+            <span style="font-size:12px; color:var(--pinebi-text-light);">
+                Toplam: @(filtrelenmisListe?.Count ?? 0) kayit
+            </span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string aramaMetni = "";
+    private int? seciliId;
+    private DateTime baslangicTarihi = DateTime.Today.AddDays(-30);
+    private DateTime bitisTarihi = DateTime.Today;
+
+    private List<IrsaliyeSatirDto> liste = new();
+    private List<IrsaliyeSatirDto> filtrelenmisListe => string.IsNullOrWhiteSpace(aramaMetni)
+        ? liste
+        : liste.Where(x =>
+            (x.FisNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.BelgeNo ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.CariKodu ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.Unvani ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase) ||
+            (x.Personel ?? "").Contains(aramaMetni, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var trCode = new List<int> { 1 };
+            var dbList = await db.IrsaliyelerView.AsNoTracking()
+                .Where(s => trCode.Contains(s.TrCode) && s.Tarih >= baslangicTarihi && s.Tarih <= bitisTarihi && s.Iptal != true)
+                .OrderByDescending(s => s.Tarih)
+                .Take(500)
+                .ToListAsync();
+            liste = dbList.Select(i => new IrsaliyeSatirDto
+            {
+                Id = i.Id, TrCode = i.TrCode, Fis = i.Fis, FaturaTuru = i.FaturaTuru,
+                Tarih = i.Tarih, Saat = i.Saat, SevkTarihi = i.SevkTarihi,
+                FisNo = i.FisNo, BelgeNo = i.BelgeNo, CariKodu = i.CariKodu, Unvani = i.Unvani,
+                FaturaTipi = i.FaturaTipi, VadeTarihi = i.VadeTarihi, DovizKodu = i.DovizKodu,
+                Personel = i.Personel, Aciklama1 = i.Aciklama1,
+                Tutar = i.Tutar, ToplamIndirim = i.ToplamIndirim, KdvMatrahi = i.KdvMatrahi,
+                KdvTutari = i.KdvTutari, TevkifatMuafiyeti = i.TevkifatMuafiyeti,
+                ToplamTutar = i.ToplamTutar, OdenecekTutar = i.OdenecekTutar, Iptal = i.Iptal
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SatinalmaIrsaliyeleri DB hatasi: {ex.Message}");
+            liste = new List<IrsaliyeSatirDto>();
+        }
+    }
+
+    private void SatirSec(int id)
+    {
+        seciliId = id;
+    }
+
+    private void SatirDuzenle(int id)
+    {
+        seciliId = id;
+        Duzenle();
+    }
+
+    private void Yeni()
+    {
+        Nav.NavigateTo("/satis/fatura/yeni?tip=satinalma-irsaliye");
+    }
+
+    private void Duzenle()
+    {
+        if (seciliId == null) return;
+        Nav.NavigateTo($"/satis/fatura/{seciliId}");
+    }
+
+    private void Iptal()
+    {
+        if (seciliId == null) return;
+        // TODO: Iptal onay dialog ve iptal islemi
+        // Irsaliyeyi iptal et, FatIrsSatirlar'daki ilgili satirlari iptal et
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Yazdir islemi
+    }
+
+    private void ExcelExport()
+    { /* Excel export - coming soon */
+        // TODO: Excel export islemi
+    }
+
+    public class IrsaliyeSatirDto
+    {
+        public int Id { get; set; }
+        public int TrCode { get; set; }
+        public string Fis { get; set; } = "";
+        public string FaturaTuru { get; set; } = "";
+        public DateTime Tarih { get; set; }
+        public TimeSpan? Saat { get; set; }
+        public DateTime? SevkTarihi { get; set; }
+        public string FisNo { get; set; } = "";
+        public string BelgeNo { get; set; } = "";
+        public string CariKodu { get; set; } = "";
+        public string Unvani { get; set; } = "";
+        public int? FaturaTipi { get; set; }
+        public DateTime? VadeTarihi { get; set; }
+        public string DovizKodu { get; set; } = "";
+        public string Personel { get; set; } = "";
+        public string Aciklama1 { get; set; } = "";
+        public string Aciklama2 { get; set; } = "";
+        public string Aciklama3 { get; set; } = "";
+        public string Aciklama4 { get; set; } = "";
+        public string Aciklama5 { get; set; } = "";
+        public decimal? Tutar { get; set; }
+        public decimal? ToplamIndirim { get; set; }
+        public decimal? KdvMatrahi { get; set; }
+        public decimal? KdvTutari { get; set; }
+        public decimal? TevkifatMuafiyeti { get; set; }
+        public decimal? ToplamTutar { get; set; }
+        public decimal? OdenecekTutar { get; set; }
+        public bool? Iptal { get; set; }
+    }
+}

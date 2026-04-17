@@ -1,0 +1,165 @@
+﻿@page "/pine"
+@page "/pine/dashboard"
+@inject MACHINEBISS_Web.Services.AuthService Auth
+@inject MACHINEBISS_Web.Services.SistemAyarlariService Sistem
+@inject HttpClient Http
+
+<div class="pine-dashboard">
+    <!-- Welcome Header -->
+    <div class="pd-header">
+        <div class="pd-welcome">
+            <h1>Hosgeldiniz, @Auth.ErpKullaniciAdi</h1>
+            <p>@DateTime.Now.ToString("dd MMMM yyyy, dddd", new System.Globalization.CultureInfo("tr-TR"))</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="pd-stats">
+        <div class="pd-card pd-card-stok">
+            <div class="pd-card-icon">
+                <i class="fa fa-boxes"></i>
+            </div>
+            <div class="pd-card-body">
+                <span class="pd-card-value">@toplamStok</span>
+                <span class="pd-card-label">Toplam Stok</span>
+            </div>
+        </div>
+
+        <div class="pd-card pd-card-cari">
+            <div class="pd-card-icon">
+                <i class="fa fa-users"></i>
+            </div>
+            <div class="pd-card-body">
+                <span class="pd-card-value">@toplamCari</span>
+                <span class="pd-card-label">Toplam Cari</span>
+            </div>
+        </div>
+
+        <div class="pd-card pd-card-fatura">
+            <div class="pd-card-icon">
+                <i class="fa fa-file-invoice-dollar"></i>
+            </div>
+            <div class="pd-card-body">
+                <span class="pd-card-value">@acikFaturalar</span>
+                <span class="pd-card-label">Acik Faturalar</span>
+            </div>
+        </div>
+
+        <div class="pd-card pd-card-tahsilat">
+            <div class="pd-card-icon">
+                <i class="fa fa-hand-holding-usd"></i>
+            </div>
+            <div class="pd-card-body">
+                <span class="pd-card-value">@tahsilatBekleyen</span>
+                <span class="pd-card-label">Tahsilat Bekleyen</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="pd-section">
+        <h3 class="pd-section-title"><i class="fa fa-bolt"></i> Hizli Islemler</h3>
+        <div class="pd-quick-actions">
+            <a href="/pine/fatura/yeni" class="pd-action">
+                <i class="fa fa-plus-circle"></i>
+                <span>Yeni Fatura</span>
+            </a>
+            <a href="/pine/cari/kart" class="pd-action">
+                <i class="fa fa-user-plus"></i>
+                <span>Yeni Cari</span>
+            </a>
+            <a href="/pine/stok/kart" class="pd-action">
+                <i class="fa fa-box"></i>
+                <span>Yeni Stok</span>
+            </a>
+            <a href="/pine/finans/tahsilat" class="pd-action">
+                <i class="fa fa-hand-holding-usd"></i>
+                <span>Tahsilat</span>
+            </a>
+            <a href="/pine/satis/faturalar" class="pd-action">
+                <i class="fa fa-file-invoice-dollar"></i>
+                <span>Faturalar</span>
+            </a>
+            <a href="/pine/cari/borcalacak" class="pd-action">
+                <i class="fa fa-balance-scale"></i>
+                <span>Borc/Alacak</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Info Row -->
+    <div class="pd-info-row">
+        <div class="pd-info-card">
+            <h4><i class="fa fa-info-circle"></i> Sistem Bilgisi</h4>
+            <table class="pd-info-table">
+                <tr>
+                    <td>Kullanici:</td>
+                    <td><strong>@Auth.ErpKullaniciAdi</strong></td>
+                </tr>
+                <tr>
+                    <td>Gorev:</td>
+                    <td>@Auth.ErpKullaniciGorevi</td>
+                </tr>
+                <tr>
+                    <td>Firma:</td>
+                    <td>@Auth.SirketKodu</td>
+                </tr>
+                <tr>
+                    <td>Son Giris:</td>
+                    <td>@DateTime.Now.ToString("dd.MM.yyyy HH:mm")</td>
+                </tr>
+            </table>
+        </div>
+        <div class="pd-info-card">
+            <h4><i class="fa fa-bell"></i> Bildirimler</h4>
+            <div class="pd-notifications">
+                <p class="pd-empty">Yeni bildirim bulunmuyor.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int toplamStok = 0;
+    private int toplamCari = 0;
+    private int acikFaturalar = 0;
+    private int tahsilatBekleyen = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStats();
+    }
+
+    private async Task LoadStats()
+    {
+        // Stok sayisi
+        try
+        {
+            var r = await Http.GetFromJsonAsync<PagedResp>("api/stok/kartlar?boyut=1");
+            if (r != null && r.Success) toplamStok = r.Toplam;
+        }
+        catch { }
+
+        // Cari sayisi
+        try
+        {
+            var r = await Http.GetFromJsonAsync<PagedResp>("api/cari/hesaplar?boyut=1");
+            if (r != null && r.Success) toplamCari = r.Toplam;
+        }
+        catch { }
+
+        // Faturalar (varsa)
+        try
+        {
+            var r = await Http.GetFromJsonAsync<PagedResp>("api/satis/faturalar?boyut=1");
+            if (r != null && r.Success) acikFaturalar = r.Toplam;
+        }
+        catch { }
+    }
+
+    private class PagedResp
+    {
+        public bool Success { get; set; }
+        public int Toplam { get; set; }
+    }
+}

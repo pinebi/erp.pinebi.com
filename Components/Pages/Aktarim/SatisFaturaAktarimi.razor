@@ -1,0 +1,37 @@
+﻿@page "/aktarim/satisfatura"
+@inject NavigationManager Nav
+
+<PageTitle>Satis Fatura Aktarimi</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-file-import"></i> Satis Fatura Aktarimi</div>
+    <div class="card-body">
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm"><i class="fa fa-upload"></i> Dosya Sec</button>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-play"></i> Aktarimi Baslat</button>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-download"></i> Ornek Sablon Indir</button>
+        </div>
+        <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i> Satis faturalarini Excel dosyasindan aktarabilirsiniz.
+        </div>
+        <div class="grid-container" style="max-height:400px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Fatura No</th>
+                        <th>Tarih</th>
+                        <th>Cari Kodu</th>
+                        <th>Cari Unvan</th>
+                        <th>Tutar</th>
+                        <th>KDV</th>
+                        <th>Toplam</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="8" class="text-center text-muted">Dosya secilmedi</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

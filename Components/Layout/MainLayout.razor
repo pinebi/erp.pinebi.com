@@ -1,0 +1,248 @@
+﻿@inherits LayoutComponentBase
+@inject MACHINEBISS_Web.Services.AuthService Auth
+@inject MACHINEBISS_Web.Services.TabService TabSvc
+@inject MACHINEBISS_Web.Services.SistemAyarlariService Sistem
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@* Pine versiyonuna yonlendir *@
+@code {
+    protected override void OnInitialized()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (!uri.AbsolutePath.StartsWith("/pine", StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo("/pine");
+            return;
+        }
+    }
+}
+
+@if (!Auth.IsAuthenticated)
+{
+    <MACHINEBISS_Web.Components.Pages.Auth.Login />
+}
+else
+{
+    <div class="app-container-ribbon">
+        <!-- Ribbon Top Bar -->
+        <div class="ribbon-topbar">
+            <div class="ribbon-brand">
+                <img src="images/pinebi_logo.png" alt="Pinebi" class="ribbon-logo" />
+                <span class="ribbon-title">MachineBiss</span>
+            </div>
+            <div class="ribbon-tabs">
+                <button class="ribbon-tab @(activeRibbon == "sirket" ? "active" : "")" @onclick='() => SetRibbon("sirket")'>
+                    <i class="fa fa-building"></i> Sirket
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "muhasebe" ? "active" : "")" @onclick='() => SetRibbon("muhasebe")'>
+                    <i class="fa fa-calculator"></i> Muhasebe
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "satis" ? "active" : "")" @onclick='() => SetRibbon("satis")'>
+                    <i class="fa fa-shopping-cart"></i> Satis
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "satinalma" ? "active" : "")" @onclick='() => SetRibbon("satinalma")'>
+                    <i class="fa fa-cart-plus"></i> Satinalma
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "stok" ? "active" : "")" @onclick='() => SetRibbon("stok")'>
+                    <i class="fa fa-warehouse"></i> Stok
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "efatura" ? "active" : "")" @onclick='() => SetRibbon("efatura")'>
+                    <i class="fa fa-file-invoice"></i> E-Fatura
+                </button>
+                <button class="ribbon-tab @(activeRibbon == "diger" ? "active" : "")" @onclick='() => SetRibbon("diger")'>
+                    <i class="fa fa-th"></i> Diger
+                </button>
+            </div>
+            <div class="ribbon-right">
+                <span class="ribbon-user"><i class="fa fa-user"></i> @Auth.ErpKullaniciAdi</span>
+                <button class="ribbon-btn-logout" @onclick="Logout"><i class="fa fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+
+        <!-- Ribbon Buttons (secili gruba gore) -->
+        <div class="ribbon-buttons">
+            @switch (activeRibbon)
+            {
+                case "sirket":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("dashboard", "Dashboard", "/dashboard")'><i class="fa fa-tachometer-alt"></i><span>Dashboard</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("sirketprofili", "Sirket Profili", "/sirket/profil")'><i class="fa fa-id-card"></i><span>Sirket Profili</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("sirketdokumanlari", "Dokumanlar", "/sirket/dokumanlar")'><i class="fa fa-folder"></i><span>Dokumanlar</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("sirketortaklari", "Ortaklar", "/sirket/ortaklar")'><i class="fa fa-users"></i><span>Ortaklar</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("sirketmail", "Mail", "/sirket/mail")'><i class="fa fa-envelope"></i><span>Mail</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("envanter", "Envanter", "/envanter")'><i class="fa fa-boxes"></i><span>Envanter</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("personel", "Personel", "/personel")'><i class="fa fa-user-tie"></i><span>Personel</span></button>
+                    break;
+
+                case "muhasebe":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("carilistegenel", "Cari Liste", "/cari/liste")'><i class="fa fa-list"></i><span>Cari Liste</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("carikart", "Yeni Cari", "/cari/kart")'><i class="fa fa-plus-circle"></i><span>Yeni Cari</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("carihareketler", "Cari Hareketler", "/cari/hareketler")'><i class="fa fa-exchange-alt"></i><span>Hareketler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("borcalacak", "Borc/Alacak", "/cari/borcalacak")'><i class="fa fa-balance-scale"></i><span>Borc/Alacak</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("carihesaphareketleri", "C/H Hareketleri", "/cari/hesaphareketleri")'><i class="fa fa-list-alt"></i><span>C/H Hareketleri</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("kasahareketleri", "Kasa", "/finans/kasa")'><i class="fa fa-cash-register"></i><span>Kasa</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("bankahareketleri", "Banka", "/finans/banka")'><i class="fa fa-university"></i><span>Banka</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("ceksenet", "Cek/Senet", "/finans/ceksenet")'><i class="fa fa-money-check"></i><span>Cek/Senet</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("kredikartihareketleri", "Kredi Karti", "/finans/kredikartlari")'><i class="fa fa-credit-card"></i><span>Kredi Karti</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("bankakredibilgileri", "Banka Kredileri", "/finans/bankakredileri")'><i class="fa fa-hand-holding-usd"></i><span>Krediler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("odemeplanlari", "Odeme Planlari", "/finans/odemeplanlari")'><i class="fa fa-calendar-check"></i><span>Odeme Plani</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("kdvraporu", "KDV Raporu", "/finans/kdvraporu")'><i class="fa fa-percentage"></i><span>KDV Raporu</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" style="background:#16a34a; color:white; border-radius:6px;" @onclick='() => OpenTab("tahsilat", "Tahsilat", "/finans/tahsilat")'><i class="fa fa-hand-holding-usd"></i><span>Tahsilat</span></button>
+                    <button class="ribbon-btn" style="background:#dc2626; color:white; border-radius:6px;" @onclick='() => OpenTab("tediye", "Tediye", "/finans/tediye")'><i class="fa fa-credit-card"></i><span>Tediye</span></button>
+                    break;
+
+                case "satis":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("teklifler", "Teklifler", "/satis/teklifler")'><i class="fa fa-file-alt"></i><span>Teklifler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satissiparisleri", "Siparisler", "/satis/siparisler")'><i class="fa fa-clipboard-list"></i><span>Siparisler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satisirsaliyeleri", "Irsaliyeler", "/satis/irsaliyeler")'><i class="fa fa-truck"></i><span>Irsaliyeler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satisfaturalari", "Faturalar", "/satis/faturalar")'><i class="fa fa-file-invoice-dollar"></i><span>Faturalar</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn accent" @onclick='() => OpenTab("yenisatisfaturasi", "Yeni Fatura", "/satis/fatura/yeni")'><i class="fa fa-plus"></i><span>Yeni Fatura</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("proformafaturalar", "Proforma", "/satis/proforma")'><i class="fa fa-file"></i><span>Proforma</span></button>
+                    break;
+
+                case "satinalma":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satinalmatalepleri", "Talepler", "/satinalma/talepler")'><i class="fa fa-hand-paper"></i><span>Talepler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satinalmasiparisleri", "Siparisler", "/satinalma/siparisler")'><i class="fa fa-clipboard-list"></i><span>Siparisler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satinalmairsaliyeleri", "Irsaliyeler", "/satinalma/irsaliyeler")'><i class="fa fa-truck-loading"></i><span>Irsaliyeler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satinalmafaturalari", "Faturalar", "/satinalma/faturalar")'><i class="fa fa-file-invoice"></i><span>Faturalar</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("satinalmaiadefaturalari", "Iade", "/satinalma/iade")'><i class="fa fa-undo"></i><span>Iade Faturalari</span></button>
+                    break;
+
+                case "stok":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("stokkartlari", "Stok Kartlari", "/stok/kartlar")'><i class="fa fa-th-list"></i><span>Stok Kartlari</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("stokbakiye", "Bakiye Raporu", "/stok/bakiye")'><i class="fa fa-chart-bar"></i><span>Bakiye Raporu</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("stokminimum", "Min. Seviye", "/stok/minimum")'><i class="fa fa-exclamation-triangle"></i><span>Min. Seviye</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("malzemehareketleri", "Hareketler", "/stok/hareketler")'><i class="fa fa-exchange-alt"></i><span>Hareketler</span></button>
+                    break;
+
+                case "efatura":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnector", "E-Connector", "/efatura/connector")'><i class="fa fa-plug"></i><span>E-Connector</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnectorgelen", "Gelen", "/efatura/gelen")'><i class="fa fa-inbox"></i><span>Gelen</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnectorgiden", "Giden", "/efatura/giden")'><i class="fa fa-paper-plane"></i><span>Giden</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnectorgelenfaturalar", "Gelen Faturalar", "/efatura/gelenfaturalar")'><i class="fa fa-file-download"></i><span>Gelen Faturalar</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnectoreirsaliye", "E-Irsaliye", "/efatura/eirsaliye")'><i class="fa fa-truck"></i><span>E-Irsaliye</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("econnectorgidenirsaliye", "Giden Irsaliye", "/efatura/gidenirsaliye")'><i class="fa fa-shipping-fast"></i><span>Giden Irsaliye</span></button>
+                    break;
+
+                case "diger":
+                    <button class="ribbon-btn" @onclick='() => OpenTab("dashboard", "Dashboard", "/dashboard")'><i class="fa fa-tachometer-alt"></i><span>Dashboard</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("hatirlatmalar", "Hatirlatmalar", "/hatirlatmalar")'><i class="fa fa-bell"></i><span>Hatirlatmalar</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("projeler", "Projeler", "/projeler")'><i class="fa fa-project-diagram"></i><span>Projeler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("randevular", "Randevular", "/randevular")'><i class="fa fa-calendar-alt"></i><span>Randevular</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("birimler", "Birimler", "/tanimlar/birimler")'><i class="fa fa-ruler"></i><span>Birimler</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("kdvoranlari", "KDV Oranlari", "/tanimlar/kdvoranlari")'><i class="fa fa-percentage"></i><span>KDV</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("vergidaireleri", "Vergi Daireleri", "/tanimlar/vergidaireleri")'><i class="fa fa-landmark"></i><span>Vergi D.</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("giderturleri", "Gider Turleri", "/tanimlar/giderturleri")'><i class="fa fa-minus-circle"></i><span>Gider T.</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("dovizguncelle", "Doviz Kuru", "/tanimlar/doviz")'><i class="fa fa-dollar-sign"></i><span>Doviz</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("faturanumarator", "Numarator", "/tanimlar/numarator")'><i class="fa fa-sort-numeric-up"></i><span>Numarator</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("faturaalanlari", "Fatura Alanlari", "/ayarlar/fatura-alanlari")'><i class="fa fa-columns"></i><span>Fatura Alanlari</span></button>
+                    <span class="ribbon-sep"></span>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("sifredegistir", "Sifre", "/ayarlar/sifredegistir")'><i class="fa fa-key"></i><span>Sifre</span></button>
+                    <button class="ribbon-btn" @onclick='() => OpenTab("lisansbilgileri", "Lisans", "/ayarlar/lisans")'><i class="fa fa-certificate"></i><span>Lisans</span></button>
+                    break;
+            }
+        </div>
+
+        <!-- Open Page Tabs -->
+        <div class="tab-bar">
+            @foreach (var tab in TabSvc.OpenTabs)
+            {
+                <div class="tab-item @(tab.Id == TabSvc.ActiveTabId ? "active" : "")" @onclick="() => TabSvc.SetActiveTab(tab.Id)">
+                    <span>@tab.Title</span>
+                    <button class="tab-close" @onclick:stopPropagation="true" @onclick="() => CloseTab(tab.Id)">x</button>
+                </div>
+            }
+        </div>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            @Body
+        </div>
+    </div>
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    Bir hata olustu.
+    <a href="." class="reload">Yenile</a>
+    <span class="dismiss">X</span>
+</div>
+
+@code {
+    private string activeRibbon = "sirket";
+    private MACHINEBISS_Web.Services.YetkiBilgileri yetkiler = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.OnAuthStateChanged += OnAuthChanged;
+        TabSvc.OnTabsChanged += StateHasChanged;
+
+        if (Auth.IsAuthenticated)
+        {
+            yetkiler = await Sistem.YetkileriGetir();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Auth.IsAuthenticated)
+        {
+            // Refresh sonrasi localStorage'dan oturumu geri yukle
+            var restored = await Auth.RestoreFromBrowserAsync(JS);
+            if (restored) StateHasChanged();
+        }
+    }
+
+    private async void OnAuthChanged()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            yetkiler = await Sistem.YetkileriGetir();
+            TabSvc.OpenTab("dashboard", "Dashboard", "/dashboard", "fa-tachometer-alt");
+            await InvokeAsync(() => Nav.NavigateTo("/dashboard"));
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetRibbon(string ribbon)
+    {
+        activeRibbon = ribbon;
+    }
+
+    private void OpenTab(string id, string title, string url, string icon = "")
+    {
+        TabSvc.OpenTab(id, title, url, icon);
+        Nav.NavigateTo(url);
+    }
+
+    private void CloseTab(string id)
+    {
+        TabSvc.CloseTab(id);
+        var activeTab = TabSvc.OpenTabs.FirstOrDefault(t => t.Id == TabSvc.ActiveTabId);
+        if (activeTab != null)
+            Nav.NavigateTo(activeTab.Url);
+        else
+            Nav.NavigateTo("/dashboard");
+    }
+
+    private async Task Logout()
+    {
+        await Auth.ClearBrowserAsync(JS);
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Auth.OnAuthStateChanged -= OnAuthChanged;
+        TabSvc.OnTabsChanged -= StateHasChanged;
+    }
+}

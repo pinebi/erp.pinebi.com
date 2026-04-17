@@ -1,0 +1,267 @@
+﻿@page "/cari/liste"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Cari Liste</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-address-book"></i> Cari Liste
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Ekle
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Iptal">
+                <i class="fa fa-trash"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="BorcDevri">
+                <i class="fa fa-calendar"></i> Borc Devri
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="AlacakDevri">
+                <i class="fa fa-calendar"></i> Alacak Devri
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Tahsilat">
+                <i class="fa fa-check"></i> Tahsilat
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Odeme">
+                <i class="fa fa-minus-circle"></i> Odeme
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="CariHesapEkstresi">
+                <i class="fa fa-info-circle"></i> Cari Hesap Ekstresi
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="SatisFaturalari">
+                <i class="fa fa-file-text-o"></i> Satis Faturalari
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="AlisFaturalari">
+                <i class="fa fa-file-text-o"></i> Alis Faturalari
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="VerilenTeklifler">
+                <i class="fa fa-file-text-o"></i> Verilen Teklifler
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Cari Kodu, Unvan, Yetkili..."
+                       @bind="searchText" @bind:event="oninput" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 260px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Cari Kodu</th>
+                        <th>Unvani</th>
+                        <th>Yetkili 1</th>
+                        <th>Yetkili 2</th>
+                        <th>Telefon 1</th>
+                        <th>Telefon 2</th>
+                        <th>Gsm No</th>
+                        <th>Faks</th>
+                        <th>Email</th>
+                        <th>Adres 1</th>
+                        <th>Adres 2</th>
+                        <th>Ilce</th>
+                        <th>Sehir</th>
+                        <th>Ulke</th>
+                        <th>Vd</th>
+                        <th>Vn</th>
+                        <th>Tck No</th>
+                        <th>E-Fatura</th>
+                        <th>Cari Grubu</th>
+                        <th>Ozel Kod 1</th>
+                        <th>Ozel Kod 2</th>
+                        <th>Ozel Kod 3</th>
+                        <th>Ozel Kod 4</th>
+                        <th>Ozel Kod 5</th>
+                        <th>E-Fatura Urn Mail</th>
+                        <th>E-Irsaliye Urn Mail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.CariKodu</td>
+                                <td>@item.Unvani</td>
+                                <td>@item.Yetkili1</td>
+                                <td>@item.Yetkili2</td>
+                                <td>@item.Telefon1</td>
+                                <td>@item.Telefon2</td>
+                                <td>@item.GsmNo</td>
+                                <td>@item.Faks</td>
+                                <td>@item.Email</td>
+                                <td>@item.Adres1</td>
+                                <td>@item.Adres2</td>
+                                <td>@item.Ilce</td>
+                                <td>@item.Sehir</td>
+                                <td>@item.Ulke</td>
+                                <td>@item.Vd</td>
+                                <td>@item.Vn</td>
+                                <td>@item.TckNo</td>
+                                <td>@(item.EFatura ? "Evet" : "Hayir")</td>
+                                <td>@item.CariGrubu</td>
+                                <td>@item.OzelKod1</td>
+                                <td>@item.OzelKod2</td>
+                                <td>@item.OzelKod3</td>
+                                <td>@item.OzelKod4</td>
+                                <td>@item.OzelKod5</td>
+                                <td>@item.EFaturaUrnMail</td>
+                                <td>@item.EIrsaliyeUrnMail</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @(filteredList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CarikartViewDto> cariList = new();
+    private List<CarikartViewDto> filteredList = new();
+    private CarikartViewDto? selectedItem;
+    private string searchText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.Cariler.AsNoTracking()
+                .Where(c => c.Aktif == true)
+                .OrderBy(c => c.CariKodu)
+                .Take(1000)
+                .ToListAsync();
+            cariList = dbList.Select(c => new CarikartViewDto
+            {
+                Id = c.Id, EFatura = c.EFatura ?? false, SahisSirketi = c.SahisSirketi,
+                CariGrubu = c.CariGrubu, CariKodu = c.CariKodu, Unvani = c.Unvani,
+                Ad = c.Ad, Soyad = c.Soyad, TckNo = c.TckNo,
+                Yetkili1 = c.Yetkili1, Yetkili2 = c.Yetkili2,
+                Vd = c.Vd, Vn = c.Vn, GsmNo = c.GsmNo,
+                Telefon1 = c.Telefon1, Telefon2 = c.Telefon2, Faks = c.Faks, Email = c.Email,
+                Adres1 = c.Adres1, Adres2 = c.Adres2, PostaKodu = c.PostaKodu,
+                Ulke = c.Ulke, Ilce = c.Ilce, Sehir = c.Sehir,
+                OzelKod1 = c.OzelKod1, OzelKod2 = c.OzelKod2, OzelKod3 = c.OzelKod3,
+                OzelKod4 = c.OzelKod4, OzelKod5 = c.OzelKod5,
+                EFaturaUrnMail = c.EFaturaUrnMail, EIrsaliyeUrnMail = c.EIrsaliyeUrnMail,
+                Aktif = c.Aktif ?? true
+            }).ToList();
+            filteredList = cariList;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CariListeGenel DB hatasi: {ex.Message}");
+            cariList = new List<CarikartViewDto>();
+            filteredList = cariList;
+        }
+    }
+
+    private string _lastSearch = "";
+    protected override void OnParametersSet()
+    {
+        if (searchText != _lastSearch)
+        {
+            _lastSearch = searchText;
+            FilterList();
+        }
+    }
+
+    private void FilterList()
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            filteredList = cariList;
+        else
+            filteredList = cariList.Where(c =>
+                (c.CariKodu ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (c.Unvani ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (c.Yetkili1 ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+    }
+
+    private void SelectItem(CarikartViewDto item) => selectedItem = item;
+
+    private void OnDoubleClick(CarikartViewDto item)
+    {
+        Nav.NavigateTo($"/cari/kart/{item.Id}");
+    }
+
+    private void Ekle() { Nav.NavigateTo("/cari/kart"); }
+    private void Duzenle() { if (selectedItem != null) { Nav.NavigateTo($"/cari/kart/{selectedItem.Id}"); } }
+    private void Iptal() { /* TODO: Delete selected via API */ }
+    private void BorcDevri() { Nav.NavigateTo("/cari/borcalacak"); }
+    private void AlacakDevri() { Nav.NavigateTo("/cari/borcalacak"); }
+    private void Tahsilat() { Nav.NavigateTo("/cari/hareketler"); }
+    private void Odeme() { Nav.NavigateTo("/cari/hareketler"); }
+    private void CariHesapEkstresi() { Nav.NavigateTo("/cari/borcalacak"); }
+    private void SatisFaturalari() { Nav.NavigateTo("/satis/faturalar"); }
+    private void AlisFaturalari() { Nav.NavigateTo("/satinalma/faturalar"); }
+    private void VerilenTeklifler() { Nav.NavigateTo("/satis/teklifler"); }
+    private void Yazdir() { /* TODO: Print functionality */ }
+
+    public class CarikartViewDto
+    {
+        public int Id { get; set; }
+        public bool EFatura { get; set; }
+        public bool? SahisSirketi { get; set; }
+        public string? CariGrubu { get; set; }
+        public string? CariKodu { get; set; }
+        public string? Unvani { get; set; }
+        public string? Ad { get; set; }
+        public string? Soyad { get; set; }
+        public string? TckNo { get; set; }
+        public string? Yetkili1 { get; set; }
+        public string? Yetkili2 { get; set; }
+        public string? Vd { get; set; }
+        public string? Vn { get; set; }
+        public string? GsmNo { get; set; }
+        public string? Telefon1 { get; set; }
+        public string? Telefon2 { get; set; }
+        public string? Faks { get; set; }
+        public string? Email { get; set; }
+        public string? Adres1 { get; set; }
+        public string? Adres2 { get; set; }
+        public string? PostaKodu { get; set; }
+        public string? Ulke { get; set; }
+        public string? Ilce { get; set; }
+        public string? Sehir { get; set; }
+        public string? OzelKod1 { get; set; }
+        public string? OzelKod2 { get; set; }
+        public string? OzelKod3 { get; set; }
+        public string? OzelKod4 { get; set; }
+        public string? OzelKod5 { get; set; }
+        public string? EFaturaUrnMail { get; set; }
+        public string? EIrsaliyeUrnMail { get; set; }
+        public bool Aktif { get; set; }
+    }
+}

@@ -1,0 +1,113 @@
+@page "/tanimlar/sektorler"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@inject MACHINEBISS_Web.Services.SistemAyarlariService Sistem
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Sektorler</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-industry"></i> Sektorler
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="form-control" placeholder="Ara..." @bind="searchText" @bind:event="oninput" style="max-width:250px;" />
+            <button class="btn btn-secondary btn-sm" @onclick="Refresh">
+                <i class="fa fa-sync"></i> Yenile
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Sektor Adi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredList != null)
+                    {
+                        @foreach (var item in filteredList)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => SelectItem(item)">
+                                <td>@item.SektorAdi</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="btn btn-primary btn-sm" @onclick="() => SelectItem(selectedItem)">
+                <i class="fa fa-check"></i> Sec
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.BlockBiss.Sektorler> list = new();
+    private MACHINEBISS_Web.Models.BlockBiss.Sektorler? selectedItem;
+    private string searchText = "";
+    private string? errorMessage;
+
+    private IEnumerable<MACHINEBISS_Web.Models.BlockBiss.Sektorler> filteredList =>
+        string.IsNullOrWhiteSpace(searchText) ? list :
+        list.Where(x => (x.SektorAdi ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await NetworkFactory.CreateDbContextAsync();
+            int.TryParse(Sistem.SirketNo, out int sirketNo);
+            list = await ctx.Sektorler
+                .Where(x => x.SirketNo == sirketNo && x.Aktif == true)
+                .OrderBy(x => x.SektorAdi)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private void SelectItem(MACHINEBISS_Web.Models.BlockBiss.Sektorler? item)
+    {
+        if (item == null) return;
+        // Return selected sektor to calling page
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

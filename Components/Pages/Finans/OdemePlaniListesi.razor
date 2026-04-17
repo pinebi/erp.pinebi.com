@@ -1,0 +1,203 @@
+﻿@page "/finans/odemeplanlari"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Odeme Plani Listesi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-calendar-check"></i> Odeme Plani Listesi
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="Ekle">
+                <i class="fa fa-plus"></i> Ekle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Duzenle">
+                <i class="fa fa-edit"></i> Duzenle
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="IptalEt" style="color:#dc2626;">
+                <i class="fa fa-trash"></i> Iptal
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="async () => await Yenile()">
+                <i class="fa fa-sync"></i> [F5] Yenile
+            </button>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 240px); overflow:auto;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">Fis No</th>
+                        <th style="width:200px;">Cari Unvan</th>
+                        <th style="width:120px;">Islem Tipi</th>
+                        <th style="width:120px;">Odeme Tipi</th>
+                        <th style="width:80px;">Taksit Sayisi</th>
+                        <th style="width:130px; text-align:right;">Toplam Tutar</th>
+                        <th style="width:130px; text-align:right;">On Odeme</th>
+                        <th style="width:130px; text-align:right;">Kalan Tutar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (odemePlanlari != null)
+                    {
+                        @foreach (var item in odemePlanlari)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item" @ondblclick="() => RowDoubleClick(item)">
+                                <td>@item.FisNo</td>
+                                <td>@item.CariUnvan</td>
+                                <td>@item.IslemTipi</td>
+                                <td>@item.OdemeTipi</td>
+                                <td style="text-align:center;">@item.TaksitSayisi</td>
+                                <td style="text-align:right;">@item.ToplamTutar.ToString("N2")</td>
+                                <td style="text-align:right;">@item.OnOdemeTutari.ToString("N2")</td>
+                                <td style="text-align:right;">@item.KalanTutar.ToString("N2")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-dark); color:white; font-weight:700;">
+                        <td colspan="5" style="text-align:right; padding:6px 8px;">Toplam:</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamTutar.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamOnOdeme.ToString("N2")</td>
+                        <td style="text-align:right; padding:6px 8px;">@toplamKalan.ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Bottom Panel -->
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 0; justify-content:flex-end;">
+            <button class="btn btn-outline btn-sm" @onclick="Yazdir">
+                <i class="fa fa-print"></i> [F4] Yazdir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Iptal Onay Modal -->
+@if (showIptalModal)
+{
+    <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:420px;">
+            <div class="card-header" style="background:#dc2626;">
+                <i class="fa fa-exclamation-triangle"></i> UYARI
+            </div>
+            <div class="card-body" style="text-align:center; padding:20px;">
+                <p style="font-weight:600;">SECILI ODEME PLANI SILINECEK! ONAYLIYOR MUSUNUZ?</p>
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                    <button class="btn btn-danger" @onclick="IptalOnayla">Evet</button>
+                    <button class="btn btn-outline" @onclick="() => showIptalModal = false">Hayir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<OdemePlaniItem> odemePlanlari = new();
+    private OdemePlaniItem? selectedItem;
+    private bool showIptalModal = false;
+
+    private decimal toplamTutar => odemePlanlari.Sum(x => x.ToplamTutar);
+    private decimal toplamOnOdeme => odemePlanlari.Sum(x => x.OnOdemeTutari);
+    private decimal toplamKalan => odemePlanlari.Sum(x => x.KalanTutar);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+            var dbList = await db.OdemePlani.AsNoTracking()
+                .Where(o => o.Iptal == null || o.Iptal != true)
+                .OrderByDescending(o => o.Id)
+                .Take(500)
+                .ToListAsync();
+            odemePlanlari = dbList.Select(o => new OdemePlaniItem
+            {
+                Id = o.Id,
+                CariId = o.CariId ?? 0,
+                FisNo = o.FisNo,
+                CariUnvan = o.CariUnvan,
+                IslemTipi = o.IslemTipi,
+                OdemeTipi = o.OdemeTipi,
+                TaksitSayisi = o.TaksitSayisi ?? 0,
+                ToplamTutar = (decimal)(o.ToplamTutar ?? 0),
+                OnOdemeTutari = (decimal)(o.OnOdemeTutari ?? 0),
+                KalanTutar = (decimal)(o.KalanTutar ?? 0),
+                Iptal = o.Iptal ?? false
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OdemePlani DB hatasi: {ex.Message}");
+            odemePlanlari = new List<OdemePlaniItem>();
+        }
+    }
+
+    private void Ekle()
+    {
+        Nav.NavigateTo("/finans/odemeplanlari?islem=yeni");
+    }
+
+    private void Duzenle()
+    {
+        if (selectedItem != null)
+            RowDoubleClick(selectedItem);
+    }
+
+    private void RowDoubleClick(OdemePlaniItem item)
+    {
+        Nav.NavigateTo($"/finans/odemeplanlari?islem=duzenle&id={item.Id}");
+    }
+
+    private void IptalEt()
+    {
+        if (selectedItem == null) return;
+        showIptalModal = true;
+    }
+
+    private async void IptalOnayla()
+    {
+        // TODO: Call API to cancel selected item (set Iptal=1)
+        showIptalModal = false;
+        await Yenile();
+        StateHasChanged();
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Export/print grid
+    }
+
+    private class OdemePlaniItem
+    {
+        public int Id { get; set; }
+        public int CariId { get; set; }
+        public string? FisNo { get; set; }
+        public string? CariUnvan { get; set; }
+        public string? IslemTipi { get; set; }
+        public string? OdemeTipi { get; set; }
+        public int TaksitSayisi { get; set; }
+        public decimal ToplamTutar { get; set; }
+        public decimal OnOdemeTutari { get; set; }
+        public decimal KalanTutar { get; set; }
+        public string? Doviz { get; set; }
+        public string? Aciklama { get; set; }
+        public bool? Iptal { get; set; }
+    }
+}

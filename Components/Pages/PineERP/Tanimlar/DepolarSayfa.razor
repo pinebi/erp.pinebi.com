@@ -1,0 +1,193 @@
+@page "/pine/tanimlar/depolar"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject MACHINEBISS_Web.Services.ConfirmService Confirm
+@using MACHINEBISS_Web.Controllers.Api
+
+<PageTitle>Depolar - PineERP</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-warehouse"></i> Depo Tanimlari
+    </div>
+    <div class="card-body" style="padding:8px 14px; overflow:hidden;">
+        <div class="toolbar" style="margin-bottom:6px;">
+            <button class="btn btn-success btn-sm" @onclick="Ekle" title="Yeni Depo">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Kaydet" disabled="@(!editMode)" title="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-danger btn-sm" @onclick="Sil" disabled="@(seciliId == 0)" title="Sil">
+                <i class="fa fa-trash"></i> Sil
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="IptalEt" disabled="@(!editMode)">
+                <i class="fa fa-times"></i> Iptal
+            </button>
+            <span class="toolbar-sep"></span>
+            <button class="btn btn-outline btn-sm" @onclick="Yukle" title="Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mesaj))
+        {
+            <div class="alert @mesajTip" style="margin-bottom:6px;">@mesaj</div>
+        }
+
+        <div style="display:flex; gap:14px; flex:1; min-height:0;">
+            <!-- Grid -->
+            <div style="flex:2; display:flex; flex-direction:column; min-height:0;">
+                <div class="grid-container" style="flex:1; min-height:0;">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:120px;">Kod</th>
+                                <th>Isim</th>
+                                <th style="width:150px;">Sehir</th>
+                                <th style="width:130px;">Sorumlu</th>
+                                <th style="width:70px;">Aktif</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (liste.Any())
+                            {
+                                var idx = 0;
+                                @foreach (var d in liste)
+                                {
+                                    idx++;
+                                    <tr class="@(seciliId == d.Id ? "selected" : "")" @onclick="() => Sec(d)" style="cursor:pointer;">
+                                        <td>@idx</td>
+                                        <td><strong>@d.DepKod</strong></td>
+                                        <td>@d.DepIsim</td>
+                                        <td>@d.DepSehir</td>
+                                        <td>@d.DepSorumlu</td>
+                                        <td>@(d.DepAktif ? "Evet" : "Hayir")</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--pinebi-text-light);"><i class="fa fa-inbox"></i> Kayit yok</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding:4px 0; font-size:11px; color:var(--pinebi-text-light);">Toplam: @liste.Count kayit</div>
+            </div>
+
+            <!-- Edit Form -->
+            <div style="flex:1; min-width:300px; max-width:400px;">
+                <div class="group-box">
+                    <span class="group-box-title">@(isNew ? "Yeni Depo" : editMode ? "Duzenle" : "Detay")</span>
+                    <div class="form-row"><div class="form-inline"><label>Kod</label><input type="text" class="form-control" value="@form.DepKod" disabled readonly /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Isim</label><input type="text" class="form-control" @bind="form.DepIsim" disabled="@(!editMode)" maxlength="100" /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Adres</label><input type="text" class="form-control" @bind="form.DepAdres" disabled="@(!editMode)" maxlength="500" /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Sehir</label><input type="text" class="form-control" @bind="form.DepSehir" disabled="@(!editMode)" maxlength="50" /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Ilce</label><input type="text" class="form-control" @bind="form.DepIlce" disabled="@(!editMode)" maxlength="50" /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Sorumlu</label><input type="text" class="form-control" @bind="form.DepSorumlu" disabled="@(!editMode)" maxlength="100" /></div></div>
+                    <div class="form-row"><div class="form-inline"><label>Telefon</label><input type="text" class="form-control" @bind="form.DepTel" disabled="@(!editMode)" maxlength="50" /></div></div>
+                    <div class="form-row"><div class="form-check"><input type="checkbox" @bind="form.DepAktif" disabled="@(!editMode)" /><label>Aktif</label></div></div>
+                    <div class="form-row"><div class="form-check"><input type="checkbox" @bind="form.DepAdresliDepo" disabled="@(!editMode)" /><label>Adresli Depo (Raf Takibi)</label></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<DepoModel> liste = new();
+    private DepoModel form = new();
+    private int seciliId;
+    private bool editMode, isNew;
+    private string? mesaj;
+    private string mesajTip = "alert-info";
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    private async Task Yukle()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<ApiResponse<List<DepoModel>>>("api/stok/depolar");
+            if (resp?.Success == true) liste = resp.Data ?? new();
+            seciliId = 0; editMode = false; isNew = false; form = new();
+            mesaj = null;
+        }
+        catch (Exception ex) { Goster("Yukleme hatasi: " + ex.Message, "alert-danger"); }
+    }
+
+    private void Sec(DepoModel d)
+    {
+        seciliId = d.Id;
+        form = new DepoModel
+        {
+            Id = d.Id, DepKod = d.DepKod, DepIsim = d.DepIsim, DepAdres = d.DepAdres,
+            DepSehir = d.DepSehir, DepIlce = d.DepIlce, DepSorumlu = d.DepSorumlu,
+            DepTel = d.DepTel, DepAktif = d.DepAktif, DepAdresliDepo = d.DepAdresliDepo
+        };
+        editMode = true; isNew = false;
+    }
+
+    private void Ekle()
+    {
+        var maxNo = 0;
+        foreach (var d in liste)
+            if (int.TryParse(d.DepKod?.Replace("DEPO-",""), out var n) && n > maxNo) maxNo = n;
+        form = new DepoModel { DepKod = $"DEPO-{maxNo + 1}", DepAktif = true };
+        seciliId = 0; editMode = true; isNew = true;
+    }
+
+    private void IptalEt() { editMode = false; isNew = false; form = new(); seciliId = 0; }
+
+    private async Task Kaydet()
+    {
+        if (string.IsNullOrWhiteSpace(form.DepIsim)) { Goster("Isim bos olamaz", "alert-warning"); return; }
+        try
+        {
+            HttpResponseMessage resp;
+            if (isNew)
+                resp = await Http.PostAsJsonAsync("api/stok/depo", form);
+            else
+                resp = await Http.PutAsJsonAsync($"api/stok/depo/{form.Id}", form);
+            if (resp.IsSuccessStatusCode)
+            {
+                Goster("Kaydedildi", "alert-success");
+                await Yukle();
+            }
+            else Goster("Kayit basarisiz", "alert-danger");
+        }
+        catch (Exception ex) { Goster("Hata: " + ex.Message, "alert-danger"); }
+    }
+
+    private async Task Sil()
+    {
+        if (seciliId == 0) return;
+        var d = liste.FirstOrDefault(x => x.Id == seciliId);
+        if (!await Confirm.AskAsync($"'{d?.DepIsim ?? d?.DepKod}' deposunu silmek istediginize emin misiniz?", "Depo Sil")) return;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/stok/depo/{seciliId}");
+            if (resp.IsSuccessStatusCode) { Goster("Silindi", "alert-success"); await Yukle(); }
+        }
+        catch (Exception ex) { Goster("Silinemedi: " + ex.Message, "alert-danger"); }
+    }
+
+    private void Goster(string m, string t = "alert-info") { mesaj = m; mesajTip = t; }
+
+    public class DepoModel
+    {
+        public int Id { get; set; }
+        public string DepKod { get; set; } = "";
+        public string DepIsim { get; set; } = "";
+        public string? DepAdres { get; set; }
+        public string? DepSehir { get; set; }
+        public string? DepIlce { get; set; }
+        public string? DepSorumlu { get; set; }
+        public string? DepTel { get; set; }
+        public bool DepAktif { get; set; } = true;
+        public bool DepAdresliDepo { get; set; }
+    }
+}

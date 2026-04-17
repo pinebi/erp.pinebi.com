@@ -1,0 +1,162 @@
+﻿@page "/pine/proje/liste"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Proje Listesi</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-briefcase"></i> Proje Listesi
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm" @onclick="YeniProje">
+                <i class="fa fa-plus"></i> Yeni
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="Duzenle">
+                <i class="fa fa-pencil"></i> Duzenle
+            </button>
+            <span style="border-left:1px solid var(--pinebi-border); height:20px;"></span>
+            <button class="btn btn-outline btn-sm" @onclick="GorevleriGoster">
+                <i class="fa fa-tasks"></i> Gorevler
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Ara:</label>
+                <input type="text" class="form-control" placeholder="Proje kodu, isim, sorumlu..."
+                       @bind="searchText" @bind:event="oninput" @bind:after="AraAsync" style="max-width:300px;" />
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 280px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Proje Kodu</th>
+                        <th>Proje Ismi</th>
+                        <th>Sorumlu</th>
+                        <th>Baslangic</th>
+                        <th>Bitis</th>
+                        <th style="text-align:right;">Butce</th>
+                        <th style="text-align:right;">Harcanan</th>
+                        <th style="text-align:right;">Kalan</th>
+                        <th>Durum</th>
+                        <th>Oncelik</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoading)
+                    {
+                        <tr><td colspan="10" style="text-align:center;">Yukleniyor...</td></tr>
+                    }
+                    else if (liste != null)
+                    {
+                        @foreach (var item in liste)
+                        {
+                            <tr class="@(selectedId == item.Id ? "selected" : "")"
+                                @onclick="() => SelectItem(item)"
+                                @ondblclick="() => OnDoubleClick(item)">
+                                <td>@item.PrjKod</td>
+                                <td>@item.PrjIsim</td>
+                                <td>@item.PrjSorumlu</td>
+                                <td>@item.PrjBaslangic?.ToString("dd.MM.yyyy")</td>
+                                <td>@item.PrjBitis?.ToString("dd.MM.yyyy")</td>
+                                <td style="text-align:right;">@item.PrjButce.ToString("N2")</td>
+                                <td style="text-align:right;">@item.PrjHarcanan.ToString("N2")</td>
+                                <td style="text-align:right;">@item.PrjKalan.ToString("N2")</td>
+                                <td>@item.PrjDurum</td>
+                                <td>@item.PrjOncelik</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>Toplam: @toplam kayit (Sayfa @sayfa / @toplamSayfa)</span>
+            <div>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa <= 1)" @onclick="OncekiSayfa">Onceki</button>
+                <button class="btn btn-outline btn-sm" disabled="@(sayfa >= toplamSayfa)" @onclick="SonrakiSayfa">Sonraki</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ProjeDto> liste = new();
+    private int selectedId;
+    private ProjeDto? selectedItem;
+    private string searchText = "";
+    private bool isLoading = true;
+    private int sayfa = 1, sayfaBoyutu = 50, toplam = 0, toplamSayfa = 0;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var url = $"/api/proje/liste?sayfa={sayfa}&sayfaBoyutu={sayfaBoyutu}";
+            if (!string.IsNullOrWhiteSpace(searchText)) url += $"&ara={Uri.EscapeDataString(searchText)}";
+
+            var response = await Http.GetFromJsonAsync<PagedResponse<ProjeDto>>(url);
+            if (response != null)
+            {
+                liste = response.Data ?? new();
+                toplam = response.Toplam;
+                toplamSayfa = response.ToplamSayfa;
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Proje listesi hatasi: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task AraAsync() { sayfa = 1; await LoadDataAsync(); }
+    private async Task OncekiSayfa() { if (sayfa > 1) { sayfa--; await LoadDataAsync(); } }
+    private async Task SonrakiSayfa() { if (sayfa < toplamSayfa) { sayfa++; await LoadDataAsync(); } }
+
+    private void SelectItem(ProjeDto item) { selectedItem = item; selectedId = item.Id; }
+    private void OnDoubleClick(ProjeDto item) { /* TODO: Navigate to proje detail */ }
+    private void YeniProje() { /* TODO: Navigate to new proje */ }
+    private void Duzenle() { if (selectedItem != null) OnDoubleClick(selectedItem); }
+    private void GorevleriGoster() { /* TODO: Gorev listesi */ }
+    private void Yazdir() { /* TODO: Print */ }
+
+    public class ProjeDto
+    {
+        public int Id { get; set; }
+        public string? PrjKod { get; set; }
+        public string? PrjIsim { get; set; }
+        public string? PrjSorumlu { get; set; }
+        public DateTime? PrjBaslangic { get; set; }
+        public DateTime? PrjBitis { get; set; }
+        public decimal PrjButce { get; set; }
+        public decimal PrjHarcanan { get; set; }
+        public decimal PrjKalan { get; set; }
+        public string? PrjDurum { get; set; }
+        public string? PrjOncelik { get; set; }
+    }
+
+    public class PagedResponse<T>
+    {
+        public bool Success { get; set; }
+        public List<T>? Data { get; set; }
+        public int Toplam { get; set; }
+        public int Sayfa { get; set; }
+        public int SayfaBoyutu { get; set; }
+        public int ToplamSayfa { get; set; }
+    }
+}

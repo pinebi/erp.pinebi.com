@@ -1,0 +1,33 @@
+﻿@page "/sirket/ortaklar"
+@inject NavigationManager Nav
+
+<PageTitle>Sirket Ortaklari</PageTitle>
+
+<div class="card">
+    <div class="card-header"><i class="fa fa-users"></i> Sirket Ortaklari</div>
+    <div class="card-body">
+        <div class="toolbar">
+            <button class="btn btn-success btn-sm"><i class="fa fa-plus"></i> Yeni</button>
+            <button class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Duzenle</button>
+            <button class="btn btn-danger btn-sm"><i class="fa fa-trash"></i> Sil</button>
+        </div>
+        <div class="grid-container" style="max-height:500px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Ortak Adi</th>
+                        <th>TC Kimlik No</th>
+                        <th>Hisse Orani (%)</th>
+                        <th>Telefon</th>
+                        <th>Email</th>
+                        <th>Adres</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="7" class="text-center text-muted">Kayit bulunamadi</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

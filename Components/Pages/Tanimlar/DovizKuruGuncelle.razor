@@ -1,0 +1,135 @@
+﻿@page "/tanimlar/doviz"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Doviz Kuru Guncelle</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-exchange-alt"></i> Doviz Kuru Guncelle
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="form-inline">
+                <label>Tarih:</label>
+                <input type="date" class="form-control" @bind="selectedDate" @bind:after="LoadList" style="max-width:180px;" />
+            </div>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button class="btn btn-primary btn-sm" @onclick="Save">
+                    <i class="fa fa-save"></i> Kaydet
+                </button>
+                <button class="btn btn-outline btn-sm" @onclick="Close">
+                    <i class="fa fa-times"></i> Kapat
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-top:8px;">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success" style="margin-top:8px;">@successMessage</div>
+        }
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:111px;">Tarih</th>
+                        <th style="width:99px;">Doviz Kodu</th>
+                        <th style="width:99px;">Doviz Turu</th>
+                        <th style="width:99px;">Doviz Kuru</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (list != null)
+                    {
+                        @foreach (var item in list)
+                        {
+                            <tr class="@(selectedItem == item ? "selected" : "")" @onclick="() => selectedItem = item">
+                                <td>@item.Tarih.ToString("dd.MM.yyyy")</td>
+                                <td>@item.DovizKodu</td>
+                                <td>@item.DovizTuru</td>
+                                <td>
+                                    <input type="number" step="0.0001" class="form-control" @bind="item.DovizKuru"
+                                           style="border:none; background:transparent; width:100%; padding:2px 4px; text-align:right;" />
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="btn btn-primary btn-sm" @onclick="Save">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="Close">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MACHINEBISS_Web.Models.MachineBiss.DovizKurlari> list = new();
+    private MACHINEBISS_Web.Models.MachineBiss.DovizKurlari? selectedItem;
+    private DateTime selectedDate = DateTime.Today;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadList();
+    }
+
+    private async Task LoadList()
+    {
+        try
+        {
+            errorMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            list = await ctx.DovizKurlari
+                .Where(x => x.Tarih.Date == selectedDate.Date)
+                .OrderBy(x => x.DovizKodu)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Veri yukleme hatasi: " + ex.Message;
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            using var ctx = await FirmaFactory.CreateDbContextAsync();
+            foreach (var item in list)
+            {
+                ctx.DovizKurlari.Update(item);
+            }
+            await ctx.SaveChangesAsync();
+            successMessage = "Doviz kurlari basariyla kaydedildi.";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Kaydetme hatasi: " + ex.Message;
+        }
+    }
+
+    private void Close()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

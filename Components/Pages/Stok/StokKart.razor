@@ -1,0 +1,531 @@
+﻿@page "/stok/kart"
+@page "/stok/kart/{Id:int}"
+@inject NavigationManager Nav
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@inject IDbContextFactory<MACHINEBISS_Web.Db.NetworkContext> NetworkFactory
+@inject MACHINEBISS_Web.Services.AuthService Auth
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Stok Kart</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-cube"></i> Stok Kart @(Id > 0 ? "- Duzenle" : "- Yeni")
+    </div>
+    <div class="card-body">
+        <style>
+            .stok-form .form-row { align-items: center; margin-bottom: 10px; }
+            .stok-form .form-inline { flex: 1; min-width: 0; }
+            .stok-form .form-inline label { min-width: 140px; max-width: 140px; }
+            .stok-form .form-inline .form-control { flex: 1; max-width: none; width: 100%; }
+            .stok-form .group-box { padding: 16px 14px 12px; }
+            .stok-form .picker-btn { flex: 0 0 32px; }
+        </style>
+        <div class="stok-form" style="display:flex; gap:14px; flex-wrap:wrap;">
+            <!-- Sol Kolon: Temel Bilgiler -->
+            <div style="flex:1; min-width:460px;">
+                <div class="group-box">
+                    <span class="group-box-title">Temel Bilgiler</span>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Stok Kodu</label>
+                            <input type="text" class="form-control" @bind="model.StokKodu" />
+                        </div>
+                        <div class="form-check" style="margin-left:10px; flex:0 0 auto;">
+                            <input type="checkbox" @bind="model.KullanimDisi" />
+                            <label>Kullanim Disi</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Barkod</label>
+                            <input type="text" class="form-control" @bind="model.Barkod" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Stok Cinsi</label>
+                            <select class="form-control" @bind="model.StokCinsi">
+                                <option value="Ticari Mal">Ticari Mal</option>
+                                <option value="Hammadde">Hammadde</option>
+                                <option value="Yari Mamul">Yari Mamul</option>
+                                <option value="Mamul">Mamul</option>
+                                <option value="Hizmet">Hizmet</option>
+                                <option value="Sarf Malzeme">Sarf Malzeme</option>
+                                <option value="Demirbas">Demirbas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Aciklama</label>
+                            <input type="text" class="form-control" @bind="model.Aciklama" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Birim</label>
+                            <select class="form-control" @bind="model.Birim">
+                                <option value="">-- Birim Sec --</option>
+                                @foreach (var b in birimListesi)
+                                {
+                                    <option value="@b.BirimAdi">@b.BirimAdi</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Urun Grubu</label>
+                            <input type="text" class="form-control" @bind="model.UrunGrubu" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Urun Grubu Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group-box">
+                    <span class="group-box-title">Fiyat ve Vergi</span>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Doviz Tipi</label>
+                            <select class="form-control" @bind="model.DovizKodu">
+                                <option value="TL">TL</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>KDV Orani %</label>
+                            <select class="form-control" @bind="model.Kdv">
+                                @foreach (var k in kdvOranlari)
+                                {
+                                    <option value="@k">%@k</option>
+                                }
+                            </select>
+                            <button class="btn btn-sm btn-outline picker-btn" title="KDV Oranlarini Yonet" @onclick="@(() => Nav.NavigateTo("/tanimlar/kdvoranlari"))"><i class="fa fa-cog"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>KDV Haric Satis Fiyati</label>
+                            <input type="number" class="form-control text-right" @bind="model.KdvHaricSatisFiyati" step="0.01" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Minimum Adet</label>
+                            <input type="number" class="form-control text-right" @bind="model.MinimumSeviye" step="0.01" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sag Kolon: Ozel Kodlar ve Tevkifat -->
+            <div style="flex:1; min-width:460px;">
+                <div class="group-box">
+                    <span class="group-box-title">Ozel Kodlar</span>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Ozel Kod 1</label>
+                            <input type="text" class="form-control" @bind="model.OzelKod1" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Ozel Kod 2</label>
+                            <input type="text" class="form-control" @bind="model.OzelKod2" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Ozel Kod 3</label>
+                            <input type="text" class="form-control" @bind="model.OzelKod3" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Ozel Kod 4</label>
+                            <input type="text" class="form-control" @bind="model.OzelKod4" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Ozel Kod 5</label>
+                            <input type="text" class="form-control" @bind="model.OzelKod5" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group-box">
+                    <span class="group-box-title">Tevkifat Bilgileri</span>
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input type="checkbox" @bind="model.Tevkifat" />
+                            <label style="font-weight:700;">Tevkifat Uygula</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Tevkifat Kodu</label>
+                            <input type="text" class="form-control" @bind="model.TevkifatKodu" />
+                            <button class="btn btn-sm btn-outline picker-btn" title="Tevkifat Sec"><i class="fa fa-ellipsis-h"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Tevkifat Carpani</label>
+                            <input type="number" class="form-control text-right" @bind="model.TevkifatCarpan" step="0.01" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-inline">
+                            <label>Tevkifat Bolen</label>
+                            <input type="number" class="form-control text-right" @bind="model.TevkifatBolen" step="0.01" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fiyat Tanimlari -->
+        <div class="group-box" style="margin-top:12px;">
+            <span class="group-box-title"><i class="fa fa-tag"></i> Fiyat Tanimlari</span>
+            <div class="grid-container" style="max-height:320px;">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Fiyat Grubu</th>
+                        <th style="text-align:right;">Fiyat</th>
+                        <th>Doviz</th>
+                        <th>KDV Dahil</th>
+                        <th style="text-align:right;">KDV Dahil Fiyat</th>
+                        <th style="text-align:right;">Min Fiyat</th>
+                        <th style="text-align:right;">Max Fiyat</th>
+                        <th style="text-align:right;">Iskonto %</th>
+                        <th style="text-align:right;">Net Fiyat</th>
+                        <th>Gecerlilik Baslangic</th>
+                        <th>Gecerlilik Bitis</th>
+                        <th>Aktif</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (fiyat, idx) in fiyatlar.Select((f, i) => (f, i)))
+                    {
+                        <tr>
+                            <td>@(idx + 1)</td>
+                            <td>
+                                <select class="form-control" @bind="fiyat.FiyatGrubu" style="width:120px;">
+                                    @foreach (var g in fiyatGruplari)
+                                    {
+                                        <option value="@g.GrupNo">@g.GrupNo - @g.GrupAdi</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input type="number" class="form-control text-right" @bind="fiyat.Fiyat" step="0.01" style="width:110px;" /></td>
+                            <td>
+                                <select class="form-control" @bind="fiyat.DovizKodu" style="width:70px;">
+                                    <option>TL</option><option>USD</option><option>EUR</option><option>GBP</option>
+                                </select>
+                            </td>
+                            <td><input type="checkbox" @bind="fiyat.KdvDahil" /></td>
+                            <td class="text-right">@(fiyat.KdvDahil ? fiyat.Fiyat.ToString("N2") : (fiyat.Fiyat * (1 + (fiyat.KdvOrani ?? 20) / 100)).ToString("N2"))</td>
+                            <td><input type="number" class="form-control text-right" @bind="fiyat.MinFiyat" step="0.01" style="width:90px;" /></td>
+                            <td><input type="number" class="form-control text-right" @bind="fiyat.MaxFiyat" step="0.01" style="width:90px;" /></td>
+                            <td><input type="number" class="form-control text-right" @bind="fiyat.IskontoOrani1" step="0.01" style="width:70px;" /></td>
+                            <td class="text-right">@((fiyat.Fiyat - (fiyat.Fiyat * (fiyat.IskontoOrani1 ?? 0) / 100)).ToString("N2"))</td>
+                            <td><input type="date" class="form-control" @bind="fiyat.GecerlilikBaslangic" style="width:120px;" /></td>
+                            <td><input type="date" class="form-control" @bind="fiyat.GecerlilikBitis" style="width:120px;" /></td>
+                            <td><input type="checkbox" @bind="fiyat.Aktif" /></td>
+                            <td><button class="btn btn-danger btn-sm" @onclick="() => FiyatSil(idx)" title="Sil">&#x2715;</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <div style="margin-top:6px;">
+                <button class="btn btn-success btn-sm" @onclick="FiyatEkle">
+                    <i class="fa fa-plus"></i> Fiyat Ekle
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Toolbar -->
+        <div class="toolbar" style="border-top:1px solid var(--pinebi-border); margin-top:10px; padding-top:10px; border-bottom:none; justify-content:flex-end;">
+            <button class="btn btn-primary" @onclick="Kaydet">
+                <i class="fa fa-save"></i> Kaydet
+            </button>
+            <button class="btn btn-secondary" @onclick="Kapat">
+                <i class="fa fa-times"></i> Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private StokKartModel model = new();
+    private List<MACHINEBISS_Web.Models.MachineBiss.Birimler> birimListesi = new();
+    private List<StokFiyatItem> fiyatlar = new();
+    private List<FiyatGrubuItem> fiyatGruplari = new();
+    private List<decimal> kdvOranlari = new() { 0m, 1m, 10m, 20m };
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var db = await FirmaFactory.CreateDbContextAsync();
+        birimListesi = await db.Birimler.ToListAsync();
+
+        // KDV oranlarini DB'den yukle (bossa varsayilan 0/1/10/20)
+        try
+        {
+            using var ndb = await NetworkFactory.CreateDbContextAsync();
+            var dbKdv = await ndb.KdvOranlari.OrderBy(k => k.KdvOrani).ToListAsync();
+            if (dbKdv.Any())
+                kdvOranlari = dbKdv.Where(k => k.KdvOrani.HasValue).Select(k => (decimal)k.KdvOrani!.Value).ToList();
+        }
+        catch { }
+
+        if (Id > 0)
+        {
+            var stok = await db.StokKart.FirstOrDefaultAsync(s => s.Id == Id);
+            if (stok != null)
+            {
+                model.Id = stok.Id;
+                model.StokKodu = stok.StokKodu ?? "";
+                model.Barkod = stok.Barkod ?? "";
+                model.StokCinsi = string.IsNullOrWhiteSpace(stok.StokCinsi) ? "Ticari Mal" : stok.StokCinsi;
+                model.Aciklama = stok.Aciklama ?? "";
+                model.Birim = stok.Birim ?? "";
+                model.Kdv = stok.Kdv;
+                model.DovizKodu = stok.DovizKodu ?? "TL";
+                model.KdvHaricSatisFiyati = stok.KdvHaricSatisFiyati;
+                model.UrunGrubu = stok.UrunGrubu ?? "";
+                model.OzelKod1 = stok.OzelKod1 ?? "";
+                model.OzelKod2 = stok.OzelKod2 ?? "";
+                model.OzelKod3 = stok.OzelKod3 ?? "";
+                model.OzelKod4 = stok.OzelKod4 ?? "";
+                model.OzelKod5 = stok.OzelKod5 ?? "";
+                model.Tevkifat = stok.TevkifatId.HasValue && stok.TevkifatId > 0;
+                model.TevkifatKodu = stok.TevkifatKodu ?? "";
+                model.TevkifatCarpan = stok.TevkifatCarpan ?? 0;
+                model.TevkifatBolen = stok.TevkifatBolen ?? 0;
+                model.MinimumSeviye = stok.MinimumSeviye ?? 0;
+                model.KullanimDisi = stok.KullanimDisi;
+            }
+        }
+        else
+        {
+            model.TevkifatCarpan = 0;
+            model.TevkifatBolen = 0;
+            model.KdvHaricSatisFiyati = 0;
+        }
+
+        // Load FiyatGruplari
+        try {
+            using var db2 = await FirmaFactory.CreateDbContextAsync();
+            var gruplar = await db2.FiyatGruplari.Where(g => g.Aktif).OrderBy(g => g.GrupNo).ToListAsync();
+            fiyatGruplari = gruplar.Select(g => new FiyatGrubuItem { GrupNo = g.GrupNo, GrupAdi = g.GrupAdi ?? "" }).ToList();
+        } catch { }
+
+        // If editing (Id > 0), load existing prices
+        if (Id > 0) {
+            try {
+                using var db3 = await FirmaFactory.CreateDbContextAsync();
+                var dbFiyatlar = await db3.StokFiyatlar.Where(f => f.StokId == Id && f.Aktif).OrderBy(f => f.FiyatGrubu).ToListAsync();
+                fiyatlar = dbFiyatlar.Select(f => new StokFiyatItem {
+                    Id = f.Id, FiyatGrubu = f.FiyatGrubu, Fiyat = f.Fiyat,
+                    DovizKodu = f.DovizKodu ?? "TL", KdvDahil = f.KdvDahil,
+                    KdvOrani = f.KdvOrani, MinFiyat = f.MinFiyat, MaxFiyat = f.MaxFiyat,
+                    IskontoOrani1 = f.IskontoOrani1,
+                    GecerlilikBaslangic = f.GecerlilikBaslangic, GecerlilikBitis = f.GecerlilikBitis,
+                    Aktif = f.Aktif
+                }).ToList();
+            } catch { }
+        }
+
+        // If no prices loaded, add default rows from fiyat gruplari
+        if (!fiyatlar.Any() && fiyatGruplari.Any()) {
+            foreach (var g in fiyatGruplari)
+                fiyatlar.Add(new StokFiyatItem { FiyatGrubu = g.GrupNo, DovizKodu = "TL", Aktif = true, KdvOrani = 20 });
+        }
+    }
+
+    private void FiyatEkle()
+    {
+        var nextGrup = fiyatlar.Any() ? fiyatlar.Max(f => f.FiyatGrubu) + 1 : 1;
+        fiyatlar.Add(new StokFiyatItem { FiyatGrubu = nextGrup, DovizKodu = "TL", Aktif = true, KdvOrani = 20 });
+    }
+
+    private void FiyatSil(int index)
+    {
+        if (index >= 0 && index < fiyatlar.Count)
+            fiyatlar.RemoveAt(index);
+    }
+
+    private async Task Kaydet()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            if (Id > 0)
+            {
+                // Guncelleme
+                var stok = await db.StokKart.FirstOrDefaultAsync(s => s.Id == Id);
+                if (stok == null) return;
+
+                stok.StokKodu = model.StokKodu;
+                stok.Barkod = model.Barkod;
+                stok.StokCinsi = model.StokCinsi;
+                stok.Aciklama = model.Aciklama;
+                stok.Birim = model.Birim;
+                stok.Kdv = model.Kdv;
+                stok.DovizKodu = model.DovizKodu;
+                stok.KdvHaricSatisFiyati = model.KdvHaricSatisFiyati;
+                stok.UrunGrubu = model.UrunGrubu;
+                stok.OzelKod1 = model.OzelKod1;
+                stok.OzelKod2 = model.OzelKod2;
+                stok.OzelKod3 = model.OzelKod3;
+                stok.OzelKod4 = model.OzelKod4;
+                stok.OzelKod5 = model.OzelKod5;
+                stok.TevkifatKodu = model.Tevkifat ? model.TevkifatKodu : null;
+                stok.TevkifatCarpan = model.Tevkifat ? model.TevkifatCarpan : null;
+                stok.TevkifatBolen = model.Tevkifat ? model.TevkifatBolen : null;
+                stok.MinimumSeviye = model.MinimumSeviye;
+                stok.KullanimDisi = model.KullanimDisi;
+
+                db.StokKart.Update(stok);
+            }
+            else
+            {
+                // Yeni kayit
+                var stok = new MACHINEBISS_Web.Models.MachineBiss.StokKart
+                {
+                    StokKodu = model.StokKodu,
+                    Barkod = model.Barkod,
+                    StokCinsi = model.StokCinsi,
+                    Aciklama = model.Aciklama,
+                    Birim = model.Birim,
+                    Kdv = model.Kdv,
+                    DovizKodu = model.DovizKodu,
+                    KdvHaricSatisFiyati = model.KdvHaricSatisFiyati,
+                    UrunGrubu = model.UrunGrubu,
+                    OzelKod1 = model.OzelKod1,
+                    OzelKod2 = model.OzelKod2,
+                    OzelKod3 = model.OzelKod3,
+                    OzelKod4 = model.OzelKod4,
+                    OzelKod5 = model.OzelKod5,
+                    TevkifatKodu = model.Tevkifat ? model.TevkifatKodu : null,
+                    TevkifatCarpan = model.Tevkifat ? model.TevkifatCarpan : null,
+                    TevkifatBolen = model.Tevkifat ? model.TevkifatBolen : null,
+                    MinimumSeviye = model.MinimumSeviye,
+                    KullanimDisi = model.KullanimDisi
+                };
+                db.StokKart.Add(stok);
+            }
+
+            await db.SaveChangesAsync();
+
+            // Determine the stokId (for new records, get the Id after save)
+            int stokId = Id > 0 ? Id : (await db.StokKart.OrderByDescending(s => s.Id).Select(s => s.Id).FirstOrDefaultAsync());
+
+            // Save Fiyatlar
+            try {
+                using var dbFiyat = await FirmaFactory.CreateDbContextAsync();
+                // Delete old prices for this stok
+                var eskiFiyatlar = await dbFiyat.StokFiyatlar.Where(f => f.StokId == stokId).ToListAsync();
+                dbFiyat.StokFiyatlar.RemoveRange(eskiFiyatlar);
+
+                // Log price changes
+                foreach (var eski in eskiFiyatlar) {
+                    var yeni = fiyatlar.FirstOrDefault(f => f.FiyatGrubu == eski.FiyatGrubu);
+                    if (yeni != null && yeni.Fiyat != eski.Fiyat) {
+                        dbFiyat.StokFiyatGecmisi.Add(new MACHINEBISS_Web.Models.MachineBiss.StokFiyatGecmisi {
+                            StokId = stokId, FiyatGrubu = eski.FiyatGrubu,
+                            EskiFiyat = eski.Fiyat, YeniFiyat = yeni.Fiyat,
+                            DegisimOrani = eski.Fiyat > 0 ? ((yeni.Fiyat - eski.Fiyat) / eski.Fiyat * 100) : 0,
+                            DovizKodu = eski.DovizKodu, DegisiklikNedeni = "Stok Kart Guncelleme",
+                            DegistirenKullanici = Auth.ErpKullaniciAdi
+                        });
+                    }
+                }
+
+                // Insert new prices
+                foreach (var f in fiyatlar) {
+                    dbFiyat.StokFiyatlar.Add(new MACHINEBISS_Web.Models.MachineBiss.StokFiyatlar {
+                        StokId = stokId, FiyatGrubu = f.FiyatGrubu, Fiyat = f.Fiyat,
+                        DovizKodu = f.DovizKodu, KdvDahil = f.KdvDahil, KdvOrani = f.KdvOrani,
+                        MinFiyat = f.MinFiyat, MaxFiyat = f.MaxFiyat,
+                        IskontoOrani1 = f.IskontoOrani1,
+                        GecerlilikBaslangic = f.GecerlilikBaslangic, GecerlilikBitis = f.GecerlilikBitis,
+                        Aktif = f.Aktif,
+                        OlusturmaTarihi = DateTime.Now, OlusturanKullanici = Auth.ErpKullaniciAdi
+                    });
+                }
+                await dbFiyat.SaveChangesAsync();
+            } catch (Exception ex) { Console.WriteLine($"Fiyat kayit hatasi: {ex.Message}"); }
+
+            Nav.NavigateTo("/stok/kartlar");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"StokKart kayit hatasi: {ex.Message}");
+        }
+    }
+    private void Kapat() { Nav.NavigateTo("/stok/kartlar"); }
+
+    public class StokKartModel
+    {
+        public int Id { get; set; }
+        public string StokKodu { get; set; } = "";
+        public string Barkod { get; set; } = "";
+        public string StokCinsi { get; set; } = "Ticari Mal";
+        public string Aciklama { get; set; } = "";
+        public string Birim { get; set; } = "";
+        public decimal Kdv { get; set; }
+        public string DovizKodu { get; set; } = "TL";
+        public decimal KdvHaricSatisFiyati { get; set; }
+        public string UrunGrubu { get; set; } = "";
+        public string OzelKod1 { get; set; } = "";
+        public string OzelKod2 { get; set; } = "";
+        public string OzelKod3 { get; set; } = "";
+        public string OzelKod4 { get; set; } = "";
+        public string OzelKod5 { get; set; } = "";
+        public bool Tevkifat { get; set; }
+        public string TevkifatKodu { get; set; } = "";
+        public decimal TevkifatCarpan { get; set; }
+        public decimal TevkifatBolen { get; set; }
+        public decimal MinimumSeviye { get; set; }
+        public bool KullanimDisi { get; set; }
+    }
+
+    public class StokFiyatItem {
+        public int Id { get; set; }
+        public int FiyatGrubu { get; set; } = 1;
+        public decimal Fiyat { get; set; }
+        public string DovizKodu { get; set; } = "TL";
+        public bool KdvDahil { get; set; }
+        public decimal? KdvOrani { get; set; } = 20;
+        public decimal? MinFiyat { get; set; }
+        public decimal? MaxFiyat { get; set; }
+        public decimal? IskontoOrani1 { get; set; }
+        public DateTime? GecerlilikBaslangic { get; set; }
+        public DateTime? GecerlilikBitis { get; set; }
+        public bool Aktif { get; set; } = true;
+    }
+
+    public class FiyatGrubuItem {
+        public int GrupNo { get; set; }
+        public string GrupAdi { get; set; } = "";
+    }
+}

@@ -1,0 +1,144 @@
+﻿@page "/stok/hareketler"
+@page "/stok/hareketler/{StokId:int}/{Durum}"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Malzeme Hareketleri</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-truck"></i> @pageTitle
+    </div>
+    <div class="card-body">
+        <!-- Filter Bar -->
+        <div class="form-row" style="margin-bottom:8px; align-items:center;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Hareket Tipi</label>
+                <select class="form-control" @bind="selectedDurum" style="max-width:150px;">
+                    <option value="Satis">Satis</option>
+                    <option value="Alis">Alis</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="Yenile">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container" style="max-height:calc(100vh - 220px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Fatura No</th>
+                        <th>Unvan</th>
+                        <th>Stok Kodu</th>
+                        <th>Stok Adi</th>
+                        <th>Birim</th>
+                        <th style="text-align:right;">Miktar</th>
+                        <th style="text-align:right;">Fiyat</th>
+                        <th style="text-align:right;">Tutar</th>
+                        <th style="text-align:right;">Indirim Tutari</th>
+                        <th style="text-align:right;">KDV Tutari</th>
+                        <th style="text-align:right;">Net Tutar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (hareketList != null)
+                    {
+                        @foreach (var item in hareketList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => selectedItem = item">
+                                <td>@(item.Tarih?.ToString("dd.MM.yyyy") ?? "")</td>
+                                <td>@item.FaturaNo</td>
+                                <td>@item.Unvan</td>
+                                <td>@item.StokKodu</td>
+                                <td>@item.StokAdi</td>
+                                <td>@item.Birim</td>
+                                <td style="text-align:right;">@(item.Miktar?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.Fiyat?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.Tutar?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.IndirimTutari?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.KdvTutari?.ToString("N2") ?? "0,00")</td>
+                                <td style="text-align:right;">@(item.NetTutar?.ToString("N2") ?? "0,00")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:600;">
+                        <td colspan="8" style="text-align:right;">Toplam:</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.Tutar ?? 0).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.IndirimTutari ?? 0).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.KdvTutari ?? 0).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(hareketList?.Sum(x => x.NetTutar ?? 0).ToString("N2") ?? "0,00")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>@pageTitle</span>
+            <span>Toplam: @(hareketList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int StokId { get; set; }
+    [Parameter] public string Durum { get; set; } = "Satis";
+
+    private string selectedDurum = "Satis";
+    private string pageTitle = "Malzeme Hareketleri";
+    private List<MalzemeHareketleriDto> hareketList = new();
+    private MalzemeHareketleriDto selectedItem;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(Durum))
+            selectedDurum = Durum;
+
+        UpdateTitle();
+        // TODO: Load data from API
+    }
+
+    private void UpdateTitle()
+    {
+        pageTitle = selectedDurum == "Alis" ? "Alis Hareketleri" : "Satis Hareketleri";
+    }
+
+    private void Yenile()
+    {
+        UpdateTitle();
+        // TODO: Reload data
+    }
+
+    private async void Yazdir() { await JS.InvokeVoidAsync("window.print"); }
+
+    public class MalzemeHareketleriDto
+    {
+        public int Id { get; set; }
+        public int? TrCode { get; set; }
+        public int? FaturaId { get; set; }
+        public DateTime? Tarih { get; set; }
+        public string FaturaNo { get; set; }
+        public string Unvan { get; set; }
+        public int? StokId { get; set; }
+        public string StokKodu { get; set; }
+        public string StokAdi { get; set; }
+        public string Birim { get; set; }
+        public double? Miktar { get; set; }
+        public double? Fiyat { get; set; }
+        public double? Tutar { get; set; }
+        public double? IndirimTutari { get; set; }
+        public double? KdvTutari { get; set; }
+        public double? NetTutar { get; set; }
+    }
+}

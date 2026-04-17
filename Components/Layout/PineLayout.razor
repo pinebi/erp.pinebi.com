@@ -1,0 +1,313 @@
+@inherits LayoutComponentBase
+@inject MACHINEBISS_Web.Services.AuthService Auth
+@inject MACHINEBISS_Web.Services.TabService TabSvc
+@inject MACHINEBISS_Web.Services.SistemAyarlariService Sistem
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@if (!Auth.IsAuthenticated)
+{
+    <MACHINEBISS_Web.Components.Pages.Auth.Login />
+}
+else
+{
+    <div class="pine-app">
+        <!-- TOP BAR -->
+        <header class="pine-topbar">
+            <div class="pine-topbar-left">
+                <div class="pine-logo" @onclick='() => OpenTab("pine-dashboard", "Dashboard", "/pine")'>
+                    <img src="images/pinebi_logo.png" alt="PineERP" class="pine-logo-img" />
+                    <span class="pine-logo-text">PineERP</span>
+                </div>
+                <!-- RIBBON TAB HEADERS - logodan sonra, yerden tasarruf icin topbar icinde -->
+                <nav class="pine-ribbon-tabs inline-ribbon">
+                    @foreach (var group in menuGroups)
+                    {
+                        <button class="pine-rtab @(activeRibbon == group.Key ? "active" : "")"
+                                @onclick="() => SetRibbon(group.Key)">
+                            <i class="fa @group.Value.Icon"></i>
+                            <span>@group.Value.Label</span>
+                        </button>
+                    }
+                </nav>
+            </div>
+            <div class="pine-topbar-right">
+                <div class="pine-firma-info">
+                    <i class="fa fa-building"></i>
+                    <span>@Auth.SirketKodu</span>
+                </div>
+                <div class="pine-user-info">
+                    <i class="fa fa-user-circle"></i>
+                    <span>@Auth.ErpKullaniciAdi</span>
+                </div>
+                <button class="pine-btn-logout" @onclick="Logout" title="Cikis Yap">
+                    <i class="fa fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- RIBBON COMMANDS (context-sensitive) -->
+        <div class="pine-ribbon-commands">
+            @if (menuGroups.TryGetValue(activeRibbon, out var activeGroup))
+            {
+                @foreach (var item in activeGroup.Items)
+                {
+                    if (item.IsSeparator)
+                    {
+                        <span class="pine-cmd-sep"></span>
+                    }
+                    else
+                    {
+                        <button class="pine-cmd @(item.Accent ? "accent" : "")"
+                                @onclick="() => OpenTab(item.Id, item.Title, item.Url)">
+                            <i class="fa @item.Icon"></i>
+                            <span>@item.Title</span>
+                        </button>
+                    }
+                }
+            }
+        </div>
+
+        <!-- OPEN PAGE TABS -->
+        <div class="pine-tabbar">
+            <div class="pine-tabbar-scroll">
+                @foreach (var tab in TabSvc.OpenTabs)
+                {
+                    <div class="pine-tab @(tab.Id == TabSvc.ActiveTabId ? "active" : "")"
+                         @onclick="() => ActivateTab(tab)">
+                        @if (!string.IsNullOrEmpty(tab.Icon))
+                        {
+                            <i class="fa @tab.Icon pine-tab-icon"></i>
+                        }
+                        <span class="pine-tab-title">@tab.Title</span>
+                        <button class="pine-tab-close" @onclick:stopPropagation="true"
+                                @onclick="() => CloseTab(tab.Id)">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- PAGE CONTENT -->
+        <main class="pine-content">
+            @Body
+        </main>
+    </div>
+
+    <!-- Global Confirm Modal -->
+    <ConfirmModal />
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    Bir hata olustu.
+    <a href="." class="reload">Yenile</a>
+    <span class="dismiss">X</span>
+</div>
+
+@code {
+    private string activeRibbon = "stok";
+
+    // ---- Menu Data Model ----
+    private record MenuItem(string Id, string Title, string Url, string Icon, bool Accent = false, bool IsSeparator = false)
+    {
+        public static MenuItem Sep() => new("", "", "", "", false, true);
+    }
+
+    private record MenuGroup(string Key, string Label, string Icon, List<MenuItem> Items);
+
+    private Dictionary<string, MenuGroup> menuGroups = new();
+
+    protected override void OnInitialized()
+    {
+        Auth.OnAuthStateChanged += OnAuthChanged;
+        TabSvc.OnTabsChanged += StateHasChanged;
+        BuildMenu();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Auth.IsAuthenticated)
+        {
+            // Refresh sonrasi localStorage'dan oturumu geri yukle
+            var restored = await Auth.RestoreFromBrowserAsync(JS);
+            if (restored) StateHasChanged();
+        }
+    }
+
+    private void BuildMenu()
+    {
+        var groups = new List<MenuGroup>
+        {
+            new("stok", "Stok", "fa-boxes", new()
+            {
+                new("pine-stok-yeni", "Yeni Stok", "/pine/stok/kart", "fa-plus-circle", true),
+                MenuItem.Sep(),
+                new("pine-stok-kartlar", "Stok Kartlari", "/pine/stok/kartlar", "fa-th-list"),
+                new("pine-stok-hareketler", "Stok Hareketleri", "/pine/stok/hareketler", "fa-exchange-alt"),
+            }),
+
+            new("cari", "Cari", "fa-users", new()
+            {
+                new("pine-cari-yeni", "Yeni Cari", "/pine/cari/kart", "fa-plus-circle", true),
+                MenuItem.Sep(),
+                new("pine-cari-liste", "Cari Kartlari", "/pine/cari/liste", "fa-list"),
+                new("pine-cari-hareketler", "Cari Hareketleri", "/pine/cari/hareketler", "fa-exchange-alt"),
+                MenuItem.Sep(),
+                new("pine-cari-borcalacak", "Borc/Alacak Raporu", "/pine/cari/borcalacak", "fa-balance-scale"),
+                new("pine-cari-gruplar", "Cari Gruplari", "/pine/tanimlar/carigruplar", "fa-layer-group"),
+            }),
+
+            new("satis", "Satis", "fa-shopping-cart", new()
+            {
+                new("pine-fatura-yeni", "Yeni Fatura", "/pine/fatura/yeni", "fa-plus", true),
+                MenuItem.Sep(),
+                new("pine-teklif-liste", "Teklifler", "/pine/teklif/liste", "fa-file-alt"),
+                new("pine-siparis-liste", "Siparisler", "/pine/siparis/liste", "fa-clipboard-list"),
+                new("pine-irsaliye-liste", "Irsaliyeler", "/pine/irsaliye/liste", "fa-truck"),
+                new("pine-satis-faturalar", "Faturalar", "/pine/satis/faturalar", "fa-file-invoice-dollar"),
+                MenuItem.Sep(),
+                new("pine-satis-proforma", "Proforma Faturalar", "/pine/satis/proforma", "fa-file"),
+            }),
+
+            new("satinalma", "Satinalma", "fa-truck-loading", new()
+            {
+                new("pine-satinalma-talepler", "Satinalma Talepleri", "/pine/satinalma/talepler", "fa-hand-paper"),
+                MenuItem.Sep(),
+                new("pine-satinalma-siparisler", "Siparisler", "/pine/satinalma/siparisler", "fa-clipboard-list"),
+                new("pine-satinalma-irsaliyeler", "Irsaliyeler", "/pine/satinalma/irsaliyeler", "fa-truck-loading"),
+                new("pine-satinalma-faturalar", "Faturalar", "/pine/satinalma/faturalar", "fa-file-invoice"),
+            }),
+
+            new("finans", "Finans", "fa-coins", new()
+            {
+                new("pine-finans-kasa", "Kasa Hareketleri", "/pine/finans/kasa", "fa-cash-register"),
+                new("pine-finans-banka", "Banka Hareketleri", "/pine/finans/banka", "fa-university"),
+                new("pine-finans-ceksenet", "Cek/Senet", "/pine/finans/ceksenet", "fa-money-check"),
+                MenuItem.Sep(),
+                new("pine-finans-tahsilat", "Tahsilat", "/pine/finans/tahsilat", "fa-hand-holding-usd"),
+                new("pine-finans-tediye", "Tediye", "/pine/finans/tediye", "fa-credit-card"),
+                MenuItem.Sep(),
+                new("pine-finans-odeme", "Odeme Planlari", "/pine/finans/odemeplanlari", "fa-calendar-check"),
+                new("pine-finans-kdv", "KDV Raporu", "/pine/finans/kdvraporu", "fa-percentage"),
+            }),
+
+            new("personel", "Personel", "fa-id-card", new()
+            {
+                new("pine-personel-yeni", "Yeni Personel", "/pine/personel/kart", "fa-plus-circle", true),
+                MenuItem.Sep(),
+                new("pine-personel-liste", "Personel Kartlari", "/pine/personel/liste", "fa-list"),
+                new("pine-personel-izinler", "Izin Yonetimi", "/pine/personel/izinler", "fa-calendar-times"),
+                new("pine-personel-puantaj", "Puantaj", "/pine/personel/puantaj", "fa-clock"),
+                MenuItem.Sep(),
+                new("pine-personel-dept", "Departmanlar", "/pine/tanimlar/departmanlar", "fa-sitemap"),
+            }),
+
+            new("uretim", "Uretim", "fa-industry", new()
+            {
+                new("pine-uretim-receteler", "Urun Receteleri", "/pine/uretim/receteler", "fa-clipboard-list"),
+                new("pine-uretim-isemirleri", "Is Emirleri", "/pine/uretim/isemirleri", "fa-tasks"),
+                MenuItem.Sep(),
+                new("pine-uretim-dashboard", "Uretim Dashboard", "/pine/uretim", "fa-tachometer-alt"),
+            }),
+
+            new("demirbas", "Demirbas", "fa-desktop", new()
+            {
+                new("pine-demirbas-liste", "Demirbas Kartlari", "/pine/demirbas/liste", "fa-list"),
+                new("pine-demirbas-zimmet", "Zimmet Islemleri", "/pine/demirbas/zimmetler", "fa-handshake"),
+                new("pine-demirbas-bakim", "Bakim Kayitlari", "/pine/demirbas/bakimlar", "fa-wrench"),
+            }),
+
+            new("proje", "Proje", "fa-project-diagram", new()
+            {
+                new("pine-proje-liste", "Projeler", "/pine/proje/liste", "fa-project-diagram"),
+                new("pine-proje-talepler", "Satinalma Talepleri", "/pine/satinalma/talepler", "fa-hand-paper"),
+            }),
+
+            new("edonusum", "E-Donusum", "fa-file-invoice", new()
+            {
+                new("pine-efatura-giden", "E-Fatura Giden", "/pine/efatura/giden", "fa-paper-plane"),
+                new("pine-efatura-gelen", "E-Fatura Gelen", "/pine/efatura/gelen", "fa-inbox"),
+            }),
+
+            new("tanimlar", "Tanimlar", "fa-cog", new()
+            {
+                new("pine-tanim-gruplar", "Stok Gruplari", "/pine/tanimlar/stokgruplari", "fa-layer-group"),
+                new("pine-tanim-depolar", "Depolar", "/pine/tanimlar/depolar", "fa-warehouse"),
+                new("pine-tanim-birimler", "Birimler", "/pine/tanimlar/birimler", "fa-ruler"),
+                new("pine-tanim-fiyat", "Fiyat Listeleri", "/pine/tanimlar/fiyatgruplari", "fa-tags"),
+                new("pine-tanim-kdv", "KDV Oranlari", "/pine/tanimlar/kdvoranlari", "fa-percentage"),
+                MenuItem.Sep(),
+                new("pine-tanim-vergi", "Vergi Daireleri", "/pine/tanimlar/vergidaireleri", "fa-landmark"),
+                new("pine-tanim-ulkeler", "Ulkeler/Sehirler", "/pine/tanimlar/ulkeler", "fa-globe"),
+                new("pine-tanim-bankalar", "Bankalar", "/pine/tanimlar/bankalar", "fa-university"),
+                new("pine-tanim-odemetip", "Odeme Tipleri", "/pine/tanimlar/odemetipleri", "fa-money-bill"),
+                new("pine-tanim-ozelkod", "Ozel Kodlar", "/pine/tanimlar/ozelkodlar", "fa-code"),
+                MenuItem.Sep(),
+                new("pine-tanim-plasiyer", "Plasiyerler", "/pine/tanimlar/plasiyerler", "fa-user-tie"),
+                new("pine-tanim-sorumluluk", "Sorumluluk Merkezleri", "/pine/tanimlar/sorumlulukmerkezleri", "fa-map-marker-alt"),
+            }),
+        };
+
+        menuGroups = groups.ToDictionary(g => g.Key);
+    }
+
+    private async void OnAuthChanged()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            TabSvc.OpenTab("pine-dashboard", "Dashboard", "/pine", "fa-tachometer-alt");
+            await InvokeAsync(() => Nav.NavigateTo("/pine"));
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetRibbon(string key)
+    {
+        activeRibbon = key;
+    }
+
+    private void OpenTab(string id, string title, string url, string icon = "")
+    {
+        // Determine icon from menu items
+        string resolvedIcon = icon;
+        if (string.IsNullOrEmpty(resolvedIcon))
+        {
+            foreach (var g in menuGroups.Values)
+            {
+                var found = g.Items.FirstOrDefault(i => i.Id == id);
+                if (found != null) { resolvedIcon = found.Icon; break; }
+            }
+        }
+        TabSvc.OpenTab(id, title, url, resolvedIcon);
+        Nav.NavigateTo(url);
+    }
+
+    private void ActivateTab(MACHINEBISS_Web.Services.TabItem tab)
+    {
+        TabSvc.SetActiveTab(tab.Id);
+        Nav.NavigateTo(tab.Url);
+    }
+
+    private void CloseTab(string id)
+    {
+        TabSvc.CloseTab(id);
+        var activeTab = TabSvc.OpenTabs.FirstOrDefault(t => t.Id == TabSvc.ActiveTabId);
+        if (activeTab != null)
+            Nav.NavigateTo(activeTab.Url);
+        else
+            Nav.NavigateTo("/pine");
+    }
+
+    private async Task Logout()
+    {
+        await Auth.ClearBrowserAsync(JS);
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Auth.OnAuthStateChanged -= OnAuthChanged;
+        TabSvc.OnTabsChanged -= StateHasChanged;
+    }
+}

@@ -1,0 +1,317 @@
+﻿@page "/cari/borcalacak"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Borc Alacak Raporu</PageTitle>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fa fa-balance-scale"></i> Borc Alacak Raporu
+    </div>
+    <div class="card-body">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" @onclick="CariHesapEkstresi">
+                <i class="fa fa-info-circle"></i> Cari Hesap Ekstresi
+            </button>
+            <button class="btn btn-outline btn-sm" @onclick="EkstreYazdir">
+                <i class="fa fa-print"></i> Cari Hesap Ekstresi Yazdir
+            </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="form-row" style="margin-bottom:8px; align-items:center;">
+            <div class="form-inline">
+                <label style="min-width:auto;">Doviz Tipi</label>
+                <select class="form-control" @bind="dovizTipi" style="max-width:120px;">
+                    <option value="TL">TL</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-sm" @onclick="async () => await Yenile()">
+                <i class="fa fa-refresh"></i> Yenile
+            </button>
+            <div style="margin-left:auto;">
+                <button class="btn btn-secondary btn-sm" @onclick="Yazdir">
+                    <i class="fa fa-print"></i> Yazdir
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Grid - Borc/Alacak Raporu -->
+        <div class="grid-container" style="max-height:calc(100vh - 380px);">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th style="width:111px;">Cari Kodu</th>
+                        <th style="width:315px;">Unvani</th>
+                        <th style="width:99px; text-align:right;">Borc</th>
+                        <th style="width:99px; text-align:right;">Alacak</th>
+                        <th style="width:99px; text-align:right;">Bakiye</th>
+                        <th style="width:45px;">Doviz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (raporList != null)
+                    {
+                        @foreach (var item in raporList)
+                        {
+                            <tr class="@(selectedItem?.Id == item.Id ? "selected" : "")"
+                                @onclick="() => SelectAndLoadEkstre(item)">
+                                <td>@item.CariKodu</td>
+                                <td>@item.Unvani</td>
+                                <td style="text-align:right;">@item.Borc.ToString("N2")</td>
+                                <td style="text-align:right;">@item.Alacak.ToString("N2")</td>
+                                <td style="text-align:right; @GetBakiyeStyle(item.Bakiye)">@item.Bakiye.ToString("N2")</td>
+                                <td>@item.Doviz</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--pinebi-primary); color:white; font-weight:600;">
+                        <td colspan="2" style="text-align:right;">Toplam:</td>
+                        <td style="text-align:right;">@(raporList?.Sum(x => x.Borc).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(raporList?.Sum(x => x.Alacak).ToString("N2") ?? "0,00")</td>
+                        <td style="text-align:right;">@(raporList?.Sum(x => x.Bakiye).ToString("N2") ?? "0,00")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Ekstre Detail Grid -->
+        <div style="margin-top:10px;">
+            <div class="card-header" style="font-size:12px; padding:6px 10px;">
+                <i class="fa fa-list"></i> Ekstre
+            </div>
+            <div class="grid-container" style="max-height:200px;">
+                <table class="data-grid">
+                    <thead>
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Fis No</th>
+                            <th>Belge No</th>
+                            <th style="width:225px;">Aciklama 1</th>
+                            <th style="width:225px;">Aciklama 2</th>
+                            <th style="width:99px; text-align:right;">Borc</th>
+                            <th style="width:99px; text-align:right;">Alacak</th>
+                            <th style="width:99px; text-align:right;">Bakiye</th>
+                            <th>Doviz</th>
+                            <th>Kaynak</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (ekstreList != null)
+                        {
+                            @foreach (var item in ekstreList)
+                            {
+                                <tr>
+                                    <td>@item.TarihSaat.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@item.FisNo</td>
+                                    <td>@item.BelgeNo</td>
+                                    <td>@item.Aciklama1</td>
+                                    <td>@item.Aciklama2</td>
+                                    <td style="text-align:right;">@item.Borc.ToString("N2")</td>
+                                    <td style="text-align:right;">@item.Alacak.ToString("N2")</td>
+                                    <td style="text-align:right;">@item.Bakiye.ToString("N2")</td>
+                                    <td>@item.Doviz</td>
+                                    <td>@item.Kaynak</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:11px; color:var(--pinebi-text-light);">
+            <span>@DateTime.Today.ToString("dd.MM.yyyy") Tarih itibariyle Borc/Alacak Raporu [@dovizTipi]</span>
+            <span>Toplam: @(raporList?.Count ?? 0) kayit</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string dovizTipi = "TL";
+    private List<BorcAlacakRaporuDto> raporList = new();
+    private List<CariHesapEkstresiDto> ekstreList = new();
+    private BorcAlacakRaporuDto? selectedItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Yenile();
+    }
+
+    private async Task Yenile()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            // Once BorcAlacakRaporu view'i dene
+            try
+            {
+                var dbList = await db.BorcAlacakRaporu.AsNoTracking()
+                    .Where(b => b.Iptal != true)
+                    .OrderBy(b => b.CariKodu)
+                    .Take(1000)
+                    .ToListAsync();
+                raporList = dbList.Select(b => new BorcAlacakRaporuDto
+                {
+                    Id = b.Id, CariId = b.CariId,
+                    CariKodu = b.CariKodu ?? "", Unvani = b.Unvani ?? "",
+                    Borc = b.Borc, Alacak = b.Alacak, Bakiye = b.Bakiye,
+                    Doviz = b.Doviz ?? "TL", Iptal = b.Iptal
+                }).ToList();
+            }
+            catch
+            {
+                // View yoksa CariHareketler + CariKart'tan hesapla
+                var cariler = await db.Cariler.AsNoTracking().ToListAsync();
+                var hareketler = await db.CariHareketler.AsNoTracking()
+                    .Where(h => h.Iptal != true)
+                    .ToListAsync();
+
+                raporList = cariler.Select(c =>
+                {
+                    var cariHareketleri = hareketler.Where(h => h.CariId == c.Id).ToList();
+                    var borc = cariHareketleri.Where(h => h.IslemId == 1).Sum(h => h.Tutar);
+                    var alacak = cariHareketleri.Where(h => h.IslemId == 2).Sum(h => h.Tutar);
+                    return new BorcAlacakRaporuDto
+                    {
+                        Id = c.Id, CariId = c.Id,
+                        CariKodu = c.CariKodu ?? "", Unvani = c.Unvani ?? "",
+                        Borc = borc, Alacak = alacak, Bakiye = borc - alacak,
+                        Doviz = "TL"
+                    };
+                })
+                .Where(r => r.Borc > 0 || r.Alacak > 0)
+                .OrderBy(r => r.CariKodu)
+                .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"BorcAlacakRaporu hatasi: {ex.Message}");
+            raporList = new();
+        }
+        ekstreList = new();
+    }
+
+    private async void SelectAndLoadEkstre(BorcAlacakRaporuDto item)
+    {
+        selectedItem = item;
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            // Once CariHesapEkstresi view'i dene
+            try
+            {
+                var dbEkstre = await db.CariHesapEkstresi.AsNoTracking()
+                    .Where(e => e.CariId == item.CariId)
+                    .OrderBy(e => e.TarihSaat)
+                    .Take(500)
+                    .ToListAsync();
+                ekstreList = dbEkstre.Select(e => new CariHesapEkstresiDto
+                {
+                    Id = e.Id, TarihSaat = e.TarihSaat,
+                    FisNo = e.FisNo ?? "", BelgeNo = e.BelgeNo ?? "",
+                    Aciklama1 = e.Aciklama1 ?? "", Aciklama2 = e.Aciklama2 ?? "",
+                    Borc = e.Borc, Alacak = e.Alacak, Bakiye = e.Bakiye,
+                    Doviz = e.Doviz ?? "TL", Kaynak = e.Kaynak ?? ""
+                }).ToList();
+            }
+            catch
+            {
+                // View yoksa CariHareketler tablosundan yukle
+                var hareketler = await db.CariHareketler.AsNoTracking()
+                    .Where(h => h.CariId == item.CariId && h.Iptal != true)
+                    .OrderBy(h => h.Tarih)
+                    .Take(500)
+                    .ToListAsync();
+
+                decimal bakiye = 0;
+                ekstreList = hareketler.Select(h =>
+                {
+                    var borc = h.IslemId == 1 ? h.Tutar : 0;
+                    var alacak = h.IslemId == 2 ? h.Tutar : 0;
+                    bakiye += borc - alacak;
+                    return new CariHesapEkstresiDto
+                    {
+                        Id = h.Id, TarihSaat = h.Tarih,
+                        FisNo = h.FisNo ?? "", BelgeNo = h.BelgeNo ?? "",
+                        Aciklama1 = h.Aciklama1 ?? "", Aciklama2 = h.Aciklama2 ?? "",
+                        Borc = borc, Alacak = alacak, Bakiye = bakiye,
+                        Doviz = h.DovizId ?? "TL", Kaynak = h.Kaynak ?? ""
+                    };
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ekstre hatasi: {ex.Message}");
+            ekstreList = new();
+        }
+        StateHasChanged();
+    }
+
+    private void CariHesapEkstresi()
+    {
+        if (selectedItem != null)
+            Nav.NavigateTo($"/cari/hareketler?cariId={selectedItem.CariId}");
+    }
+
+    private void EkstreYazdir()
+    {
+        // TODO: Print ekstre for selected cari
+    }
+
+    private async void Yazdir()
+    { await JS.InvokeVoidAsync("window.print");
+        // TODO: Print functionality
+    }
+
+    private string GetBakiyeStyle(decimal bakiye)
+    {
+        if (bakiye < 0)
+            return "background-color: #fca5a5; color: black;";
+        else if (bakiye > 0)
+            return "background-color: #86efac; color: black;";
+        return "";
+    }
+
+    public class BorcAlacakRaporuDto
+    {
+        public int Id { get; set; }
+        public int CariId { get; set; }
+        public string? CariKodu { get; set; }
+        public string? Unvani { get; set; }
+        public decimal Borc { get; set; }
+        public decimal Alacak { get; set; }
+        public decimal Bakiye { get; set; }
+        public string? Doviz { get; set; }
+        public bool? Iptal { get; set; }
+    }
+
+    public class CariHesapEkstresiDto
+    {
+        public int Id { get; set; }
+        public DateTime TarihSaat { get; set; }
+        public string? FisNo { get; set; }
+        public string? BelgeNo { get; set; }
+        public string? Aciklama1 { get; set; }
+        public string? Aciklama2 { get; set; }
+        public decimal Borc { get; set; }
+        public decimal Alacak { get; set; }
+        public decimal Bakiye { get; set; }
+        public string? Doviz { get; set; }
+        public string? Kaynak { get; set; }
+    }
+}

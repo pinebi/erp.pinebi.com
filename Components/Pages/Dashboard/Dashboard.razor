@@ -1,0 +1,229 @@
+﻿@page "/dashboard"
+@inject MACHINEBISS_Web.Services.DovizKuruService DovizSvc
+@inject IDbContextFactory<MACHINEBISS_Web.Db.FirmaContext> FirmaFactory
+@using Microsoft.EntityFrameworkCore
+@implements IDisposable
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="dashboard-container">
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
+        <div class="card">
+            <div class="card-header"><i class="fa fa-file-invoice-dollar"></i> Satis Faturalari</div>
+            <div class="card-body text-center" style="padding:20px;">
+                <div style="font-size:28px; font-weight:700; color:var(--pinebi-primary);">@satisFaturaAdet</div>
+                <div class="text-muted">Bu Ay</div>
+                <div style="font-size:13px; font-weight:600; color:var(--pinebi-primary); margin-top:4px;">@satisFaturaToplam.ToString("N2") TL</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="fa fa-cart-plus"></i> Satinalma Faturalari</div>
+            <div class="card-body text-center" style="padding:20px;">
+                <div style="font-size:28px; font-weight:700; color:var(--pinebi-primary);">@satinalmaFaturaAdet</div>
+                <div class="text-muted">Bu Ay</div>
+                <div style="font-size:13px; font-weight:600; color:var(--pinebi-primary); margin-top:4px;">@satinalmaFaturaToplam.ToString("N2") TL</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="fa fa-balance-scale"></i> Alacak</div>
+            <div class="card-body text-center" style="padding:20px;">
+                <div style="font-size:28px; font-weight:700; color:#16a34a;">@toplamAlacak.ToString("N2") TL</div>
+                <div class="text-muted">Toplam Alacak</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="fa fa-hand-holding-usd"></i> Borc</div>
+            <div class="card-body text-center" style="padding:20px;">
+                <div style="font-size:28px; font-weight:700; color:#dc2626;">@toplamBorc.ToString("N2") TL</div>
+                <div class="text-muted">Toplam Borc</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Son Islemler -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div class="card">
+            <div class="card-header"><i class="fa fa-users"></i> Cariler (@cariAdet kayit)</div>
+            <div class="card-body">
+                <div class="grid-container" style="max-height:150px;">
+                    <table class="data-grid">
+                        <thead><tr><th>Kodu</th><th>Unvan</th><th>Telefon</th><th>Sehir</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in sonCariler)
+                            {
+                                <tr><td>@c.CariKodu</td><td><strong>@c.Unvani</strong></td><td>@c.Telefon1</td><td>@c.Sehir</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="fa fa-warehouse"></i> Stok Kartlari (@stokAdet kayit)</div>
+            <div class="card-body">
+                <div class="grid-container" style="max-height:150px;">
+                    <table class="data-grid">
+                        <thead><tr><th>Kodu</th><th>Urun Adi</th><th>Birim</th><th style="text-align:right;">Fiyat</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in sonStoklar)
+                            {
+                                <tr><td>@s.StokKodu</td><td><strong>@s.StokCinsi</strong></td><td>@s.Birim</td><td class="text-right">@s.KdvHaricSatisFiyati.ToString("N2")</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="card">
+            <div class="card-header" style="justify-content:space-between;">
+                <span><i class="fa fa-dollar-sign"></i> Doviz Kurlari (TCMB)</span>
+                @if (DovizSvc.Yuklendi)
+                {
+                    <span style="font-size:10px; font-weight:400; opacity:0.8;">
+                        Son guncelleme: @DovizSvc.SonGuncelleme.ToString("HH:mm") | 5 saatte bir otomatik
+                    </span>
+                }
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(DovizSvc.Hata))
+                {
+                    <div class="alert alert-warning" style="font-size:11px;">
+                        <i class="fa fa-exclamation-triangle"></i> TCMB'ye baglanilamadi: @DovizSvc.Hata
+                    </div>
+                }
+
+                <table class="data-grid">
+                    <thead>
+                        <tr>
+                            <th>Doviz</th>
+                            <th style="text-align:right;">Alis</th>
+                            <th style="text-align:right;">Satis</th>
+                            <th>Tarih</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (DovizSvc.Yuklendi && DovizSvc.Kurlar.Any())
+                        {
+                            @foreach (var kur in DovizSvc.Kurlar)
+                            {
+                                <tr>
+                                    <td><strong>@kur.DovizKodu</strong> <span class="text-muted" style="font-size:11px;">(@kur.DovizAdi)</span></td>
+                                    <td style="text-align:right; font-weight:600;">@kur.Alis.ToString("N4")</td>
+                                    <td style="text-align:right; font-weight:600; color:var(--pinebi-primary);">@kur.Satis.ToString("N4")</td>
+                                    <td>@kur.Tarih.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                        }
+                        else if (!DovizSvc.Yuklendi)
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    <i class="fa fa-spinner fa-spin"></i> Kurlar yukleniyor...
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Kur bilgisi bulunamadi</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="fa fa-bell"></i> Hatirlatmalar</div>
+            <div class="card-body">
+                <div class="text-muted text-center" style="padding:20px;">
+                    Aktif hatirlatma bulunmuyor.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Dashboard verileri
+    private int satisFaturaAdet = 0;
+    private decimal satisFaturaToplam = 0;
+    private int satinalmaFaturaAdet = 0;
+    private decimal satinalmaFaturaToplam = 0;
+    private decimal toplamAlacak = 0;
+    private decimal toplamBorc = 0;
+    private int cariAdet = 0;
+    private int stokAdet = 0;
+    private List<MACHINEBISS_Web.Models.MachineBiss.Cariler> sonCariler = new();
+    private List<MACHINEBISS_Web.Models.MachineBiss.StokKart> sonStoklar = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        DovizSvc.OnKurlarGuncellendi += KurlarDegisti;
+        await VerileriYukle();
+    }
+
+    private async Task VerileriYukle()
+    {
+        try
+        {
+            using var db = await FirmaFactory.CreateDbContextAsync();
+
+            // Cari verileri
+            sonCariler = await db.Cariler.AsNoTracking().Take(5).ToListAsync();
+            cariAdet = await db.Cariler.CountAsync();
+
+            // Stok verileri
+            sonStoklar = await db.StokKart.AsNoTracking().Take(5).ToListAsync();
+            stokAdet = await db.StokKart.CountAsync();
+
+            // Fatura istatistikleri - bu ayin satis faturalari
+            var ayBaslangic = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var satisTrCodes = new List<int> { 2, 3, 7, 8 };
+            var satisFaturalar = await db.FaturalarView.AsNoTracking()
+                .Where(f => satisTrCodes.Contains(f.TrCode) && f.Tarih >= ayBaslangic && f.Iptal != true)
+                .ToListAsync();
+            satisFaturaAdet = satisFaturalar.Count;
+            satisFaturaToplam = satisFaturalar.Sum(f => f.TLOdenecekTutar ?? 0);
+
+            // Bu ayin satinalma faturalari
+            var satinalmaTrCodes = new List<int> { 1, 6 };
+            var satinalmaFaturalar = await db.FaturalarView.AsNoTracking()
+                .Where(f => satinalmaTrCodes.Contains(f.TrCode) && f.Tarih >= ayBaslangic && f.Iptal != true)
+                .ToListAsync();
+            satinalmaFaturaAdet = satinalmaFaturalar.Count;
+            satinalmaFaturaToplam = satinalmaFaturalar.Sum(f => f.TLOdenecekTutar ?? 0);
+
+            // Borc/Alacak raporu
+            try
+            {
+                var borcAlacak = await db.BorcAlacakRaporu.AsNoTracking().ToListAsync();
+                toplamAlacak = borcAlacak.Sum(b => b.Alacak);
+                toplamBorc = borcAlacak.Sum(b => b.Borc);
+            }
+            catch
+            {
+                // BorcAlacakRaporu view mevcut olmayabilir
+                toplamAlacak = 0;
+                toplamBorc = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Dashboard DB hatasi: {ex.Message}");
+        }
+    }
+
+    private async void KurlarDegisti()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        DovizSvc.OnKurlarGuncellendi -= KurlarDegisti;
+    }
+}
