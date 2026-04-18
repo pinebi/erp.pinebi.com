@@ -1,5 +1,6 @@
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace MACHINEBISS_Web.MultiTenant;
 
@@ -35,22 +36,27 @@ public sealed class SmtpEmailService : IEmailService
                 return false;
             }
 
-            using var smtp = new SmtpClient(host, int.Parse(portStr ?? "587"))
-            {
-                EnableSsl = true,
-                Credentials = string.IsNullOrEmpty(user) ? null : new NetworkCredential(user, pass),
-                DeliveryMethod = SmtpDeliveryMethod.Network
-            };
+            var port = int.Parse(portStr ?? "587");
 
-            using var msg = new MailMessage
-            {
-                From = new MailAddress(from, fromName),
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
-            msg.To.Add(to);
-            await smtp.SendMailAsync(msg, ct);
+            var msg = new MimeMessage();
+            msg.From.Add(new MailboxAddress(fromName, from));
+            msg.To.Add(MailboxAddress.Parse(to));
+            msg.Subject = subject;
+            var body = new BodyBuilder { HtmlBody = htmlBody };
+            msg.Body = body.ToMessageBody();
+
+            using var client = new SmtpClient();
+            // 465 -> SslOnConnect (implicit SSL), 587 -> StartTls
+            var secureOption = port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
+            await client.ConnectAsync(host, port, secureOption, ct);
+
+            if (!string.IsNullOrEmpty(user))
+                await client.AuthenticateAsync(user, pass, ct);
+
+            await client.SendAsync(msg, ct);
+            await client.DisconnectAsync(true, ct);
+
+            _log.LogInformation("Email gonderildi: To={To}", to);
             return true;
         }
         catch (Exception ex)
