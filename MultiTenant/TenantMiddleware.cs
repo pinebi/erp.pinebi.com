@@ -15,22 +15,45 @@ public sealed class TenantMiddleware
 
         var host = ctx.Request.Host.Host;
 
-        // API gateway: erpapi.pinebi.com - tenant header'dan gelir
+        // API gateway: erpapi.pinebi.com
+        // Once API key, ardindan X-Tenant header (key'in ait oldugu tenant ile esleşmeli)
         if (host.Equals("erpapi.pinebi.com", StringComparison.OrdinalIgnoreCase))
         {
-            var tenantCode = ctx.Request.Headers["X-Tenant"].FirstOrDefault()
-                          ?? ctx.Request.Query["tenant"].FirstOrDefault();
-            if (string.IsNullOrEmpty(tenantCode))
+            var apiKey = ctx.Request.Headers["X-Api-Key"].FirstOrDefault()
+                      ?? ExtractBearer(ctx.Request.Headers["Authorization"].FirstOrDefault());
+
+            if (string.IsNullOrEmpty(apiKey))
             {
-                ctx.Response.StatusCode = 400;
-                await ctx.Response.WriteAsync("X-Tenant header or ?tenant= query param required on erpapi.pinebi.com");
+                ctx.Response.StatusCode = 401;
+                await ctx.Response.WriteAsync("X-Api-Key header veya Authorization: Bearer <key> gereklidir");
                 return;
             }
-            var apiTenant = await resolver.ResolveAsync($"{tenantCode}.pinebi.com", ctx.RequestAborted);
+
+            var validator = ctx.RequestServices.GetRequiredService<IApiKeyValidator>();
+            var result = await validator.ValidateAsync(apiKey, ctx.RequestAborted);
+            if (result == null)
+            {
+                ctx.Response.StatusCode = 401;
+                await ctx.Response.WriteAsync("Gecersiz veya pasif API key");
+                return;
+            }
+
+            // X-Tenant header opsiyonel; verildiyse API key ile eslesmeli
+            var requestedTenant = ctx.Request.Headers["X-Tenant"].FirstOrDefault()
+                               ?? ctx.Request.Query["tenant"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(requestedTenant) &&
+                !string.Equals(requestedTenant, result.TenantSubdomain, StringComparison.OrdinalIgnoreCase))
+            {
+                ctx.Response.StatusCode = 403;
+                await ctx.Response.WriteAsync($"API key bu tenant icin yetkili degil: {requestedTenant}");
+                return;
+            }
+
+            var apiTenant = await resolver.ResolveAsync($"{result.TenantSubdomain}.pinebi.com", ctx.RequestAborted);
             if (apiTenant == null)
             {
                 ctx.Response.StatusCode = 404;
-                await ctx.Response.WriteAsync($"Tenant not found: {tenantCode}");
+                await ctx.Response.WriteAsync("Tenant bulunamadi");
                 return;
             }
             accessor.Current = apiTenant;
@@ -63,6 +86,15 @@ public sealed class TenantMiddleware
         path.StartsWithSegments("/css") ||
         path.StartsWithSegments("/js") ||
         path.Value == "/favicon.ico";
+
+    private static string? ExtractBearer(string? authHeader)
+    {
+        if (string.IsNullOrEmpty(authHeader)) return null;
+        const string prefix = "Bearer ";
+        return authHeader.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? authHeader.Substring(prefix.Length).Trim()
+            : null;
+    }
 }
 
 public static class TenantMiddlewareExtensions

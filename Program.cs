@@ -17,6 +17,7 @@ var connStr = "Server=185.210.92.248;Database=PineERP;User Id=EDonusum;Password=
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
+builder.Services.AddScoped<IApiKeyValidator, SqlApiKeyValidator>();
 
 // Tenant-aware DbContext factories (IDbContextFactory<T> arayuzunu ezerler)
 builder.Services.AddScoped<IDbContextFactory<FirmaContext>>(sp =>
