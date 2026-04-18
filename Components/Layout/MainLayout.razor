@@ -214,7 +214,13 @@ else
         {
             yetkiler = await Sistem.YetkileriGetir();
             TabSvc.OpenTab("dashboard", "Dashboard", "/dashboard", "fa-tachometer-alt");
-            await InvokeAsync(() => Nav.NavigateTo("/dashboard"));
+
+            // Sadece login/kok sayfadaysa dashboard'a yonlendir; aksi halde mevcut sayfada kal
+            var path = new Uri(Nav.Uri).AbsolutePath;
+            if (path == "/" || path.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            {
+                await InvokeAsync(() => Nav.NavigateTo("/dashboard"));
+            }
         }
         await InvokeAsync(StateHasChanged);
     }
