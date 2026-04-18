@@ -27,6 +27,8 @@ builder.Services.AddSingleton<IConnectionStringProtector, ConnectionStringProtec
 builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddHostedService<ConnectionStringEncryptionStartupService>();
+builder.Services.AddHostedService<TenantBackupService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
 builder.Services.AddScoped<IApiKeyValidator, SqlApiKeyValidator>();

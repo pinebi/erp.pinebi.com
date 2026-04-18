@@ -18,12 +18,13 @@ public class InviteController : ControllerBase
     private readonly IAuditLogger _audit;
     private readonly IDbContextFactory<FirmaContext> _factory;
     private readonly TenantAccessor _tenant;
+    private readonly IEmailService _email;
 
     public InviteController(IConfiguration config, IConnectionStringProtector protector,
-        IAuditLogger audit, IDbContextFactory<FirmaContext> factory, TenantAccessor tenant)
+        IAuditLogger audit, IDbContextFactory<FirmaContext> factory, TenantAccessor tenant, IEmailService email)
     {
         _config = config; _protector = protector; _audit = audit;
-        _factory = factory; _tenant = tenant;
+        _factory = factory; _tenant = tenant; _email = email;
     }
 
     private string MasterConn => _config.GetConnectionString("Master")
@@ -73,6 +74,17 @@ VALUES (@id, @tid, @email, @kul, @ad, @rol, @tok, @exp, @by)", master))
         var host = Request.Host.Host;
         var url = $"https://{host}/davet/kabul?token={token}";
 
+        // Email gonder (opsiyonel - SMTP ayarlari yoksa skip)
+        var emailSent = await _email.SendAsync(dto.Email,
+            $"{ctx.TenantName} - Pinebi ERP davet",
+            $@"<p>Merhaba,</p>
+<p><b>{ctx.TenantName}</b> firmasina <b>{dto.KullaniciAdi}</b> kullanici adiyla davet edildiniz.</p>
+<p>Rol: {dto.Rol ?? "Kullanici"}</p>
+<p>Daveti kabul etmek icin asagidaki linke tiklayin:</p>
+<p><a href='{url}'>{url}</a></p>
+<p><small>Bu davet 7 gun gecerlidir.</small></p>
+<p>— Pinebi ERP</p>");
+
         return Ok(new
         {
             inviteId,
@@ -80,7 +92,8 @@ VALUES (@id, @tid, @email, @kul, @ad, @rol, @tok, @exp, @by)", master))
             token,
             inviteUrl = url,
             expiresAt,
-            note = "Bu linki davetlinin email adresine gonder. 7 gun gecerli."
+            emailSent,
+            note = emailSent ? "Davet e-maili gonderildi." : "Email gonderilemedi (SMTP ayarli degil); linki manuel paylasin."
         });
     }
 

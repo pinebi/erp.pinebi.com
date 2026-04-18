@@ -18,6 +18,7 @@
         <button class="tab-btn @(aktif=="prov"?"active":"")"   @onclick='() => aktif="prov"'>Provisioning (@provisionJobs.Count)</button>
         <button class="tab-btn @(aktif=="audit"?"active":"")"  @onclick='() => aktif="audit"'>Audit (@auditEvents.Count)</button>
         <button class="tab-btn @(aktif=="quota"?"active":"")"  @onclick='() => aktif="quota"'>Kullanim/Quota</button>
+        <button class="tab-btn @(aktif=="backup"?"active":"")" @onclick='() => aktif="backup"'>Yedekler</button>
         <button class="tab-btn @(aktif=="changelog"?"active":"")" @onclick='() => aktif="changelog"'>Degisiklikler</button>
         <button class="tab-btn refresh" @onclick="VerileriYukle"><i class="fa fa-sync"></i> Yenile</button>
     </div>
@@ -223,6 +224,55 @@
         }
     }
 
+    @if (aktif == "backup")
+    {
+        <div style="display:flex; justify-content:space-between; align-items:center; margin: 16px 0;">
+            <h3>DB Yedekleri</h3>
+            <button class="btn-primary" @onclick="BackupShimdi" disabled="@backupCalisiyor">
+                <i class="fa fa-download"></i> @(backupCalisiyor ? "Yedekleniyor..." : "Simdi Yedekle")
+            </button>
+        </div>
+        <p style="color:#64748b; font-size:12px;">Otomatik: Her gece 03:00. Konum: <code>C:\Pinebi\backups\yyyy-MM-dd\</code>. Retention: 14 gun.</p>
+
+        @if (backupSonucu != null)
+        {
+            <div class="alert alert-ok">
+                <b>Manuel yedek tamamlandi.</b>
+                Sure: @backupSonucu.DurationSeconds sn · Basarili: @backupSonucu.Success / Toplam: @backupSonucu.TotalTenants · Klasor: <code>@backupSonucu.Folder</code>
+            </div>
+        }
+
+        @if (backupFolders == null)
+        {
+            <button class="btn-primary" @onclick="BackupYukle">Yukle</button>
+        }
+        else if (backupFolders.Count == 0)
+        {
+            <p>Henuz yedek yok. 'Simdi Yedekle' ile olusturabilirsiniz.</p>
+        }
+        else
+        {
+            @foreach (var bf in backupFolders)
+            {
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:10px;">
+                    <b>@bf.Date</b> — <small style="color:#64748b;">@bf.Files.Count dosya</small>
+                    <table class="admin-table" style="margin-top:8px;">
+                        <thead><tr><th>Dosya</th><th style="text-align:right;">Boyut</th></tr></thead>
+                        <tbody>
+                            @foreach (var f in bf.Files)
+                            {
+                                <tr>
+                                    <td><code>@f.File</code></td>
+                                    <td style="text-align:right;">@f.SizeMb MB</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    }
+
     @if (aktif == "changelog")
     {
         <h3>Yapilan Isler (Git commit gecmisi)</h3>
@@ -282,6 +332,9 @@
     List<AuditRow> auditEvents = new();
     List<CommitRow> commits = new();
     List<QuotaRow>? quotaData = null;
+    List<BackupFolder>? backupFolders = null;
+    bool backupCalisiyor = false;
+    BackupSonucu? backupSonucu = null;
 
     bool yeniTenantAcik = false;
     bool olusturuluyor = false;
@@ -500,6 +553,59 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
         public bool UsersOver { get; init; }
         public bool StorageOver { get; init; }
         public bool InvoicesOver { get; init; }
+    }
+
+    record BackupFolder { public string Date { get; init; } = ""; public string Path { get; init; } = ""; public List<BackupFile> Files { get; init; } = new(); }
+    record BackupFile { public string File { get; init; } = ""; public long SizeMb { get; init; } }
+    record BackupSonucu { public string Folder { get; init; } = ""; public int TotalTenants { get; init; } public int Success { get; init; } public int Failed { get; init; } public double DurationSeconds { get; init; } }
+
+    async Task BackupYukle()
+    {
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var resp = await http.GetFromJsonAsync<System.Text.Json.JsonElement>("api/platform/backup");
+            var list = new List<BackupFolder>();
+            foreach (var bf in resp.GetProperty("folders").EnumerateArray())
+            {
+                var files = new List<BackupFile>();
+                foreach (var f in bf.GetProperty("files").EnumerateArray())
+                    files.Add(new BackupFile { File = f.GetProperty("file").GetString() ?? "", SizeMb = f.GetProperty("sizeMb").GetInt64() });
+                list.Add(new BackupFolder {
+                    Date = bf.GetProperty("date").GetString() ?? "",
+                    Path = bf.GetProperty("path").GetString() ?? "",
+                    Files = files
+                });
+            }
+            backupFolders = list;
+        }
+        catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
+    }
+
+    async Task BackupShimdi()
+    {
+        backupCalisiyor = true;
+        backupSonucu = null;
+        StateHasChanged();
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var resp = await http.PostAsync("api/platform/backup/run-now", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                var j = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                backupSonucu = new BackupSonucu {
+                    Folder = j.GetProperty("folder").GetString() ?? "",
+                    TotalTenants = j.GetProperty("totalTenants").GetInt32(),
+                    Success = j.GetProperty("success").GetInt32(),
+                    Failed = j.GetProperty("failed").GetInt32(),
+                    DurationSeconds = j.GetProperty("durationSeconds").GetDouble()
+                };
+                await BackupYukle();
+            }
+        }
+        catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
+        backupCalisiyor = false;
     }
 
     async Task QuotaYukle()
