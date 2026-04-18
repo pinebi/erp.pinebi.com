@@ -7,9 +7,14 @@
 <PageTitle>Platform Admin - Pinebi</PageTitle>
 
 <div style="padding:20px; font-family: 'Segoe UI', Arial;">
-    <h2 style="color:#235881; margin-bottom:20px;">
-        <i class="fa fa-tachometer-alt"></i> Pinebi Platform Admin
-    </h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="color:#235881; margin:0;">
+            <i class="fa fa-tachometer-alt"></i> Pinebi Platform Admin
+        </h2>
+        <button class="btn-outline" @onclick="Cikis">
+            <i class="fa fa-sign-out-alt"></i> Cikis
+        </button>
+    </div>
 
     <div class="admin-tabs">
         <button class="tab-btn @(aktif=="ozet"?"active":"")"   @onclick='() => aktif="ozet"'>Özet</button>
@@ -558,6 +563,13 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
     record BackupFolder { public string Date { get; init; } = ""; public string Path { get; init; } = ""; public List<BackupFile> Files { get; init; } = new(); }
     record BackupFile { public string File { get; init; } = ""; public long SizeMb { get; init; } }
     record BackupSonucu { public string Folder { get; init; } = ""; public int TotalTenants { get; init; } public int Success { get; init; } public int Failed { get; init; } public double DurationSeconds { get; init; } }
+
+    async Task Cikis()
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        await http.PostAsync("api/platform/auth/logout", null);
+        Nav.NavigateTo("/platform/login", forceLoad: true);
+    }
 
     async Task BackupYukle()
     {

@@ -32,6 +32,7 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
 builder.Services.AddScoped<IApiKeyValidator, SqlApiKeyValidator>();
+builder.Services.AddScoped<IPlatformAuthService, PlatformAuthService>();
 
 // Tenant-aware DbContext factories (IDbContextFactory<T> arayuzunu ezerler)
 builder.Services.AddScoped<IDbContextFactory<FirmaContext>>(sp =>
@@ -1012,6 +1013,7 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 
 // Multi-tenant: her istekte subdomain'den tenant tespit et
 app.UseTenantResolution();
+app.UsePlatformAuth();    // /platform/* ve /api/platform/* icin auth
 app.UseQuotaEnforcement();
 
 app.UseAntiforgery();

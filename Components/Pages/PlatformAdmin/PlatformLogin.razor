@@ -1,0 +1,81 @@
+@page "/platform/login"
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.WebUtilities
+
+<PageTitle>Platform Admin Giris - Pinebi</PageTitle>
+
+<div class="login-wrap">
+    <div class="login-box">
+        <img src="/images/pinebi_logo.png" alt="Pinebi" style="height:44px; margin-bottom:18px;" />
+        <h2 style="color:#235881; margin:0 0 6px;">Platform Admin</h2>
+        <p style="color:#64748b; font-size:13px; margin:0 0 24px;">Pinebi SaaS yonetim paneli</p>
+
+        <form @onsubmit="Giris" @onsubmit:preventDefault>
+            <label>Email</label>
+            <input type="email" @bind="email" @bind:event="oninput" autocomplete="username" />
+
+            <label>Sifre</label>
+            <input type="password" @bind="sifre" @bind:event="oninput" autocomplete="current-password" />
+
+            @if (hata != "")
+            {
+                <div class="err">@hata</div>
+            }
+
+            <button type="submit" class="btn" disabled="@yukleniyor">
+                @(yukleniyor ? "Kontrol ediliyor..." : "Giris Yap")
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .login-wrap { min-height:100vh; background:linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%); display:flex; align-items:center; justify-content:center; font-family:'Segoe UI', Arial; }
+    .login-box { background:white; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.1); padding:40px; max-width:420px; width:90%; }
+    .login-box label { display:block; font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+    .login-box input { width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; }
+    .login-box input:focus { outline:none; border-color:#235881; box-shadow:0 0 0 3px rgba(35,88,129,0.1); }
+    .login-box .btn { width:100%; margin-top:22px; background:#235881; color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; font-size:15px; font-weight:600; }
+    .login-box .btn:hover:not(:disabled) { background:#1d486a; }
+    .login-box .btn:disabled { background:#94a3b8; cursor:wait; }
+    .err { background:#fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-size:13px; margin-top:14px; }
+</style>
+
+@code {
+    string email = "";
+    string sifre = "";
+    string hata = "";
+    bool yukleniyor = false;
+    string? returnUrl;
+
+    protected override void OnInitialized()
+    {
+        var q = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        returnUrl = q.TryGetValue("returnUrl", out var v) ? v.ToString() : "/platform/admin";
+    }
+
+    async Task Giris()
+    {
+        hata = "";
+        yukleniyor = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("api/platform/auth/login", new { email, password = sifre });
+            if (resp.IsSuccessStatusCode)
+            {
+                // Cookie set edildi - force reload ile admin panele yonlendir
+                Nav.NavigateTo(returnUrl ?? "/platform/admin", forceLoad: true);
+                return;
+            }
+            var body = await resp.Content.ReadAsStringAsync();
+            hata = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                ? "Email veya sifre hatali"
+                : $"Hata: {body}";
+        }
+        catch (Exception ex) { hata = ex.Message; }
+        yukleniyor = false;
+    }
+}
