@@ -14,14 +14,16 @@ public sealed class SubdomainTenantResolver : ITenantResolver
     private readonly string _masterConnectionString;
     private readonly IMemoryCache _cache;
     private readonly ILogger<SubdomainTenantResolver> _log;
+    private readonly IConnectionStringProtector _protector;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
-    public SubdomainTenantResolver(IConfiguration config, IMemoryCache cache, ILogger<SubdomainTenantResolver> log)
+    public SubdomainTenantResolver(IConfiguration config, IMemoryCache cache, ILogger<SubdomainTenantResolver> log, IConnectionStringProtector protector)
     {
         _masterConnectionString = config.GetConnectionString("Master")
             ?? "Server=185.210.92.248;Database=Pinebi_Master;User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;";
         _cache = cache;
         _log = log;
+        _protector = protector;
     }
 
     public async Task<TenantContext?> ResolveAsync(string host, CancellationToken ct = default)
@@ -71,7 +73,7 @@ WHERE t.subdomain = @subdomain AND t.status <> 'deleted';";
             Currency = rdr.IsDBNull(8) ? "TRY" : rdr.GetString(8),
             LogoUrl = rdr.IsDBNull(9) ? null : rdr.GetString(9),
             PrimaryColor = rdr.IsDBNull(10) ? "#235881" : rdr.GetString(10),
-            ConnectionString = rdr.GetString(11)
+            ConnectionString = _protector.Unprotect(rdr.GetString(11))
         };
 
         _cache.Set(cacheKey, ctx, CacheTtl);

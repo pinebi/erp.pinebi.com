@@ -2,6 +2,7 @@ using MACHINEBISS_Web.Components;
 using MACHINEBISS_Web.Db;
 using MACHINEBISS_Web.MultiTenant;
 using MACHINEBISS_Web.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -15,6 +16,15 @@ var connStr = "Server=185.210.92.248;Database=PineERP;User Id=EDonusum;Password=
 
 // Multi-Tenant Infrastructure
 builder.Services.AddMemoryCache();
+
+// DataProtection - connection string sifreleme
+// Key ring sunucu disk'inde saklanir, IIS process'leri paylasir
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(@"C:\ProgramData\Pinebi\dp-keys"))
+    .SetApplicationName("Pinebi.ERP");
+
+builder.Services.AddSingleton<IConnectionStringProtector, ConnectionStringProtector>();
+builder.Services.AddHostedService<ConnectionStringEncryptionStartupService>();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
 builder.Services.AddScoped<IApiKeyValidator, SqlApiKeyValidator>();

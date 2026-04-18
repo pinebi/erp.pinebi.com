@@ -12,11 +12,13 @@ public class PlatformTenantsController : ControllerBase
 {
     private readonly IConfiguration _config;
     private readonly ILogger<PlatformTenantsController> _log;
+    private readonly IConnectionStringProtector _protector;
 
-    public PlatformTenantsController(IConfiguration config, ILogger<PlatformTenantsController> log)
+    public PlatformTenantsController(IConfiguration config, ILogger<PlatformTenantsController> log, IConnectionStringProtector protector)
     {
         _config = config;
         _log = log;
+        _protector = protector;
     }
 
     private string MasterConn => _config.GetConnectionString("Master")
@@ -242,6 +244,7 @@ WITH MOVE N'{tplLogicalName}' TO N'{dataFile}',
             {
                 await mc.OpenAsync();
                 var tenantConnStr = $"Server=185.210.92.248;Database={dbName};User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;";
+                var encrypted = _protector.Protect(tenantConnStr);
                 await using (var cs = new SqlCommand(@"
 IF NOT EXISTS (SELECT 1 FROM tenant_connections WHERE tenant_id=@id)
     INSERT INTO tenant_connections (tenant_id, connection_string_encrypted)
@@ -250,7 +253,7 @@ ELSE
     UPDATE tenant_connections SET connection_string_encrypted=@cs WHERE tenant_id=@id;", mc))
                 {
                     cs.Parameters.AddWithValue("@id", tenantId);
-                    cs.Parameters.AddWithValue("@cs", tenantConnStr);
+                    cs.Parameters.AddWithValue("@cs", encrypted);
                     await cs.ExecuteNonQueryAsync();
                 }
 
