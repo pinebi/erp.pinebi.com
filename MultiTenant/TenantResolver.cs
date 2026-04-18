@@ -79,16 +79,31 @@ WHERE t.subdomain = @subdomain AND t.status <> 'deleted';";
         return ctx;
     }
 
+    // Pinebi'nin mevcut projelerine ait subdomain'ler - tenant olarak islenmemeli
+    private static readonly HashSet<string> _reservedSubdomains = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "www", "mail", "ftp", "smtp", "pop", "imap", "admin", "api", "webservice", "erpapi",
+        "documents", "edonusum", "playland", "teleferik", "update", "parkbahce",
+        "playworld", "dashboardteleferik", "essen", "ecommerce", "dpeglence",
+        "audit", "sinema", "fatura", "rimal", "exclusive", "videoplayer",
+        "videoplayer2", "coplay", "sapancateleferik", "alanyateleferik",
+        "captune", "entertainment", "playlandapi", "belpas", "report",
+        "rmk", "restoran", "belge", "r", "kiosk", "gate", "sarfmalzeme",
+        "lootus", "bileteko"
+    };
+
     internal static string ExtractSubdomain(string host)
     {
         // "acme.pinebi.com"      -> "acme"
         // "erp.pinebi.com"       -> "erp"
+        // "api.pinebi.com"       -> "" (reserved, tenant yok)
         // "pinebi.com"           -> ""
-        // "www.pinebi.com"       -> "www"
-        // "acme.erp.pinebi.com"  -> "acme" (uc seviyeli subdomain icin ilk parca)
+        // "acme.erp.pinebi.com"  -> "acme"
         if (string.IsNullOrWhiteSpace(host)) return "";
         var parts = host.Split('.');
         if (parts.Length < 3) return "";
-        return parts[0].ToLowerInvariant();
+        var sub = parts[0].ToLowerInvariant();
+        if (_reservedSubdomains.Contains(sub)) return "";
+        return sub;
     }
 }

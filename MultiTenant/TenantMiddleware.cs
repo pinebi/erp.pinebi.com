@@ -14,6 +14,31 @@ public sealed class TenantMiddleware
         }
 
         var host = ctx.Request.Host.Host;
+
+        // API gateway: erpapi.pinebi.com - tenant header'dan gelir
+        if (host.Equals("erpapi.pinebi.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var tenantCode = ctx.Request.Headers["X-Tenant"].FirstOrDefault()
+                          ?? ctx.Request.Query["tenant"].FirstOrDefault();
+            if (string.IsNullOrEmpty(tenantCode))
+            {
+                ctx.Response.StatusCode = 400;
+                await ctx.Response.WriteAsync("X-Tenant header or ?tenant= query param required on erpapi.pinebi.com");
+                return;
+            }
+            var apiTenant = await resolver.ResolveAsync($"{tenantCode}.pinebi.com", ctx.RequestAborted);
+            if (apiTenant == null)
+            {
+                ctx.Response.StatusCode = 404;
+                await ctx.Response.WriteAsync($"Tenant not found: {tenantCode}");
+                return;
+            }
+            accessor.Current = apiTenant;
+            ctx.Items["Tenant"] = apiTenant;
+            await _next(ctx);
+            return;
+        }
+
         var tenant = await resolver.ResolveAsync(host, ctx.RequestAborted);
 
         if (tenant == null)
