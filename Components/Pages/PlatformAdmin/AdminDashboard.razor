@@ -1,0 +1,416 @@
+@page "/platform/admin"
+@rendermode InteractiveServer
+@inject IConfiguration Config
+@inject NavigationManager Nav
+@using Microsoft.Data.SqlClient
+
+<PageTitle>Platform Admin - Pinebi</PageTitle>
+
+<div style="padding:20px; font-family: 'Segoe UI', Arial;">
+    <h2 style="color:#235881; margin-bottom:20px;">
+        <i class="fa fa-tachometer-alt"></i> Pinebi Platform Admin
+    </h2>
+
+    <div class="admin-tabs">
+        <button class="tab-btn @(aktif=="ozet"?"active":"")"   @onclick='() => aktif="ozet"'>Özet</button>
+        <button class="tab-btn @(aktif=="tenant"?"active":"")" @onclick='() => aktif="tenant"'>Tenantlar (@tenantlar.Count)</button>
+        <button class="tab-btn @(aktif=="api"?"active":"")"    @onclick='() => aktif="api"'>API Keyler (@apiKeyler.Count)</button>
+        <button class="tab-btn @(aktif=="prov"?"active":"")"   @onclick='() => aktif="prov"'>Provisioning (@provisionJobs.Count)</button>
+        <button class="tab-btn @(aktif=="audit"?"active":"")"  @onclick='() => aktif="audit"'>Audit (@auditEvents.Count)</button>
+        <button class="tab-btn @(aktif=="changelog"?"active":"")" @onclick='() => aktif="changelog"'>Degisiklikler</button>
+        <button class="tab-btn refresh" @onclick="VerileriYukle"><i class="fa fa-sync"></i> Yenile</button>
+    </div>
+
+    @if (aktif == "ozet")
+    {
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Aktif Tenant</div><div class="stat-value">@tenantlar.Count(t => t.Status == "active")</div></div>
+            <div class="stat-card"><div class="stat-label">Toplam Tenant</div><div class="stat-value">@tenantlar.Count</div></div>
+            <div class="stat-card"><div class="stat-label">Aktif API Key</div><div class="stat-value">@apiKeyler.Count(k => k.Active)</div></div>
+            <div class="stat-card"><div class="stat-label">Provisioning Job</div><div class="stat-value">@provisionJobs.Count</div></div>
+        </div>
+
+        <h3 style="margin-top:30px;">Sistem Durumu</h3>
+        <table class="admin-table">
+            <thead><tr><th>Bilesen</th><th>Durum</th></tr></thead>
+            <tbody>
+                <tr><td>Pinebi_Master DB</td><td><span class="badge-ok">Calisiyor</span> (@tenantlar.Count tenant)</td></tr>
+                <tr><td>DataProtection Key Ring</td><td><span class="badge-ok">Aktif</span> (C:\ProgramData\Pinebi\dp-keys)</td></tr>
+                <tr><td>Subdomain Routing</td><td><span class="badge-ok">Aktif</span></td></tr>
+                <tr><td>API Gateway (erpapi.pinebi.com)</td><td><span class="badge-ok">Aktif</span></td></tr>
+                <tr><td>Encryption</td><td><span class="badge-ok">ENC: prefix</span></td></tr>
+            </tbody>
+        </table>
+    }
+
+    @if (aktif == "tenant")
+    {
+        <div style="display:flex; justify-content:space-between; align-items:center; margin: 16px 0;">
+            <h3>Tenantlar</h3>
+            <button class="btn-primary" @onclick="YeniTenantAc">
+                <i class="fa fa-plus"></i> Yeni Tenant
+            </button>
+        </div>
+
+        @if (yeniTenantAcik)
+        {
+            <div class="inline-form">
+                <input placeholder="Kod (ACME)" @bind="formKod" />
+                <input placeholder="Ad (ACME Ltd.)" @bind="formAd" />
+                <input placeholder="Subdomain (acme)" @bind="formSub" />
+                <select @bind="formTier">
+                    <option value="free">Free</option>
+                    <option value="starter">Starter</option>
+                    <option value="pro">Pro</option>
+                    <option value="enterprise">Enterprise</option>
+                </select>
+                <input placeholder="Owner email" @bind="formEmail" type="email" />
+                <button class="btn-primary" @onclick="TenantOlustur" disabled="@olusturuluyor">
+                    @(olusturuluyor ? "Olusturuluyor..." : "Olustur")
+                </button>
+                <button class="btn-outline" @onclick='() => yeniTenantAcik = false'>Iptal</button>
+            </div>
+            @if (!string.IsNullOrEmpty(formMesaj))
+            {
+                <div class="alert @(formMesajTip)">@formMesaj</div>
+            }
+        }
+
+        <table class="admin-table">
+            <thead><tr><th>Subdomain</th><th>Kod</th><th>Ad</th><th>DB</th><th>Region</th><th>Durum</th><th>Olusturma</th><th>Aksiyon</th></tr></thead>
+            <tbody>
+                @foreach (var t in tenantlar)
+                {
+                    <tr>
+                        <td><b>@t.Subdomain</b></td>
+                        <td>@t.TenantCode</td>
+                        <td>@t.TenantName</td>
+                        <td><code>@t.DbName</code></td>
+                        <td>@t.RegionId</td>
+                        <td>
+                            <span class="badge-@t.Status">@t.Status</span>
+                        </td>
+                        <td>@t.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            <a href="@($"https://{t.Subdomain}.pinebi.com")" target="_blank" class="btn-mini">Aç</a>
+                            <button class="btn-mini" @onclick="() => ApiKeyUret(t.TenantId, t.Subdomain)">Key Uret</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!string.IsNullOrEmpty(yeniKey))
+        {
+            <div class="alert alert-ok">
+                <b>Yeni API Key olusturuldu:</b>
+                <code>@yeniKey</code>
+                <br/><small>Bu anahtari simdi kaydedin, tekrar gosterilmez.</small>
+            </div>
+        }
+    }
+
+    @if (aktif == "api")
+    {
+        <h3>API Keyler</h3>
+        <table class="admin-table">
+            <thead><tr><th>Prefix</th><th>Tenant</th><th>Aciklama</th><th>Scope</th><th>Aktif</th><th>Olusturma</th><th>Son Kullanim</th></tr></thead>
+            <tbody>
+                @foreach (var k in apiKeyler)
+                {
+                    <tr>
+                        <td><code>@k.KeyPrefix...</code></td>
+                        <td>@k.TenantCode</td>
+                        <td>@k.Description</td>
+                        <td>@k.Scopes</td>
+                        <td><span class="badge-@(k.Active ? "ok" : "off")">@(k.Active ? "Aktif" : "Pasif")</span></td>
+                        <td>@k.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td>@(k.LastUsedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (aktif == "prov")
+    {
+        <h3>Provisioning Jobs</h3>
+        @if (provisionJobs.Count == 0)
+        {
+            <p>Henuz job yok (tabloya henuz kayit yazilmadi - otomatik kaydi asagidaki commit adiminda ekleyebiliriz).</p>
+        }
+        <table class="admin-table">
+            <thead><tr><th>Job</th><th>Tenant</th><th>Durum</th><th>Baslangic</th><th>Bitis</th><th>Hata</th></tr></thead>
+            <tbody>
+                @foreach (var j in provisionJobs)
+                {
+                    <tr>
+                        <td><code>@j.JobId.ToString()[..8]</code></td>
+                        <td>@j.TenantId.ToString()[..8]</td>
+                        <td><span class="badge-@j.Status">@j.Status</span></td>
+                        <td>@j.StartedAt?.ToString("HH:mm:ss")</td>
+                        <td>@j.FinishedAt?.ToString("HH:mm:ss")</td>
+                        <td>@(j.ErrorMessage ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (aktif == "audit")
+    {
+        <h3>Audit Events (son 100)</h3>
+        @if (auditEvents.Count == 0)
+        {
+            <p>Henuz audit event yok.</p>
+        }
+        <table class="admin-table">
+            <thead><tr><th>Zaman</th><th>Tip</th><th>Actor</th><th>Tenant</th><th>Detay</th></tr></thead>
+            <tbody>
+                @foreach (var e in auditEvents)
+                {
+                    <tr>
+                        <td>@e.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@e.EventType</td>
+                        <td>@e.ActorType</td>
+                        <td>@(e.TenantId?.ToString()[..8] ?? "-")</td>
+                        <td><code style="font-size:11px;">@e.Details</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (aktif == "changelog")
+    {
+        <h3>Yapilan Isler (Git commit gecmisi)</h3>
+        <ul class="changelog">
+            @foreach (var c in commits)
+            {
+                <li>
+                    <div style="display:flex; justify-content:space-between;">
+                        <code>@c.Hash</code>
+                        <span style="color:#64748b; font-size:12px;">@c.Date</span>
+                    </div>
+                    <div style="margin-top:4px;">@c.Subject</div>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+<style>
+    .admin-tabs { display:flex; gap:8px; border-bottom:2px solid #e2e8f0; margin-bottom:20px; flex-wrap:wrap; }
+    .tab-btn { background:none; border:none; padding:10px 16px; cursor:pointer; font-size:14px; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-2px; }
+    .tab-btn.active { color:#235881; border-bottom-color:#235881; font-weight:600; }
+    .tab-btn.refresh { margin-left:auto; color:#235881; }
+    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:10px; }
+    .stat-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; }
+    .stat-label { font-size:12px; color:#64748b; margin-bottom:6px; }
+    .stat-value { font-size:28px; font-weight:700; color:#235881; }
+    .admin-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+    .admin-table th { background:#235881; color:white; padding:8px 10px; text-align:left; }
+    .admin-table td { padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+    .admin-table tr:hover { background:#f8fafc; }
+    .admin-table code { background:#f1f5f9; padding:2px 6px; border-radius:3px; font-size:12px; }
+    .badge-active, .badge-ok { background:#dcfce7; color:#166534; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-provisioning { background:#dbeafe; color:#1e40af; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-suspended { background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-off { background:#f1f5f9; color:#64748b; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .btn-primary { background:#235881; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+    .btn-outline { background:white; color:#235881; border:1px solid #235881; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+    .btn-mini { background:#f1f5f9; color:#235881; border:1px solid #cbd5e1; padding:3px 8px; border-radius:3px; cursor:pointer; font-size:11px; text-decoration:none; margin-left:4px; }
+    .inline-form { display:flex; gap:6px; padding:14px; background:#f8fafc; border-radius:6px; margin:10px 0; flex-wrap:wrap; }
+    .inline-form input, .inline-form select { padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; }
+    .alert { padding:10px 14px; border-radius:4px; margin:10px 0; font-size:13px; }
+    .alert-ok { background:#dcfce7; color:#166534; }
+    .alert-err { background:#fee2e2; color:#991b1b; }
+    .changelog { list-style:none; padding:0; }
+    .changelog li { padding:10px 14px; background:#f8fafc; border-left:3px solid #235881; margin-bottom:8px; border-radius:4px; }
+    .changelog code { color:#235881; font-weight:600; }
+</style>
+
+@code {
+    string aktif = "ozet";
+    List<TenantRow> tenantlar = new();
+    List<ApiKeyRow> apiKeyler = new();
+    List<ProvisionJobRow> provisionJobs = new();
+    List<AuditRow> auditEvents = new();
+    List<CommitRow> commits = new();
+
+    bool yeniTenantAcik = false;
+    bool olusturuluyor = false;
+    string formKod = "", formAd = "", formSub = "", formTier = "starter", formEmail = "";
+    string formMesaj = "", formMesajTip = "";
+    string? yeniKey = null;
+
+    string MasterConn => Config.GetConnectionString("Master")
+        ?? "Server=185.210.92.248;Database=Pinebi_Master;User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;";
+
+    protected override async Task OnInitializedAsync() => await VerileriYukle();
+
+    async Task VerileriYukle()
+    {
+        try
+        {
+            await using var conn = new SqlConnection(MasterConn);
+            await conn.OpenAsync();
+
+            tenantlar.Clear();
+            await using (var cmd = new SqlCommand("SELECT tenant_id, tenant_code, tenant_name, subdomain, db_name, region_id, status, created_at FROM tenants ORDER BY created_at DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+                while (await rdr.ReadAsync())
+                    tenantlar.Add(new TenantRow {
+                        TenantId = rdr.GetGuid(0), TenantCode = rdr.GetString(1), TenantName = rdr.GetString(2),
+                        Subdomain = rdr.GetString(3), DbName = rdr.GetString(4), RegionId = rdr.GetString(5),
+                        Status = rdr.GetString(6), CreatedAt = rdr.GetDateTime(7)
+                    });
+
+            apiKeyler.Clear();
+            await using (var cmd = new SqlCommand(@"
+SELECT k.key_prefix, t.tenant_code, ISNULL(k.description, ''), k.scopes, k.active, k.created_at, k.last_used_at
+FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_at DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+                while (await rdr.ReadAsync())
+                    apiKeyler.Add(new ApiKeyRow {
+                        KeyPrefix = rdr.GetString(0), TenantCode = rdr.GetString(1),
+                        Description = rdr.GetString(2), Scopes = rdr.GetString(3),
+                        Active = rdr.GetBoolean(4), CreatedAt = rdr.GetDateTime(5),
+                        LastUsedAt = rdr.IsDBNull(6) ? null : rdr.GetDateTime(6)
+                    });
+
+            provisionJobs.Clear();
+            await using (var cmd = new SqlCommand("SELECT TOP 50 job_id, tenant_id, status, started_at, finished_at, error_message FROM provisioning_jobs ORDER BY created_at DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+                while (await rdr.ReadAsync())
+                    provisionJobs.Add(new ProvisionJobRow {
+                        JobId = rdr.GetGuid(0), TenantId = rdr.GetGuid(1), Status = rdr.GetString(2),
+                        StartedAt = rdr.IsDBNull(3) ? null : rdr.GetDateTime(3),
+                        FinishedAt = rdr.IsDBNull(4) ? null : rdr.GetDateTime(4),
+                        ErrorMessage = rdr.IsDBNull(5) ? null : rdr.GetString(5)
+                    });
+
+            auditEvents.Clear();
+            await using (var cmd = new SqlCommand("SELECT TOP 100 occurred_at, actor_type, actor_id, tenant_id, event_type, details_json FROM control_audit_events ORDER BY occurred_at DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+                while (await rdr.ReadAsync())
+                    auditEvents.Add(new AuditRow {
+                        OccurredAt = rdr.GetDateTime(0), ActorType = rdr.GetString(1),
+                        ActorId = rdr.IsDBNull(2) ? null : rdr.GetGuid(2),
+                        TenantId = rdr.IsDBNull(3) ? null : rdr.GetGuid(3),
+                        EventType = rdr.GetString(4),
+                        Details = rdr.GetString(5).Length > 120 ? rdr.GetString(5).Substring(0,120)+"..." : rdr.GetString(5)
+                    });
+
+            // Git commit history
+            commits.Clear();
+            var gitLog = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "log --pretty=format:%h|%s|%ai -20",
+                WorkingDirectory = @"C:\inetpub\wwwroot\erp.pinebi.com",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            if (gitLog != null)
+            {
+                var output = await gitLog.StandardOutput.ReadToEndAsync();
+                await gitLog.WaitForExitAsync();
+                foreach (var line in output.Split('\n'))
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split('|', 3);
+                    if (parts.Length < 3) continue;
+                    commits.Add(new CommitRow { Hash = parts[0], Subject = parts[1], Date = parts[2].Substring(0, 16) });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            formMesaj = $"Veri yukleme hatasi: {ex.Message}";
+            formMesajTip = "alert-err";
+        }
+    }
+
+    void YeniTenantAc()
+    {
+        yeniTenantAcik = true;
+        formKod = formAd = formSub = formEmail = "";
+        formMesaj = "";
+        yeniKey = null;
+    }
+
+    async Task TenantOlustur()
+    {
+        if (string.IsNullOrWhiteSpace(formKod) || string.IsNullOrWhiteSpace(formSub))
+        {
+            formMesaj = "Kod ve subdomain zorunlu";
+            formMesajTip = "alert-err";
+            return;
+        }
+
+        olusturuluyor = true;
+        formMesaj = "";
+        StateHasChanged();
+
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var payload = new {
+                tenantCode = formKod.ToUpper().Trim(),
+                tenantName = formAd,
+                subdomain = formSub.ToLower().Trim(),
+                region = "tr",
+                tier = formTier,
+                ownerEmail = formEmail
+            };
+            var resp = await http.PostAsJsonAsync("api/platform/tenants", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                formMesaj = $"Tenant olusturuldu. Status: {resp.StatusCode}";
+                formMesajTip = "alert-ok";
+                yeniTenantAcik = false;
+                await Task.Delay(6000); // provisioning'i bekle
+                await VerileriYukle();
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                formMesaj = $"Hata: {resp.StatusCode} - {body}";
+                formMesajTip = "alert-err";
+            }
+        }
+        catch (Exception ex)
+        {
+            formMesaj = $"Istisna: {ex.Message}";
+            formMesajTip = "alert-err";
+        }
+        finally
+        {
+            olusturuluyor = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task ApiKeyUret(Guid tenantId, string subdomain)
+    {
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var resp = await http.PostAsJsonAsync($"api/platform/tenants/{tenantId}/api-key", new { description = $"Admin UI @ {DateTime.Now:HH:mm}" });
+            if (resp.IsSuccessStatusCode)
+            {
+                var obj = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                yeniKey = obj.GetProperty("apiKey").GetString();
+                await VerileriYukle();
+            }
+        }
+        catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
+    }
+
+    record TenantRow { public Guid TenantId { get; init; } public string TenantCode { get; init; } = ""; public string TenantName { get; init; } = ""; public string Subdomain { get; init; } = ""; public string DbName { get; init; } = ""; public string RegionId { get; init; } = ""; public string Status { get; init; } = ""; public DateTime CreatedAt { get; init; } }
+    record ApiKeyRow { public string KeyPrefix { get; init; } = ""; public string TenantCode { get; init; } = ""; public string Description { get; init; } = ""; public string Scopes { get; init; } = ""; public bool Active { get; init; } public DateTime CreatedAt { get; init; } public DateTime? LastUsedAt { get; init; } }
+    record ProvisionJobRow { public Guid JobId { get; init; } public Guid TenantId { get; init; } public string Status { get; init; } = ""; public DateTime? StartedAt { get; init; } public DateTime? FinishedAt { get; init; } public string? ErrorMessage { get; init; } }
+    record AuditRow { public DateTime OccurredAt { get; init; } public string ActorType { get; init; } = ""; public Guid? ActorId { get; init; } public Guid? TenantId { get; init; } public string EventType { get; init; } = ""; public string Details { get; init; } = ""; }
+    record CommitRow { public string Hash { get; init; } = ""; public string Subject { get; init; } = ""; public string Date { get; init; } = ""; }
+}
