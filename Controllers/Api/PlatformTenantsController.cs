@@ -370,6 +370,9 @@ ELSE
 
             _log.LogInformation("Tenant {Id} provisioned: {Db}", tenantId, dbName);
             await _audit.LogAsync("tenant.provisioned", new { tenantId, dbName, subdomain }, tenantId: tenantId);
+
+            // IIS binding otomatik ekle (subdomain.pinebi.com)
+            await TryAddIisBindingAsync(subdomain);
         }
         catch (Exception ex)
         {
@@ -384,6 +387,44 @@ ELSE
                 await upd.ExecuteNonQueryAsync();
             }
             catch { }
+        }
+    }
+
+    private async Task TryAddIisBindingAsync(string subdomain)
+    {
+        try
+        {
+            var host = $"{subdomain}.pinebi.com";
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = @"C:\Windows\System32\inetsrv\appcmd.exe",
+                Arguments = $"set site \"erp.pinebi.com\" \"/+bindings.[protocol='http',bindingInformation='*:80:{host}']\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                await proc.WaitForExitAsync();
+                var output = await proc.StandardOutput.ReadToEndAsync();
+                var err = await proc.StandardError.ReadToEndAsync();
+                if (proc.ExitCode == 0)
+                {
+                    _log.LogInformation("IIS binding eklendi: {Host}", host);
+                    await _audit.LogAsync("iis.binding_added", new { subdomain, host });
+                }
+                else
+                {
+                    _log.LogWarning("IIS binding eklenemedi {Host}. ExitCode={Code} Stdout={Out} Err={Err}", host, proc.ExitCode, output, err);
+                    await _audit.LogAsync("iis.binding_failed", new { subdomain, host, exitCode = proc.ExitCode, output, err });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "IIS binding hatasi (zararsiz): {Subdomain}", subdomain);
         }
     }
 
