@@ -28,6 +28,10 @@
             .pine-stok-form .katsayi-label { flex: 0 0 auto; min-width: auto !important; max-width: none !important; font-size: 11px; color: #94a3b8; }
             .pine-stok-form .add-btn { flex: 0 0 32px; background: #235881; color: white; border: 1px solid #235881; border-radius: 4px; padding: 6px 8px; cursor: pointer; }
             .pine-stok-form .add-btn:hover { background: #1d486a; }
+            .stok-suggest { position: absolute; top: 100%; left: 130px; right: 0; z-index: 1000; background: #fff; border: 1px solid #cbd5e1; border-top: none; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+            .stok-suggest-item { padding: 6px 10px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+            .stok-suggest-item:hover { background: #e8f2fb; }
+            .stok-suggest-item b { color: #235881; }
         </style>
 
         <!-- Mesaj -->
@@ -90,9 +94,27 @@
                                 <div class="group-box">
                                     <span class="group-box-title">Temel Bilgiler</span>
                                     <div class="form-row">
-                                        <div class="form-inline">
+                                        <div class="form-inline" style="position:relative;">
                                             <label>Stok Kodu</label>
-                                            <input type="text" class="form-control" @bind="model.StoKod" maxlength="25" />
+                                            <input type="text" class="form-control"
+                                                   @bind="model.StoKod"
+                                                   @bind:event="oninput"
+                                                   @bind:after="KodDegisti"
+                                                   @onblur="OnKodBlur"
+                                                   maxlength="25"
+                                                   autocomplete="off" />
+                                            @if (kodArama.Count > 0)
+                                            {
+                                                <div class="stok-suggest">
+                                                    @foreach (var s in kodArama)
+                                                    {
+                                                        var sec = s;
+                                                        <div class="stok-suggest-item" @onmousedown="@(() => StokSec(sec))">
+                                                            <b>@sec.StoKod</b> - @sec.StoIsim
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
                                         </div>
                                         <div class="form-check" style="margin-left:10px;">
                                             <input type="checkbox" @bind="model.StoPasifFl" />
@@ -100,9 +122,27 @@
                                         </div>
                                     </div>
                                     <div class="form-row">
-                                        <div class="form-inline">
+                                        <div class="form-inline" style="position:relative;">
                                             <label>Stok Ismi</label>
-                                            <input type="text" class="form-control" @bind="model.StoIsim" maxlength="200" />
+                                            <input type="text" class="form-control"
+                                                   @bind="model.StoIsim"
+                                                   @bind:event="oninput"
+                                                   @bind:after="IsimDegisti"
+                                                   @onblur="OnIsimBlur"
+                                                   maxlength="200"
+                                                   autocomplete="off" />
+                                            @if (isimArama.Count > 0)
+                                            {
+                                                <div class="stok-suggest">
+                                                    @foreach (var s in isimArama)
+                                                    {
+                                                        var sec = s;
+                                                        <div class="stok-suggest-item" @onmousedown="@(() => StokSec(sec))">
+                                                            <b>@sec.StoKod</b> - @sec.StoIsim
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
                                         </div>
                                     </div>
                                     <div class="form-row">
@@ -1071,6 +1111,88 @@
     private StokKartModel model = new();
     private List<FiyatModel> fiyatlar = new();
 
+    // Autocomplete arama
+    private List<StokAramaItem> kodArama = new();
+    private List<StokAramaItem> isimArama = new();
+    private System.Threading.CancellationTokenSource? kodAramaCts;
+    private System.Threading.CancellationTokenSource? isimAramaCts;
+
+    public class StokAramaItem
+    {
+        public int Id { get; set; }
+        public string StoKod { get; set; } = "";
+        public string StoIsim { get; set; } = "";
+    }
+
+    private Task KodDegisti() => AramaYap(model.StoKod ?? "", "kod");
+    private Task IsimDegisti() => AramaYap(model.StoIsim ?? "", "isim");
+
+    private void OnKodBlur() { CloseSuggestions("kod"); }
+    private void OnIsimBlur() { CloseSuggestions("isim"); }
+
+    private async Task AramaYap(string q, string alan)
+    {
+        var cts = new System.Threading.CancellationTokenSource();
+        if (alan == "kod") { kodAramaCts?.Cancel(); kodAramaCts = cts; }
+        else { isimAramaCts?.Cancel(); isimAramaCts = cts; }
+
+        if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+        {
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            var resp = await Http.GetFromJsonAsync<ApiResponse<List<StokAramaItem>>>(
+                $"api/stok/ara?q={Uri.EscapeDataString(q)}&alan={alan}&limit=15", cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
+            var list = resp?.Data ?? new();
+
+            // Kod alaninda tam eslesme veya tek sonuc varsa otomatik sec
+            if (alan == "kod")
+            {
+                var tam = list.FirstOrDefault(s => string.Equals(s.StoKod, q, StringComparison.OrdinalIgnoreCase));
+                // Tam kod eslesmesi VEYA tek sonuc (barkod okutuldugunda tek sonuc gelir)
+                var secilecek = tam ?? (list.Count == 1 ? list[0] : null);
+                if (secilecek != null)
+                {
+                    kodArama.Clear();
+                    StateHasChanged();
+                    StokSec(secilecek);
+                    return;
+                }
+                kodArama = list;
+            }
+            else
+            {
+                isimArama = list;
+            }
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+        catch (Exception ex) { Console.WriteLine($"StokArama hata: {ex.Message}"); }
+    }
+
+    private void CloseSuggestions(string alan)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Delay(150);
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+        });
+    }
+
+    private void StokSec(StokAramaItem s)
+    {
+        kodArama.Clear();
+        isimArama.Clear();
+        Nav.NavigateTo($"/pine/stok/kart/{s.Id}", forceLoad: false);
+    }
+
     // Depolar
     private List<DepoItem> depolar = new();
 
@@ -1148,13 +1270,30 @@
     private string? mesaj;
     private string mesajTip = "alert-info";
 
+    private int _lastLoadedId = -1;
+
     protected override async Task OnInitializedAsync()
     {
         await YardimciVerileriYukle();
         await KdvOranlariYukle();
+    }
 
-        if (Id > 0)
-            await KartYukle();
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != _lastLoadedId)
+        {
+            _lastLoadedId = Id;
+            if (Id > 0)
+            {
+                await KartYukle();
+            }
+            else
+            {
+                model = new StokKartModel();
+                fiyatlar = new();
+                barkodlar = new();
+            }
+        }
     }
 
     private async Task KdvOranlariYukle()

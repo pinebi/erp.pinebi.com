@@ -1,0 +1,166 @@
+{
+  "name": "Pinebi ERP AI Ekibi",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "id": "chat-trigger-1",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [-400, 300],
+      "webhookId": "pinebi-erp-chat"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Sen Pinebi ERP'nin Genel Müdürüsün. erp.pinebi.com uygulamasının tam yetkili yöneticisisin. Ekibini yönetir, karar verir, onay verirsin.\n\n## Ekibin (sistem prompt içinde canlandırdığın roller):\n\n1. **Stok/Cari Yöneticisi**: pine_stoklar ve pine_cari_hesaplar tablolarını yönetir. Eksik barkod, hatalı KDV oranı, boş isim, çift kayıt gibi hataları bulur. ERP'de cari ve stok kart açabilir.\n\n2. **Muhasebe**: Fatura ve tahsilatlardan sorumlu. Fatura satırlarındaki tutarsızlıkları, eksik cari/stok referanslarını bulur. Fatura girişi yapar.\n\n3. **Sipariş Yönetimi**: Satış ve satınalma siparişlerini takip eder. Gecikmiş, eksik, çelişkili siparişleri tespit eder.\n\n4. **Piyasa Analizcisi**: Web araması ile piyasa fiyatlarını araştırır, ürünlerimizi rakiplerle kıyaslar, fiyat önerileri sunar.\n\n## Kurallar:\n\n- **Okuma işlemleri** (GET api/...) serbest yapılabilir.\n- **YAZMA işlemleri** (POST/PUT/DELETE) önce sana onay için sunulur. Kullanıcıya 'Bu işlemi onaylıyor musunuz?' diye SOR. Onay olmadan yazma YAPMA.\n- Hangi rol kapsamında düşündüğünü belirt. Örn: '[Muhasebe] Bu faturanın KDV'si yanlış görünüyor.'\n- Yanıtların kısa, net, Türkçe olsun.\n- Her uzman raporunu önce kendi değerlendir, sonra kullanıcıya özetle.\n\n## ERP API erişimi:\n\nBase URL: https://erp.pinebi.com\n\nTemel endpointler:\n- GET /api/stok/ara?q=X&alan=kod|isim — stok arama\n- GET /api/stok/kartlar?sayfa=1&boyut=50 — stok listesi\n- GET /api/stok/kart/{id} — tek stok\n- POST /api/stok/kart — yeni stok (ONAY GEREKLİ)\n- PUT /api/stok/kart/{id} — stok güncelle (ONAY GEREKLİ)\n- GET /api/cari/ara?q=X&alan=kod|isim — cari arama\n- GET /api/cari/hesap/{id} — tek cari\n- POST /api/cari/hesap — yeni cari (ONAY GEREKLİ)\n- GET /api/fatura/... — faturalar\n- GET /api/siparis/... — siparişler\n- GET /api/personel/ara?q=X&alan=kod|isim\n- GET /api/demirbas/ara?q=X&alan=kod|isim\n\nŞimdi nasıl yardımcı olabilirim?"
+        }
+      },
+      "id": "agent-gm",
+      "name": "Genel Müdür (AI Agent)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [-120, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "openai-model",
+      "name": "OpenAI GPT-4o",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [-260, 520],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI (set after import)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "fromInput",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 20
+      },
+      "id": "memory-gm",
+      "name": "Konuşma Hafızası",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-120, 520]
+    },
+    {
+      "parameters": {
+        "name": "erp_api_get",
+        "description": "Pinebi ERP'den okuma yapar. Tüm GET endpoint'leri için kullan. url kısmına path gir (örn. /api/stok/ara?q=STK&alan=kod).",
+        "url": "=https://erp.pinebi.com{{ $fromAI('path', 'API yolu, / ile başlar', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-erp-get",
+      "name": "ERP Oku (GET)",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [20, 520]
+    },
+    {
+      "parameters": {
+        "name": "erp_api_write",
+        "description": "Pinebi ERP'ye yazma yapar (POST/PUT/DELETE). SADECE kullanıcı onayından sonra kullan. method: POST/PUT/DELETE. path: /api/... body: JSON string.",
+        "method": "POST",
+        "url": "=https://erp.pinebi.com{{ $fromAI('path', 'API yolu', 'string') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $fromAI('body', 'JSON gövde', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-erp-post",
+      "name": "ERP Yaz (POST - Onayla)",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [160, 520]
+    },
+    {
+      "parameters": {
+        "name": "erp_api_put",
+        "description": "Mevcut kaydı günceller. SADECE onaydan sonra. path: /api/stok/kart/{id} vb. body: JSON string.",
+        "method": "PUT",
+        "url": "=https://erp.pinebi.com{{ $fromAI('path', 'API yolu', 'string') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $fromAI('body', 'JSON gövde', 'string') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-erp-put",
+      "name": "ERP Güncelle (PUT - Onayla)",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [300, 520]
+    },
+    {
+      "parameters": {
+        "name": "web_arama",
+        "description": "Piyasa analizi için web araması yapar. Piyasa Analizcisi rolünde kullan.",
+        "url": "=https://duckduckgo.com/html/?q={{ encodeURIComponent($fromAI('sorgu', 'Arama sorgusu', 'string')) }}",
+        "options": {}
+      },
+      "id": "tool-web",
+      "name": "Web Arama",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [440, 520]
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [[{ "node": "Genel Müdür (AI Agent)", "type": "main", "index": 0 }]]
+    },
+    "OpenAI GPT-4o": {
+      "ai_languageModel": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Konuşma Hafızası": {
+      "ai_memory": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_memory", "index": 0 }]]
+    },
+    "ERP Oku (GET)": {
+      "ai_tool": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_tool", "index": 0 }]]
+    },
+    "ERP Yaz (POST - Onayla)": {
+      "ai_tool": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_tool", "index": 0 }]]
+    },
+    "ERP Güncelle (PUT - Onayla)": {
+      "ai_tool": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_tool", "index": 0 }]]
+    },
+    "Web Arama": {
+      "ai_tool": [[{ "node": "Genel Müdür (AI Agent)", "type": "ai_tool", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

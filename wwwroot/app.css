@@ -1,7 +1,13 @@
 /* ==========================================
-   MACHINEBISS ERP - Pinebi Theme
+   Pine ERP - Pinebi Theme
    Primary: #235881  Dark: #0E3D5C
    ========================================== */
+
+/* Kart arama autocomplete dropdown (Stok/Cari/Personel/Demirbas) */
+.stok-suggest { position: absolute; top: 100%; left: 130px; right: 0; z-index: 1000; background: #fff; border: 1px solid #cbd5e1; border-top: none; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+.stok-suggest-item { padding: 6px 10px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+.stok-suggest-item:hover { background: #e8f2fb; }
+.stok-suggest-item b { color: #235881; }
 
 :root {
     --pinebi-primary: #235881;

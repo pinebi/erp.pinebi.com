@@ -35,6 +35,37 @@ public class DemirbasController : BaseApiController
         return OkPaged(list, toplam, sayfa, sayfaBoyutu);
     }
 
+    [HttpGet("ara")]
+    public async Task<IActionResult> DemirbasAra([FromQuery] string? q = null, [FromQuery] int limit = 15, [FromQuery] string? alan = null)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        var query = db.Demirbaslar.AsNoTracking().Where(d => !d.RecGizli && !d.RecIptal);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kapsam = (alan ?? "hepsi").ToLowerInvariant();
+            if (kapsam == "isim")
+                query = query.Where(d => d.DmrIsim != null && EF.Functions.Collate(d.DmrIsim, "Latin1_General_CI_AI").Contains(q));
+            else if (kapsam == "kod")
+                query = query.Where(d =>
+                    (d.DmrKod != null && EF.Functions.Collate(d.DmrKod, "Latin1_General_CI_AI").Contains(q)) ||
+                    (d.DmrSeriNo != null && d.DmrSeriNo.Contains(q)));
+            else
+                query = query.Where(d =>
+                    (d.DmrKod != null && EF.Functions.Collate(d.DmrKod, "Latin1_General_CI_AI").Contains(q)) ||
+                    (d.DmrIsim != null && EF.Functions.Collate(d.DmrIsim, "Latin1_General_CI_AI").Contains(q)) ||
+                    (d.DmrSeriNo != null && d.DmrSeriNo.Contains(q)));
+        }
+
+        var data = await query
+            .OrderBy(d => d.DmrKod)
+            .Take(limit)
+            .Select(d => new { Id = d.Id, DmrKod = d.DmrKod ?? "", DmrIsim = d.DmrIsim ?? "" })
+            .ToListAsync();
+
+        return Ok(data);
+    }
+
     [HttpGet("kart/{id}")]
     public async Task<IActionResult> GetKart(int id)
     {

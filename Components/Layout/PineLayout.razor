@@ -257,7 +257,11 @@ else
         if (Auth.IsAuthenticated)
         {
             TabSvc.OpenTab("pine-dashboard", "Dashboard", "/pine", "fa-tachometer-alt");
-            await InvokeAsync(() => Nav.NavigateTo("/pine"));
+            var mevcut = new Uri(Nav.Uri).AbsolutePath;
+            if (mevcut == "/" || mevcut.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            {
+                await InvokeAsync(() => Nav.NavigateTo("/pine"));
+            }
         }
         await InvokeAsync(StateHasChanged);
     }

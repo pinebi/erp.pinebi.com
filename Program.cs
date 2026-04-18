@@ -1,5 +1,6 @@
 using MACHINEBISS_Web.Components;
 using MACHINEBISS_Web.Db;
+using MACHINEBISS_Web.MultiTenant;
 using MACHINEBISS_Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -21,6 +22,12 @@ builder.Services.AddDbContextFactory<NetworkContext>(options =>
 // PineERP - Yeni profesyonel DB context
 builder.Services.AddDbContextFactory<PineErpContext>(options =>
     options.UseSqlServer(connStr));
+
+// Multi-Tenant Infrastructure
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<TenantAccessor>();
+builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
+builder.Services.AddScoped<ITenantFirmaContextFactory, TenantFirmaContextFactory>();
 
 // API Controllers
 builder.Services.AddControllers();
@@ -980,6 +987,9 @@ app.Use(async (context, next) =>
 });
 
 app.UseStatusCodePagesWithReExecute("/not-found");
+
+// Multi-tenant: her istekte subdomain'den tenant tespit et
+app.UseTenantResolution();
 
 app.UseAntiforgery();
 

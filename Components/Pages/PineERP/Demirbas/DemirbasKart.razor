@@ -43,15 +43,43 @@
                             <div class="group-box">
                                 <span class="group-box-title">Temel Bilgiler</span>
                                 <div class="form-row">
-                                    <div class="form-inline" style="flex:1;">
+                                    <div class="form-inline" style="flex:1; position:relative;">
                                         <label>Demirbas Kodu</label>
-                                        <input type="text" class="form-control" @bind="model.DmrKod" style="max-width:180px;" />
+                                        <input type="text" class="form-control"
+                                               @bind="model.DmrKod" @bind:event="oninput" @bind:after="KodDegisti"
+                                               @onblur="OnKodBlur" style="max-width:280px;" autocomplete="off" />
+                                        @if (kodArama.Count > 0)
+                                        {
+                                            <div class="stok-suggest">
+                                                @foreach (var s in kodArama)
+                                                {
+                                                    var sec = s;
+                                                    <div class="stok-suggest-item" @onmousedown="@(() => DemirbasSec(sec))">
+                                                        <b>@sec.DmrKod</b> - @sec.DmrIsim
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-inline" style="flex:1;">
+                                    <div class="form-inline" style="flex:1; position:relative;">
                                         <label>Isim</label>
-                                        <input type="text" class="form-control" @bind="model.DmrIsim" />
+                                        <input type="text" class="form-control"
+                                               @bind="model.DmrIsim" @bind:event="oninput" @bind:after="IsimDegisti"
+                                               @onblur="OnIsimBlur" autocomplete="off" />
+                                        @if (isimArama.Count > 0)
+                                        {
+                                            <div class="stok-suggest">
+                                                @foreach (var s in isimArama)
+                                                {
+                                                    var sec = s;
+                                                    <div class="stok-suggest-item" @onmousedown="@(() => DemirbasSec(sec))">
+                                                        <b>@sec.DmrKod</b> - @sec.DmrIsim
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                                 <div class="form-row">
@@ -217,16 +245,92 @@
     private DemirbasModel model = new();
     private List<HareketDto>? hareketler;
 
-    protected override async Task OnInitializedAsync()
+    // Autocomplete arama
+    private List<DemirbasAramaItem> kodArama = new();
+    private List<DemirbasAramaItem> isimArama = new();
+    private System.Threading.CancellationTokenSource? kodAramaCts;
+    private System.Threading.CancellationTokenSource? isimAramaCts;
+    private int _lastLoadedId = -1;
+
+    public class DemirbasAramaItem
     {
-        if (Id > 0)
+        public int Id { get; set; }
+        public string DmrKod { get; set; } = "";
+        public string DmrIsim { get; set; } = "";
+    }
+
+    private Task KodDegisti() => AramaYap(model.DmrKod ?? "", "kod");
+    private Task IsimDegisti() => AramaYap(model.DmrIsim ?? "", "isim");
+    private void OnKodBlur() => CloseSuggestions("kod");
+    private void OnIsimBlur() => CloseSuggestions("isim");
+
+    private async Task AramaYap(string q, string alan)
+    {
+        var cts = new System.Threading.CancellationTokenSource();
+        if (alan == "kod") { kodAramaCts?.Cancel(); kodAramaCts = cts; }
+        else { isimAramaCts?.Cancel(); isimAramaCts = cts; }
+        if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
         {
-            try
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+            return;
+        }
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<DemirbasAramaItem>>>(
+                $"/api/demirbas/ara?q={Uri.EscapeDataString(q)}&alan={alan}&limit=15", cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
+            var list = resp?.Data ?? new();
+            if (alan == "kod")
             {
-                var resp = await Http.GetFromJsonAsync<ApiResp<DemirbasModel>>($"/api/demirbas/kart/{Id}");
-                if (resp?.Data != null) model = resp.Data;
+                var tam = list.FirstOrDefault(d => string.Equals(d.DmrKod, q, StringComparison.OrdinalIgnoreCase));
+                var secilecek = tam ?? (list.Count == 1 ? list[0] : null);
+                if (secilecek != null) { kodArama.Clear(); StateHasChanged(); DemirbasSec(secilecek); return; }
+                kodArama = list;
             }
-            catch (Exception ex) { Console.WriteLine($"Demirbas kart yukleme hatasi: {ex.Message}"); }
+            else isimArama = list;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+        catch { }
+    }
+
+    private void CloseSuggestions(string alan)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Delay(150);
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+        });
+    }
+
+    private void DemirbasSec(DemirbasAramaItem d)
+    {
+        kodArama.Clear();
+        isimArama.Clear();
+        Nav.NavigateTo($"/pine/demirbas/kart/{d.Id}");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != _lastLoadedId)
+        {
+            _lastLoadedId = Id;
+            if (Id > 0)
+            {
+                try
+                {
+                    var resp = await Http.GetFromJsonAsync<ApiResp<DemirbasModel>>($"/api/demirbas/kart/{Id}");
+                    if (resp?.Data != null) model = resp.Data;
+                }
+                catch (Exception ex) { Console.WriteLine($"Demirbas kart yukleme hatasi: {ex.Message}"); }
+            }
+            else
+            {
+                model = new DemirbasModel();
+            }
         }
     }
 

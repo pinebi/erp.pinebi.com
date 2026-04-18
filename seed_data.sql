@@ -15,7 +15,7 @@ VALUES (@FirmaId, 'Enterprise', GETDATE(), DATEADD(YEAR, 1, GETDATE()), 10, 9999
 -- Admin
 IF NOT EXISTS (SELECT * FROM Kullanicilar WHERE KullaniciAdi = 'admin')
 INSERT INTO Kullanicilar (FirmaId, KullaniciAdi, Email, SifreHash, AdSoyad, Rol)
-VALUES (@FirmaId, 'admin', 'admin@pinebi.com', 'admin123', N'Sistem Yoneticisi', 'Admin');
+VALUES (@FirmaId, 'admin', 'admin@pinebi.com', 'admin', N'Sistem Yoneticisi', 'Admin');
 
 -- Demo
 IF NOT EXISTS (SELECT * FROM Kullanicilar WHERE KullaniciAdi = 'demo')

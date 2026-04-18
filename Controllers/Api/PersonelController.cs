@@ -35,6 +35,37 @@ public class PersonelController : BaseApiController
         return OkPaged(list, toplam, sayfa, sayfaBoyutu);
     }
 
+    [HttpGet("ara")]
+    public async Task<IActionResult> PersonelAra([FromQuery] string? q = null, [FromQuery] int limit = 15, [FromQuery] string? alan = null)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        var query = db.Personeller.AsNoTracking().Where(p => !p.RecGizli && !p.RecIptal);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var kapsam = (alan ?? "hepsi").ToLowerInvariant();
+            if (kapsam == "isim")
+                query = query.Where(p => p.PerAdsoyad != null && EF.Functions.Collate(p.PerAdsoyad, "Latin1_General_CI_AI").Contains(q));
+            else if (kapsam == "kod")
+                query = query.Where(p =>
+                    (p.PerKod != null && EF.Functions.Collate(p.PerKod, "Latin1_General_CI_AI").Contains(q)) ||
+                    (p.PerTcKimlik != null && p.PerTcKimlik.Contains(q)));
+            else
+                query = query.Where(p =>
+                    (p.PerKod != null && EF.Functions.Collate(p.PerKod, "Latin1_General_CI_AI").Contains(q)) ||
+                    (p.PerAdsoyad != null && EF.Functions.Collate(p.PerAdsoyad, "Latin1_General_CI_AI").Contains(q)) ||
+                    (p.PerTcKimlik != null && p.PerTcKimlik.Contains(q)));
+        }
+
+        var data = await query
+            .OrderBy(p => p.PerKod)
+            .Take(limit)
+            .Select(p => new { Id = p.Id, PerKod = p.PerKod ?? "", PerAdsoyad = p.PerAdsoyad ?? "" })
+            .ToListAsync();
+
+        return Ok(data);
+    }
+
     [HttpGet("kart/{id}")]
     public async Task<IActionResult> GetKart(int id)
     {

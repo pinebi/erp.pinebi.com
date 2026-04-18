@@ -65,15 +65,43 @@
                             <div class="group-box">
                                 <span class="group-box-title">Temel Bilgiler</span>
                                 <div class="form-row">
-                                    <div class="form-inline" style="flex:1;">
+                                    <div class="form-inline" style="flex:1; position:relative;">
                                         <label>Cari Kodu</label>
-                                        <input type="text" class="form-control" @bind="model.CarKod" style="max-width:180px;" />
+                                        <input type="text" class="form-control"
+                                               @bind="model.CarKod" @bind:event="oninput" @bind:after="KodDegisti"
+                                               @onblur="OnKodBlur" style="max-width:180px;" autocomplete="off" />
+                                        @if (kodArama.Count > 0)
+                                        {
+                                            <div class="stok-suggest">
+                                                @foreach (var s in kodArama)
+                                                {
+                                                    var sec = s;
+                                                    <div class="stok-suggest-item" @onmousedown="@(() => CariSec(sec))">
+                                                        <b>@sec.CarKod</b> - @sec.CarUnvan
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-inline" style="flex:1;">
+                                    <div class="form-inline" style="flex:1; position:relative;">
                                         <label>Unvan 1</label>
-                                        <input type="text" class="form-control" @bind="model.CarUnvan1" />
+                                        <input type="text" class="form-control"
+                                               @bind="model.CarUnvan1" @bind:event="oninput" @bind:after="IsimDegisti"
+                                               @onblur="OnIsimBlur" autocomplete="off" />
+                                        @if (isimArama.Count > 0)
+                                        {
+                                            <div class="stok-suggest">
+                                                @foreach (var s in isimArama)
+                                                {
+                                                    var sec = s;
+                                                    <div class="stok-suggest-item" @onmousedown="@(() => CariSec(sec))">
+                                                        <b>@sec.CarKod</b> - @sec.CarUnvan
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                                 <div class="form-row">
@@ -730,16 +758,108 @@
         ("Özel Kodlar + Notlar", 8)
     };
 
+    // Autocomplete arama
+    private List<CariAramaItem> kodArama = new();
+    private List<CariAramaItem> isimArama = new();
+    private System.Threading.CancellationTokenSource? kodAramaCts;
+    private System.Threading.CancellationTokenSource? isimAramaCts;
+    private int _lastLoadedId = -1;
+
+    public class CariAramaItem
+    {
+        public int Id { get; set; }
+        public string CarKod { get; set; } = "";
+        public string CarUnvan { get; set; } = "";
+        public string? CarVergiNo { get; set; }
+    }
+
+    private Task KodDegisti() => AramaYap(model.CarKod ?? "", "kod");
+    private Task IsimDegisti() => AramaYap(model.CarUnvan1 ?? "", "isim");
+    private void OnKodBlur() => CloseSuggestions("kod");
+    private void OnIsimBlur() => CloseSuggestions("isim");
+
+    private async Task AramaYap(string q, string alan)
+    {
+        var cts = new System.Threading.CancellationTokenSource();
+        if (alan == "kod") { kodAramaCts?.Cancel(); kodAramaCts = cts; }
+        else { isimAramaCts?.Cancel(); isimAramaCts = cts; }
+
+        if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+        {
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            var resp = await Http.GetFromJsonAsync<ApiResp<List<CariAramaItem>>>(
+                $"api/cari/ara?q={Uri.EscapeDataString(q)}&alan={alan}&limit=15", cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
+            var list = resp?.Data ?? new();
+
+            if (alan == "kod")
+            {
+                var tam = list.FirstOrDefault(c => string.Equals(c.CarKod, q, StringComparison.OrdinalIgnoreCase));
+                var secilecek = tam ?? (list.Count == 1 ? list[0] : null);
+                if (secilecek != null)
+                {
+                    kodArama.Clear();
+                    StateHasChanged();
+                    CariSec(secilecek);
+                    return;
+                }
+                kodArama = list;
+            }
+            else
+            {
+                isimArama = list;
+            }
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+        catch { }
+    }
+
+    private void CloseSuggestions(string alan)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Delay(150);
+            if (alan == "kod") kodArama.Clear(); else isimArama.Clear();
+            StateHasChanged();
+        });
+    }
+
+    private void CariSec(CariAramaItem c)
+    {
+        kodArama.Clear();
+        isimArama.Clear();
+        Nav.NavigateTo($"/pine/cari/kart/{c.Id}");
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await GruplariYukle();
         await IlleriYukle();
+    }
 
-        if (Id > 0)
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != _lastLoadedId)
         {
-            await HesapYukle();
-            // Il seciliyse ilceleri yukle
-            if (!string.IsNullOrEmpty(model.CarIl)) await IlceleriYukle(model.CarIl);
+            _lastLoadedId = Id;
+            if (Id > 0)
+            {
+                await HesapYukle();
+                if (!string.IsNullOrEmpty(model.CarIl)) await IlceleriYukle(model.CarIl);
+            }
+            else
+            {
+                model = new PineCariHesaplar();
+                adresler = null; yetkililer = null; gorusmeler = null;
+            }
         }
     }
 

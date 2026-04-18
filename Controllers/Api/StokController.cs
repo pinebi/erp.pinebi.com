@@ -90,10 +90,13 @@ public class StokController : BaseApiController
 
     /// <summary>
     /// Stok arama (Fatura formu icin). Kod, isim ve barkod'da arar.
-    /// GET api/stok/ara?q=sivri&limit=50
+    /// GET api/stok/ara?q=sivri&limit=50&alan=kod|isim|hepsi
+    /// alan=kod -> StoKod + StoBarkod1 + StokBarkodlari.SbkKodu
+    /// alan=isim -> sadece StoIsim
+    /// alan=hepsi (varsayilan) -> hepsi birden
     /// </summary>
     [HttpGet("ara")]
-    public async Task<IActionResult> StokAra([FromQuery] string? q = null, [FromQuery] int limit = 50)
+    public async Task<IActionResult> StokAra([FromQuery] string? q = null, [FromQuery] int limit = 50, [FromQuery] string? alan = null)
     {
         try
         {
@@ -105,10 +108,33 @@ public class StokController : BaseApiController
                 var arama = q.Replace("*", "").Trim();
                 if (!string.IsNullOrEmpty(arama))
                 {
-                    query = query.Where(s =>
-                        EF.Functions.Collate(s.StoKod, "Latin1_General_CI_AI").Contains(arama) ||
-                        EF.Functions.Collate(s.StoIsim, "Latin1_General_CI_AI").Contains(arama) ||
-                        (s.StoBarkod1 != null && s.StoBarkod1.Contains(arama)));
+                    var kapsam = (alan ?? "hepsi").ToLowerInvariant();
+                    if (kapsam == "isim")
+                    {
+                        query = query.Where(s =>
+                            EF.Functions.Collate(s.StoIsim, "Latin1_General_CI_AI").Contains(arama));
+                    }
+                    else if (kapsam == "kod")
+                    {
+                        var barkodStokKodlari = db.StokBarkodlari.AsNoTracking()
+                            .Where(b => !b.RecIptal && b.SbkKodu.Contains(arama))
+                            .Select(b => b.SbkStokKod);
+                        query = query.Where(s =>
+                            EF.Functions.Collate(s.StoKod, "Latin1_General_CI_AI").Contains(arama) ||
+                            (s.StoBarkod1 != null && s.StoBarkod1.Contains(arama)) ||
+                            barkodStokKodlari.Contains(s.StoKod));
+                    }
+                    else
+                    {
+                        var barkodStokKodlari = db.StokBarkodlari.AsNoTracking()
+                            .Where(b => !b.RecIptal && b.SbkKodu.Contains(arama))
+                            .Select(b => b.SbkStokKod);
+                        query = query.Where(s =>
+                            EF.Functions.Collate(s.StoKod, "Latin1_General_CI_AI").Contains(arama) ||
+                            EF.Functions.Collate(s.StoIsim, "Latin1_General_CI_AI").Contains(arama) ||
+                            (s.StoBarkod1 != null && s.StoBarkod1.Contains(arama)) ||
+                            barkodStokKodlari.Contains(s.StoKod));
+                    }
                 }
             }
 
@@ -117,6 +143,7 @@ public class StokController : BaseApiController
                 .Take(limit)
                 .Select(s => new
                 {
+                    Id = s.Id,
                     StoKod = s.StoKod,
                     StoIsim = s.StoIsim,
                     StoBirim = s.StoBirim1Ad ?? "AD",

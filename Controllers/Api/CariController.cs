@@ -69,7 +69,7 @@ public class CariController : BaseApiController
 
     /// <summary>Cari arama (Fatura formu icin)</summary>
     [HttpGet("ara")]
-    public async Task<IActionResult> CariAra([FromQuery] string? q = null, [FromQuery] int limit = 50)
+    public async Task<IActionResult> CariAra([FromQuery] string? q = null, [FromQuery] int limit = 50, [FromQuery] string? alan = null)
     {
         using var db = await _factory.CreateDbContextAsync();
         var query = db.CariHesaplar.AsNoTracking()
@@ -77,16 +77,31 @@ public class CariController : BaseApiController
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            query = query.Where(c =>
-                EF.Functions.Collate(c.CarKod, "Latin1_General_CI_AI").Contains(q) ||
-                (c.CarUnvan1 != null && EF.Functions.Collate(c.CarUnvan1, "Latin1_General_CI_AI").Contains(q)) ||
-                (c.CarVergiNo != null && c.CarVergiNo.Contains(q)));
+            var kapsam = (alan ?? "hepsi").ToLowerInvariant();
+            if (kapsam == "isim")
+            {
+                query = query.Where(c =>
+                    c.CarUnvan1 != null && EF.Functions.Collate(c.CarUnvan1, "Latin1_General_CI_AI").Contains(q));
+            }
+            else if (kapsam == "kod")
+            {
+                query = query.Where(c =>
+                    EF.Functions.Collate(c.CarKod, "Latin1_General_CI_AI").Contains(q) ||
+                    (c.CarVergiNo != null && c.CarVergiNo.Contains(q)));
+            }
+            else
+            {
+                query = query.Where(c =>
+                    EF.Functions.Collate(c.CarKod, "Latin1_General_CI_AI").Contains(q) ||
+                    (c.CarUnvan1 != null && EF.Functions.Collate(c.CarUnvan1, "Latin1_General_CI_AI").Contains(q)) ||
+                    (c.CarVergiNo != null && c.CarVergiNo.Contains(q)));
+            }
         }
 
         var data = await query
             .OrderBy(c => c.CarKod)
             .Take(limit)
-            .Select(c => new { CarKod = c.CarKod, CarUnvan = c.CarUnvan1 ?? "", CarVergiNo = c.CarVergiNo })
+            .Select(c => new { Id = c.Id, CarKod = c.CarKod, CarUnvan = c.CarUnvan1 ?? "", CarVergiNo = c.CarVergiNo })
             .ToListAsync();
 
         return Ok(data);
