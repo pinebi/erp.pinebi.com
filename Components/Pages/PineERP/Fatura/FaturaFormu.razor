@@ -101,6 +101,44 @@
                            style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
                 </div>
             </div>
+            <!-- Row 3: Mikro uyumlu ek alanlar -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr; gap:12px; margin-top:10px;">
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Nor/Iade</div>
+                    <select @bind="norIade" style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; background:white;">
+                        <option value="0">Normal</option>
+                        <option value="1">Iade</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Tic. Turu</div>
+                    <select @bind="ticaretTuru" style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; background:white;">
+                        <option value="0">Yurtici</option>
+                        <option value="1">Yurtdisi</option>
+                        <option value="2">Serbest Bolge</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Ith./Ihrc. Kodu</div>
+                    <input type="text" @bind="eximKodu" maxlength="25"
+                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
+                </div>
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Kapayan Hesap</div>
+                    <input type="text" @bind="kapayanHesapKodu" maxlength="25"
+                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
+                </div>
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Proje</div>
+                    <input type="text" @bind="projeKodu" maxlength="25"
+                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
+                </div>
+                <div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Sor. Merkezi</div>
+                    <input type="text" @bind="sorumlulukMerkezi" maxlength="25"
+                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
+                </div>
+            </div>
         </div>
 
         <!-- SATIRLAR GRID -->
@@ -486,6 +524,13 @@
     private string aciklama2 = "";
     private string aciklama3 = "";
 
+    // ===== Mikro uyumlu ek alanlar =====
+    private string eximKodu = "";
+    private string kapayanHesapKodu = "";
+    private int norIade = 0; // 0=Normal, 1=Iade
+    private int ticaretTuru = 0; // 0=Yurtici, 1=Yurtdisi
+    private bool kapali = false;
+
     // ===== STOK ARAMA MODAL =====
     private bool stokAramaModalAcik = false;
     private string stokAramaText = "";
@@ -571,6 +616,11 @@
                 ozelKod1 = f.FatOzelkod1 ?? "";
                 ozelKod2 = f.FatOzelkod2 ?? "";
                 ozelKod3 = f.FatOzelkod3 ?? "";
+                sorumlulukMerkezi = f.FatSorumlulukMerkezi ?? "";
+                eximKodu = f.FatEximKodu ?? "";
+                kapayanHesapKodu = f.FatKapayanHesapKodu ?? "";
+                norIade = f.FatNorIade;
+                ticaretTuru = f.FatTicaretTuru;
 
                 satirlar = (resp.Data.Satirlar ?? new()).Select(s => new FaturaSatirItem
                 {
@@ -814,6 +864,10 @@
                 FatOzelkod1 = ozelKod1,
                 FatOzelkod2 = ozelKod2,
                 FatOzelkod3 = ozelKod3,
+                FatEximKodu = eximKodu,
+                FatKapayanHesapKodu = kapayanHesapKodu,
+                FatNorIade = norIade,
+                FatTicaretTuru = ticaretTuru,
                 FatDurumu = "Acik"
             };
 
@@ -948,6 +1002,11 @@
         public int FatDepoNo { get; set; }
         public string? FatPlasiyerKodu { get; set; }
         public string? FatProjeKodu { get; set; }
+        public string? FatSorumlulukMerkezi { get; set; }
+        public string? FatEximKodu { get; set; }
+        public string? FatKapayanHesapKodu { get; set; }
+        public int FatNorIade { get; set; }
+        public int FatTicaretTuru { get; set; }
         public string? FatAciklama1 { get; set; }
         public string? FatAciklama2 { get; set; }
         public string? FatAciklama3 { get; set; }

@@ -89,6 +89,24 @@ public class PineFaturalar : BaseEntity
     [StringLength(25)]
     public string? FatSorumlulukMerkezi { get; set; }
 
+    /// <summary>Ithalat/Ihracat kodu (Mikro: EXIM)</summary>
+    [Column("fat_exim_kodu")]
+    [StringLength(25)]
+    public string? FatEximKodu { get; set; }
+
+    /// <summary>Kapayan hesap kodu (kasa/banka/ciro cari)</summary>
+    [Column("fat_kapayan_hesap_kodu")]
+    [StringLength(25)]
+    public string? FatKapayanHesapKodu { get; set; }
+
+    /// <summary>0=Normal, 1=Iade</summary>
+    [Column("fat_nor_iade")]
+    public int FatNorIade { get; set; }
+
+    /// <summary>Ticaret turu (0=Yurtici, 1=Yurtdisi vb)</summary>
+    [Column("fat_ticaret_turu")]
+    public int FatTicaretTuru { get; set; }
+
     // ── Totals (Doviz) ────────────────────────────────────
     [Column("fat_tutar")]
     public decimal FatTutar { get; set; }

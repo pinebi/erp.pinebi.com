@@ -13,13 +13,18 @@ public class PlatformTenantsController : ControllerBase
     private readonly IConfiguration _config;
     private readonly ILogger<PlatformTenantsController> _log;
     private readonly IConnectionStringProtector _protector;
+    private readonly IAuditLogger _audit;
 
-    public PlatformTenantsController(IConfiguration config, ILogger<PlatformTenantsController> log, IConnectionStringProtector protector)
+    public PlatformTenantsController(IConfiguration config, ILogger<PlatformTenantsController> log,
+        IConnectionStringProtector protector, IAuditLogger audit)
     {
         _config = config;
         _log = log;
         _protector = protector;
+        _audit = audit;
     }
+
+    private string? ClientIp => HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     private string MasterConn => _config.GetConnectionString("Master")
         ?? "Server=185.210.92.248;Database=Pinebi_Master;User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;";
@@ -123,6 +128,8 @@ VALUES (@id, @code, @name, @sub, @reg, @db, @tier, 'provisioning', @email, NULL)
         }
 
         _log.LogInformation("Tenant row created: {Id} / {Sub}. Starting provisioning...", tenantId, subdomain);
+        await _audit.LogAsync("tenant.created", new { tenantId, subdomain, dbName, tier = tierCode, region },
+            tenantId: tenantId, ipAddress: ClientIp);
 
         // Kick off provisioning (background)
         var sqlAdminConn = MasterConn.Replace("Database=Pinebi_Master", "Database=master");
@@ -158,6 +165,98 @@ VALUES (@id, @code, @name, @sub, @reg, @db, @tier, 'provisioning', @email, NULL)
         });
     }
 
+    [HttpPost("{id:guid}/suspend")]
+    public async Task<IActionResult> Suspend(Guid id, [FromBody] TenantActionDto? dto)
+    {
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "UPDATE tenants SET status='suspended', suspended_at=SYSUTCDATETIME() WHERE tenant_id=@id AND status <> 'deleted'", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        var n = await cmd.ExecuteNonQueryAsync();
+        if (n == 0) return NotFound();
+        await _audit.LogAsync("tenant.suspended", new { tenantId = id, reason = dto?.Reason }, tenantId: id, ipAddress: ClientIp);
+        return Ok(new { status = "suspended", suspendedAt = DateTime.UtcNow });
+    }
+
+    [HttpPost("{id:guid}/reactivate")]
+    public async Task<IActionResult> Reactivate(Guid id)
+    {
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand(
+            "UPDATE tenants SET status='active', suspended_at=NULL WHERE tenant_id=@id AND status='suspended'", conn);
+        cmd.Parameters.AddWithValue("@id", id);
+        var n = await cmd.ExecuteNonQueryAsync();
+        if (n == 0) return NotFound(new { error = "NOT_SUSPENDED_OR_NOT_FOUND" });
+        await _audit.LogAsync("tenant.reactivated", new { tenantId = id }, tenantId: id, ipAddress: ClientIp);
+        return Ok(new { status = "active" });
+    }
+
+    /// <summary>Soft delete: status=deleted, 30 gun sonra DROP DATABASE cronla yapilir</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool hard = false)
+    {
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+
+        // Tenant ve db adi oku
+        string? dbName = null;
+        string? subdomain = null;
+        await using (var q = new SqlCommand("SELECT db_name, subdomain FROM tenants WHERE tenant_id=@id", conn))
+        {
+            q.Parameters.AddWithValue("@id", id);
+            await using var rdr = await q.ExecuteReaderAsync();
+            if (!await rdr.ReadAsync()) return NotFound();
+            dbName = rdr.GetString(0);
+            subdomain = rdr.GetString(1);
+        }
+
+        await using (var upd = new SqlCommand(
+            "UPDATE tenants SET status='deleted', deleted_at=SYSUTCDATETIME() WHERE tenant_id=@id", conn))
+        {
+            upd.Parameters.AddWithValue("@id", id);
+            await upd.ExecuteNonQueryAsync();
+        }
+
+        if (hard)
+        {
+            var adminConn = MasterConn.Replace("Database=Pinebi_Master", "Database=master");
+            try
+            {
+                await using var mc = new SqlConnection(adminConn);
+                await mc.OpenAsync();
+
+                // Son yedek al
+                var bakPath = $"C:\\Temp\\deleted_{subdomain}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+                await using (var bk = new SqlCommand($"BACKUP DATABASE [{dbName}] TO DISK=N'{bakPath}' WITH INIT, COPY_ONLY, COMPRESSION", mc))
+                {
+                    bk.CommandTimeout = 120;
+                    await bk.ExecuteNonQueryAsync();
+                }
+
+                await using (var drop = new SqlCommand($"ALTER DATABASE [{dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{dbName}];", mc))
+                {
+                    drop.CommandTimeout = 60;
+                    await drop.ExecuteNonQueryAsync();
+                }
+
+                await _audit.LogAsync("tenant.hard_deleted", new { tenantId = id, dbName, backupPath = bakPath }, tenantId: id, ipAddress: ClientIp);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Hard delete failed for {Id}", id);
+                return StatusCode(500, new { error = "HARD_DELETE_FAILED", detail = ex.Message });
+            }
+        }
+        else
+        {
+            await _audit.LogAsync("tenant.soft_deleted", new { tenantId = id, dbName }, tenantId: id, ipAddress: ClientIp);
+        }
+
+        return Ok(new { status = "deleted", hard });
+    }
+
     [HttpPost("{id:guid}/api-key")]
     public async Task<IActionResult> CreateApiKey(Guid id, [FromBody] CreateApiKeyDto? dto)
     {
@@ -187,6 +286,9 @@ VALUES (@id, @p, @h, @d, @s)", conn);
         ins.Parameters.AddWithValue("@d", (object?)dto?.Description ?? DBNull.Value);
         ins.Parameters.AddWithValue("@s", dto?.Scopes ?? "read,write");
         await ins.ExecuteNonQueryAsync();
+
+        await _audit.LogAsync("apikey.created", new { tenantId = id, prefix, description = dto?.Description },
+            tenantId: id, ipAddress: ClientIp);
 
         return Ok(new { apiKey = fullKey, note = "Bu anahtari simdi kaydet, tekrar gosterilmez." });
     }
@@ -267,6 +369,7 @@ ELSE
             }
 
             _log.LogInformation("Tenant {Id} provisioned: {Db}", tenantId, dbName);
+            await _audit.LogAsync("tenant.provisioned", new { tenantId, dbName, subdomain }, tenantId: tenantId);
         }
         catch (Exception ex)
         {
@@ -316,4 +419,9 @@ public sealed class CreateApiKeyDto
 {
     public string? Description { get; set; }
     public string? Scopes { get; set; }
+}
+
+public sealed class TenantActionDto
+{
+    public string? Reason { get; set; }
 }

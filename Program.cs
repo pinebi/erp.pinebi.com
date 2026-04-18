@@ -24,6 +24,7 @@ builder.Services.AddDataProtection()
     .SetApplicationName("Pinebi.ERP");
 
 builder.Services.AddSingleton<IConnectionStringProtector, ConnectionStringProtector>();
+builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
 builder.Services.AddHostedService<ConnectionStringEncryptionStartupService>();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();

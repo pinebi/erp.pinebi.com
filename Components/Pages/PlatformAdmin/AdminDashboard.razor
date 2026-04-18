@@ -94,6 +94,18 @@
                         <td>
                             <a href="@($"https://{t.Subdomain}.pinebi.com")" target="_blank" class="btn-mini">Aç</a>
                             <button class="btn-mini" @onclick="() => ApiKeyUret(t.TenantId, t.Subdomain)">Key Uret</button>
+                            @if (t.Status == "active")
+                            {
+                                <button class="btn-mini" style="color:#b45309;border-color:#fde68a;" @onclick="() => Suspend(t.TenantId)">Dondur</button>
+                            }
+                            @if (t.Status == "suspended")
+                            {
+                                <button class="btn-mini" style="color:#166534;border-color:#bbf7d0;" @onclick="() => Reactivate(t.TenantId)">Aktif Et</button>
+                            }
+                            @if (t.Status != "deleted")
+                            {
+                                <button class="btn-mini" style="color:#991b1b;border-color:#fecaca;" @onclick="() => Sil(t.TenantId, t.Subdomain)">Sil</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -390,6 +402,28 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
             olusturuluyor = false;
             StateHasChanged();
         }
+    }
+
+    async Task Suspend(Guid tenantId)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        await http.PostAsync($"api/platform/tenants/{tenantId}/suspend", null);
+        await VerileriYukle();
+    }
+
+    async Task Reactivate(Guid tenantId)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        await http.PostAsync($"api/platform/tenants/{tenantId}/reactivate", null);
+        await VerileriYukle();
+    }
+
+    async Task Sil(Guid tenantId, string subdomain)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        // Soft delete - hard delete icin ?hard=true eklenebilir
+        await http.DeleteAsync($"api/platform/tenants/{tenantId}");
+        await VerileriYukle();
     }
 
     async Task ApiKeyUret(Guid tenantId, string subdomain)
