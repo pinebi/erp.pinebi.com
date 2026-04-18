@@ -13,20 +13,27 @@ builder.Services.AddRazorComponents()
 // MSSQL PineERP - Tek veritabani baglantisi
 var connStr = "Server=185.210.92.248;Database=PineERP;User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;Connection Timeout=30;Command Timeout=60;";
 
-builder.Services.AddDbContextFactory<FirmaContext>(options =>
-    options.UseSqlServer(connStr));
-
-builder.Services.AddDbContextFactory<NetworkContext>(options =>
-    options.UseSqlServer(connStr));
-
-// PineERP - Yeni profesyonel DB context
-builder.Services.AddDbContextFactory<PineErpContext>(options =>
-    options.UseSqlServer(connStr));
-
 // Multi-Tenant Infrastructure
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
+
+// Tenant-aware DbContext factories (IDbContextFactory<T> arayuzunu ezerler)
+builder.Services.AddScoped<IDbContextFactory<FirmaContext>>(sp =>
+    new TenantAwareDbContextFactory<FirmaContext>(
+        sp.GetRequiredService<TenantAccessor>(), connStr,
+        opts => new FirmaContext(opts)));
+
+builder.Services.AddScoped<IDbContextFactory<NetworkContext>>(sp =>
+    new TenantAwareDbContextFactory<NetworkContext>(
+        sp.GetRequiredService<TenantAccessor>(), connStr,
+        opts => new NetworkContext(opts)));
+
+builder.Services.AddScoped<IDbContextFactory<PineErpContext>>(sp =>
+    new TenantAwareDbContextFactory<PineErpContext>(
+        sp.GetRequiredService<TenantAccessor>(), connStr,
+        opts => new PineErpContext(opts)));
+
 builder.Services.AddScoped<ITenantFirmaContextFactory, TenantFirmaContextFactory>();
 
 // API Controllers

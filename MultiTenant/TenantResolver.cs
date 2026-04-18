@@ -39,7 +39,7 @@ public sealed class SubdomainTenantResolver : ITenantResolver
 SELECT TOP 1
     t.tenant_id, t.tenant_code, t.tenant_name, t.subdomain, t.db_name,
     t.region_id, t.status, t.locale, t.currency, t.logo_url, t.primary_color,
-    CAST(c.connection_string_encrypted AS NVARCHAR(2000)) AS connection_string
+    c.connection_string_encrypted AS connection_string
 FROM tenants t
 JOIN tenant_connections c ON c.tenant_id = t.tenant_id
 WHERE t.subdomain = @subdomain AND t.status <> 'deleted';";
