@@ -1,0 +1,269 @@
+@page "/pine/sistem/kullanicilar"
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Kullanicilar - PineERP</PageTitle>
+
+<div style="padding:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="color:#235881; margin:0;">
+            <i class="fa fa-users"></i> Kullanici Yonetimi
+        </h3>
+        <button class="btn-primary" @onclick="YeniAc"><i class="fa fa-plus"></i> Yeni Kullanici</button>
+    </div>
+
+    @if (mesaj != "")
+    {
+        <div class="alert @(mesajTip)">@mesaj</div>
+    }
+
+    @if (formAcik)
+    {
+        <div class="form-box">
+            <h4>@(formModel.Id == 0 ? "Yeni Kullanici" : "Kullanici Duzenle")</h4>
+            <div class="form-grid">
+                <div>
+                    <label>Kullanici Adi</label>
+                    <input @bind="formModel.KullaniciAdi" disabled="@(formModel.Id != 0)" />
+                </div>
+                <div>
+                    <label>Ad Soyad</label>
+                    <input @bind="formModel.AdSoyad" />
+                </div>
+                <div>
+                    <label>Email</label>
+                    <input @bind="formModel.Email" type="email" />
+                </div>
+                <div>
+                    <label>Telefon</label>
+                    <input @bind="formModel.Telefon" />
+                </div>
+                <div>
+                    <label>Rol</label>
+                    <select @bind="formModel.Rol">
+                        <option value="Admin">Admin</option>
+                        <option value="Yonetici">Yonetici</option>
+                        <option value="Kullanici">Kullanici</option>
+                        <option value="Okuyucu">Okuyucu</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Gorev</label>
+                    <input @bind="formModel.Gorevi" />
+                </div>
+                <div>
+                    <label>Sifre @(formModel.Id != 0 ? "(bos=degisme)" : "")</label>
+                    <input @bind="formModel.Sifre" type="password" />
+                </div>
+                <div>
+                    <label style="display:flex; align-items:center; gap:6px; margin-top:24px;">
+                        <input type="checkbox" @bind="formModel.Aktif" /> Aktif
+                    </label>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button class="btn-primary" @onclick="Kaydet" disabled="@kaydediliyor">@(kaydediliyor ? "Kaydediliyor..." : "Kaydet")</button>
+                <button class="btn-outline" @onclick="() => formAcik = false">Iptal</button>
+            </div>
+        </div>
+    }
+
+    <table class="kul-table">
+        <thead>
+            <tr>
+                <th>Kullanici</th>
+                <th>Ad Soyad</th>
+                <th>Email</th>
+                <th>Telefon</th>
+                <th>Rol</th>
+                <th>Gorev</th>
+                <th>Aktif</th>
+                <th>Son Giris</th>
+                <th>Aksiyon</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var k in kullanicilar)
+            {
+                <tr>
+                    <td><b>@k.KullaniciAdi</b></td>
+                    <td>@k.AdSoyad</td>
+                    <td>@k.Email</td>
+                    <td>@k.Telefon</td>
+                    <td><span class="rol">@k.Rol</span></td>
+                    <td>@k.Gorevi</td>
+                    <td>@(k.Aktif == true ? "Evet" : "Hayir")</td>
+                    <td>@(k.SonGirisTarihi?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                    <td>
+                        <button class="btn-mini" @onclick="() => Duzenle(k)">Duzenle</button>
+                        <button class="btn-mini" @onclick="() => SifreSifirlaAc(k.Id)">Sifre</button>
+                        @if (!string.Equals(k.KullaniciAdi, "admin", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <button class="btn-mini danger" @onclick="() => Sil(k.Id)">Sil</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (sifreSifirlaAcik)
+{
+    <div class="modal-overlay" @onclick="() => sifreSifirlaAcik = false">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <h4>Sifre Sifirla</h4>
+            <input @bind="yeniSifre" type="password" placeholder="Yeni sifre" />
+            <div style="margin-top:12px;">
+                <button class="btn-primary" @onclick="SifreSifirlaKaydet">Kaydet</button>
+                <button class="btn-outline" @onclick="() => sifreSifirlaAcik = false">Iptal</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .btn-primary { background:#235881; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+    .btn-outline { background:white; color:#235881; border:1px solid #235881; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; margin-left:6px; }
+    .btn-mini { background:#f1f5f9; color:#235881; border:1px solid #cbd5e1; padding:3px 8px; border-radius:3px; cursor:pointer; font-size:11px; margin-right:4px; }
+    .btn-mini.danger { color:#991b1b; border-color:#fecaca; }
+    .form-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:16px; margin-bottom:20px; }
+    .form-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+    .form-grid label { display:block; font-size:12px; color:#64748b; margin-bottom:3px; font-weight:600; }
+    .form-grid input, .form-grid select { width:100%; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; }
+    .kul-table { width:100%; border-collapse:collapse; font-size:13px; background:white; }
+    .kul-table th { background:#235881; color:white; padding:8px 10px; text-align:left; }
+    .kul-table td { padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+    .kul-table tr:hover { background:#f8fafc; }
+    .rol { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .alert { padding:10px 14px; border-radius:4px; margin:10px 0; font-size:13px; }
+    .alert-ok { background:#dcfce7; color:#166534; }
+    .alert-err { background:#fee2e2; color:#991b1b; }
+    .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:999; }
+    .modal-box { background:white; padding:24px; border-radius:8px; min-width:380px; box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+    .modal-box input { width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:4px; font-size:14px; }
+</style>
+
+@code {
+    List<KullaniciRow> kullanicilar = new();
+    bool formAcik = false;
+    bool kaydediliyor = false;
+    FormModel formModel = new();
+    string mesaj = "", mesajTip = "";
+
+    bool sifreSifirlaAcik = false;
+    int sifreSifirlaId = 0;
+    string yeniSifre = "";
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    async Task Yukle()
+    {
+        try
+        {
+            kullanicilar = await Http.GetFromJsonAsync<List<KullaniciRow>>("api/sistem/kullanicilar") ?? new();
+        }
+        catch (Exception ex) { Hata($"Yukleme: {ex.Message}"); }
+    }
+
+    void YeniAc()
+    {
+        formModel = new FormModel { Rol = "Kullanici", Aktif = true };
+        formAcik = true;
+        mesaj = "";
+    }
+
+    void Duzenle(KullaniciRow k)
+    {
+        formModel = new FormModel
+        {
+            Id = k.Id, KullaniciAdi = k.KullaniciAdi ?? "", AdSoyad = k.AdSoyad ?? "",
+            Email = k.Email ?? "", Telefon = k.Telefon ?? "", Rol = k.Rol ?? "Kullanici",
+            Gorevi = k.Gorevi ?? "", Aktif = k.Aktif ?? true, Sifre = ""
+        };
+        formAcik = true;
+        mesaj = "";
+    }
+
+    async Task Kaydet()
+    {
+        kaydediliyor = true;
+        try
+        {
+            HttpResponseMessage resp;
+            if (formModel.Id == 0)
+                resp = await Http.PostAsJsonAsync("api/sistem/kullanicilar", formModel);
+            else
+                resp = await Http.PutAsJsonAsync($"api/sistem/kullanicilar/{formModel.Id}", formModel);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                Basari(formModel.Id == 0 ? "Kullanici eklendi" : "Guncellendi");
+                formAcik = false;
+                await Yukle();
+            }
+            else
+            {
+                var b = await resp.Content.ReadAsStringAsync();
+                Hata($"{resp.StatusCode} - {b}");
+            }
+        }
+        catch (Exception ex) { Hata(ex.Message); }
+        finally { kaydediliyor = false; }
+    }
+
+    void SifreSifirlaAc(int id)
+    {
+        sifreSifirlaId = id;
+        yeniSifre = "";
+        sifreSifirlaAcik = true;
+    }
+
+    async Task SifreSifirlaKaydet()
+    {
+        if (string.IsNullOrWhiteSpace(yeniSifre)) { Hata("Sifre bos olamaz"); return; }
+        var resp = await Http.PostAsJsonAsync($"api/sistem/kullanicilar/{sifreSifirlaId}/sifre-sifirla",
+            new { YeniSifre = yeniSifre });
+        if (resp.IsSuccessStatusCode) { Basari("Sifre sifirlandi"); sifreSifirlaAcik = false; }
+        else Hata("Sifre sifirlanamadi");
+    }
+
+    async Task Sil(int id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Kullaniciyi pasif yapmak istediginden emin misin?")) return;
+        var resp = await Http.DeleteAsync($"api/sistem/kullanicilar/{id}");
+        if (resp.IsSuccessStatusCode) { Basari("Pasif yapildi"); await Yukle(); }
+        else Hata("Silinmedi");
+    }
+
+    void Basari(string m) { mesaj = m; mesajTip = "alert-ok"; }
+    void Hata(string m)   { mesaj = m; mesajTip = "alert-err"; }
+
+    record KullaniciRow
+    {
+        public int Id { get; init; }
+        public string? KullaniciAdi { get; init; }
+        public string? AdSoyad { get; init; }
+        public string? Email { get; init; }
+        public string? Telefon { get; init; }
+        public string? Rol { get; init; }
+        public string? Gorevi { get; init; }
+        public bool? Aktif { get; init; }
+        public DateTime? SonGirisTarihi { get; init; }
+    }
+
+    class FormModel
+    {
+        public int Id { get; set; }
+        public string KullaniciAdi { get; set; } = "";
+        public string AdSoyad { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Telefon { get; set; } = "";
+        public string Rol { get; set; } = "Kullanici";
+        public string Gorevi { get; set; } = "";
+        public bool Aktif { get; set; } = true;
+        public string Sifre { get; set; } = "";
+    }
+}
