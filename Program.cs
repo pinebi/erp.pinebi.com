@@ -25,6 +25,7 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddSingleton<IConnectionStringProtector, ConnectionStringProtector>();
 builder.Services.AddSingleton<IAuditLogger, AuditLogger>();
+builder.Services.AddScoped<IQuotaService, QuotaService>();
 builder.Services.AddHostedService<ConnectionStringEncryptionStartupService>();
 builder.Services.AddScoped<TenantAccessor>();
 builder.Services.AddScoped<ITenantResolver, SubdomainTenantResolver>();
@@ -1009,6 +1010,7 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 
 // Multi-tenant: her istekte subdomain'den tenant tespit et
 app.UseTenantResolution();
+app.UseQuotaEnforcement();
 
 app.UseAntiforgery();
 
