@@ -22,6 +22,54 @@ public class PlatformQuotaController : ControllerBase
     private string MasterConn => _config.GetConnectionString("Master")
         ?? "Server=185.210.92.248;Database=Pinebi_Master;User Id=EDonusum;Password=150399AA-DB5B-47D9-BF31-69EB984CB5DF;TrustServerCertificate=True;";
 
+    /// <summary>Son 30 gunluk platform trend verisi (audit event'lerden)</summary>
+    [HttpGet("trend")]
+    public async Task<IActionResult> Trend()
+    {
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+
+        // Son 30 gun icin gunluk event sayisi
+        var labels = new List<string>();
+        var tenantCreated = new List<int>();
+        var logins = new List<int>();
+        var invites = new List<int>();
+        var apiKeys = new List<int>();
+
+        await using var cmd = new SqlCommand(@"
+WITH days AS (
+    SELECT CAST(DATEADD(day, -n, GETDATE()) AS DATE) AS d
+    FROM (SELECT TOP 30 ROW_NUMBER() OVER(ORDER BY (SELECT 1))-1 AS n FROM sys.all_objects) x
+),
+agg AS (
+    SELECT CAST(occurred_at AS DATE) AS d, event_type, COUNT(*) AS c
+    FROM control_audit_events
+    WHERE occurred_at >= DATEADD(day, -30, GETDATE())
+    GROUP BY CAST(occurred_at AS DATE), event_type
+)
+SELECT d.d,
+    ISNULL(SUM(CASE WHEN a.event_type='tenant.created' THEN a.c END), 0) AS tc,
+    ISNULL(SUM(CASE WHEN a.event_type='platform.login' THEN a.c END), 0) AS lg,
+    ISNULL(SUM(CASE WHEN a.event_type='invite.created' THEN a.c END), 0) AS iv,
+    ISNULL(SUM(CASE WHEN a.event_type='apikey.created' THEN a.c END), 0) AS ak
+FROM days d
+LEFT JOIN agg a ON a.d = d.d
+GROUP BY d.d
+ORDER BY d.d", conn);
+
+        await using var rdr = await cmd.ExecuteReaderAsync();
+        while (await rdr.ReadAsync())
+        {
+            labels.Add(rdr.GetDateTime(0).ToString("dd/MM"));
+            tenantCreated.Add(rdr.GetInt32(1));
+            logins.Add(rdr.GetInt32(2));
+            invites.Add(rdr.GetInt32(3));
+            apiKeys.Add(rdr.GetInt32(4));
+        }
+
+        return Ok(new { labels, tenantCreated, logins, invites, apiKeys });
+    }
+
     /// <summary>Tum tenant'lar icin kullanim istatistikleri + tier limitleri</summary>
     [HttpGet]
     public async Task<IActionResult> All()

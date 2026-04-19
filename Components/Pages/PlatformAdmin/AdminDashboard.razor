@@ -24,6 +24,7 @@
         <button class="tab-btn @(aktif=="prov"?"active":"")"   @onclick='() => aktif="prov"'>Provisioning (@provisionJobs.Count)</button>
         <button class="tab-btn @(aktif=="audit"?"active":"")"  @onclick='() => aktif="audit"'>Audit (@auditEvents.Count)</button>
         <button class="tab-btn @(aktif=="quota"?"active":"")"  @onclick='() => aktif="quota"'>Kullanim/Quota</button>
+        <button class="tab-btn @(aktif=="trend"?"active":"")"  @onclick='() => aktif="trend"'>Trendler</button>
         <button class="tab-btn @(aktif=="backup"?"active":"")" @onclick='() => aktif="backup"'>Yedekler</button>
         <button class="tab-btn @(aktif=="changelog"?"active":"")" @onclick='() => aktif="changelog"'>Degisiklikler</button>
         <button class="tab-btn refresh" @onclick="VerileriYukle"><i class="fa fa-sync"></i> Yenile</button>
@@ -306,6 +307,82 @@
         }
     }
 
+    @if (aktif == "trend")
+    {
+        <h3>Son 30 Gun Trend</h3>
+        <p style="color:#64748b; font-size:12px;">Audit event'lerden gunluk olarak toplanan aktiviteler.</p>
+        @if (trendData == null)
+        {
+            <button class="btn-primary" @onclick="TrendYukle">Yukle</button>
+        }
+        else
+        {
+            <div class="trend-grid">
+                <div class="trend-card">
+                    <div class="trend-title">Yeni Tenant</div>
+                    <div class="trend-value">@trendData.TenantCreated.Sum()</div>
+                    <div class="spark">
+                        @foreach (var v in trendData.TenantCreated)
+                        {
+                            var h = trendData.TenantCreated.Max() == 0 ? 0 : (int)(v * 40.0 / Math.Max(1, trendData.TenantCreated.Max()));
+                            <div class="bar" style="height:@(h)px;" title="@v"></div>
+                        }
+                    </div>
+                </div>
+                <div class="trend-card">
+                    <div class="trend-title">Login</div>
+                    <div class="trend-value">@trendData.Logins.Sum()</div>
+                    <div class="spark">
+                        @foreach (var v in trendData.Logins)
+                        {
+                            var h = trendData.Logins.Max() == 0 ? 0 : (int)(v * 40.0 / Math.Max(1, trendData.Logins.Max()));
+                            <div class="bar" style="height:@(h)px; background:#0ea5e9;" title="@v"></div>
+                        }
+                    </div>
+                </div>
+                <div class="trend-card">
+                    <div class="trend-title">Davet</div>
+                    <div class="trend-value">@trendData.Invites.Sum()</div>
+                    <div class="spark">
+                        @foreach (var v in trendData.Invites)
+                        {
+                            var h = trendData.Invites.Max() == 0 ? 0 : (int)(v * 40.0 / Math.Max(1, trendData.Invites.Max()));
+                            <div class="bar" style="height:@(h)px; background:#a855f7;" title="@v"></div>
+                        }
+                    </div>
+                </div>
+                <div class="trend-card">
+                    <div class="trend-title">API Key</div>
+                    <div class="trend-value">@trendData.ApiKeys.Sum()</div>
+                    <div class="spark">
+                        @foreach (var v in trendData.ApiKeys)
+                        {
+                            var h = trendData.ApiKeys.Max() == 0 ? 0 : (int)(v * 40.0 / Math.Max(1, trendData.ApiKeys.Max()));
+                            <div class="bar" style="height:@(h)px; background:#f59e0b;" title="@v"></div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="margin-top:20px;">Gunluk Detay</h4>
+            <table class="admin-table">
+                <thead><tr><th>Gun</th><th>Tenant</th><th>Login</th><th>Davet</th><th>API Key</th></tr></thead>
+                <tbody>
+                    @for (int i = trendData.Labels.Count - 1; i >= 0; i--)
+                    {
+                        <tr>
+                            <td>@trendData.Labels[i]</td>
+                            <td>@trendData.TenantCreated[i]</td>
+                            <td>@trendData.Logins[i]</td>
+                            <td>@trendData.Invites[i]</td>
+                            <td>@trendData.ApiKeys[i]</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
     @if (aktif == "backup")
     {
         <div style="display:flex; justify-content:space-between; align-items:center; margin: 16px 0;">
@@ -415,6 +492,12 @@
     .badge-iptal, .badge-suresi_doldu { background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
     .tier-badge { background:#f1f5f9; color:#235881; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase; }
     .admin-table td.over { color:#991b1b; font-weight:700; }
+    .trend-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:14px; }
+    .trend-card { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:14px; }
+    .trend-title { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+    .trend-value { font-size:32px; font-weight:700; color:#235881; margin:4px 0; }
+    .spark { display:flex; align-items:flex-end; gap:2px; height:44px; }
+    .spark .bar { flex:1; background:#235881; min-height:2px; border-radius:2px 2px 0 0; }
 </style>
 
 @code {
@@ -425,6 +508,7 @@
     List<AuditRow> auditEvents = new();
     List<CommitRow> commits = new();
     List<QuotaRow>? quotaData = null;
+    TrendData? trendData = null;
     List<BackupFolder>? backupFolders = null;
     bool backupCalisiyor = false;
     BackupSonucu? backupSonucu = null;
@@ -752,6 +836,33 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
         using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
         await http.PostAsync("api/platform/auth/logout", null);
         Nav.NavigateTo("/platform/login", forceLoad: true);
+    }
+
+    record TrendData
+    {
+        public List<string> Labels { get; init; } = new();
+        public List<int> TenantCreated { get; init; } = new();
+        public List<int> Logins { get; init; } = new();
+        public List<int> Invites { get; init; } = new();
+        public List<int> ApiKeys { get; init; } = new();
+    }
+
+    async Task TrendYukle()
+    {
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var j = await http.GetFromJsonAsync<System.Text.Json.JsonElement>("api/platform/quota/trend");
+            trendData = new TrendData
+            {
+                Labels = j.GetProperty("labels").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
+                TenantCreated = j.GetProperty("tenantCreated").EnumerateArray().Select(x => x.GetInt32()).ToList(),
+                Logins = j.GetProperty("logins").EnumerateArray().Select(x => x.GetInt32()).ToList(),
+                Invites = j.GetProperty("invites").EnumerateArray().Select(x => x.GetInt32()).ToList(),
+                ApiKeys = j.GetProperty("apiKeys").EnumerateArray().Select(x => x.GetInt32()).ToList()
+            };
+        }
+        catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
     }
 
     async Task BackupYukle()
