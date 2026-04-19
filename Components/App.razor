@@ -21,6 +21,65 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="/js/pinebi-takvim.js?v=4"></script>
     <script>
+        // Genel fetch wrapper
+        window.pinebiFetchJson = async function (method, url, body) {
+            try {
+                const opts = { method, credentials: 'include', headers: { 'Content-Type': 'application/json' } };
+                if (body !== null && body !== undefined) opts.body = body;
+                const r = await fetch(url, opts);
+                if (!r.ok) { console.error('fetch', url, r.status); return null; }
+                const t = await r.text();
+                try { return JSON.parse(t); } catch { return null; }
+            } catch (e) { console.error(e); return null; }
+        };
+
+        // Panel KPI
+        window.pinebiPanelKpi = async function () {
+            try {
+                const r = await fetch('/api/mail-yardim/panel-kpi', { credentials: 'include' });
+                if (!r.ok) return { ok: false, hata: 'HTTP ' + r.status };
+                const j = await r.json();
+                return Object.assign({ ok: true }, j);
+            } catch (e) { return { ok: false, hata: e.message }; }
+        };
+
+        // Panel Chart.js
+        window.pinebiPanelChart = function (labels, values) {
+            if (typeof Chart === 'undefined') return;
+            const el = document.getElementById('ciroChart');
+            if (!el) return;
+            if (window._ciroCh) { window._ciroCh.destroy(); }
+            window._ciroCh = new Chart(el, {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Ciro', data: values, borderColor: '#235881', backgroundColor: 'rgba(35,88,129,0.1)', fill: true, tension: 0.3 }] },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        };
+
+        // AI Fatura oku (base64 gonder)
+        window.pinebiFaturaOku = async function (ad, mime, b64) {
+            try {
+                const bin = atob(b64); const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                const fd = new FormData();
+                fd.append('file', new Blob([arr], { type: mime }), ad);
+                const r = await fetch('/api/mail-yardim/fatura-oku', { method: 'POST', credentials: 'include', body: fd });
+                const t = await r.text();
+                if (!r.ok) return { hata: 'HTTP ' + r.status + ': ' + t.substring(0, 200) };
+                try { return JSON.parse(t); } catch { return { hata: 'Gecersiz cevap' }; }
+            } catch (e) { return { hata: e.message }; }
+        };
+
+        // Belge yukle
+        window.pinebiBelgeYukle = async function (ad, mime, b64, bagTip, bagId) {
+            const bin = atob(b64); const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            const fd = new FormData();
+            fd.append('file', new Blob([arr], { type: mime }), ad);
+            const qs = new URLSearchParams({ baglantiTip: bagTip || '', baglantiId: bagId || '' });
+            await fetch('/api/mail-yardim/belge?' + qs, { method: 'POST', credentials: 'include', body: fd });
+        };
+
         window.pinebiMailAI = async function (metin, konu, aksiyon) {
             try {
                 var r = await fetch('/api/mail-yardim/metin-iyilestir', {

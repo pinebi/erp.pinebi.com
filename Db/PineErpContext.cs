@@ -13,6 +13,7 @@ using MACHINEBISS_Web.Models.PineERP.Tanimlar;
 using MACHINEBISS_Web.Models.PineERP.Sistem;
 using MACHINEBISS_Web.Models.PineERP.Takvim;
 using MACHINEBISS_Web.Models.PineERP.Mail;
+using MACHINEBISS_Web.Models.PineERP.Ai;
 
 namespace MACHINEBISS_Web.Db;
 
@@ -31,6 +32,13 @@ public class PineErpContext : DbContext
     // ===== MAIL (2) =====
     public DbSet<PineMailAccount> MailAccounts { get; set; } = null!;
     public DbSet<PineMailDraft> MailDrafts { get; set; } = null!;
+
+    // ===== AI SUITE + DMS + ROLLER (5) =====
+    public DbSet<PineDocument> Documents { get; set; } = null!;
+    public DbSet<PineRole> Roles { get; set; } = null!;
+    public DbSet<PineStokTahmin> StokTahmin { get; set; } = null!;
+    public DbSet<PineAiLog> AiLog { get; set; } = null!;
+    public DbSet<PineBildirim> Bildirimler { get; set; } = null!;
 
     // ===== STOK (14) =====
     public DbSet<PineStoklar> Stoklar { get; set; }

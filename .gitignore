@@ -10,3 +10,6 @@ tasks/
 *.log
 Logs/
 logs/
+
+# Local appsettings with real API keys
+appsettings.LOCAL.json.bak

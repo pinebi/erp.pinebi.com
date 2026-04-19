@@ -17,6 +17,8 @@ var connStr = "Server=185.210.92.248;Database=PineERP;User Id=EDonusum;Password=
 // Multi-Tenant Infrastructure
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<MACHINEBISS_Web.MultiTenant.INotifier, MACHINEBISS_Web.MultiTenant.NotifierService>();
 
 // DataProtection - connection string sifreleme
 // Key ring sunucu disk'inde saklanir, IIS process'leri paylasir
@@ -1026,6 +1028,7 @@ app.UseAntiforgery();
 
 // API endpoints
 app.MapControllers();
+app.MapHub<MACHINEBISS_Web.MultiTenant.NotificationHub>("/hubs/notification");
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

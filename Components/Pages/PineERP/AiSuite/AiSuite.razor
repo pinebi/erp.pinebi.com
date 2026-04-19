@@ -1,0 +1,279 @@
+@page "/pine/ai"
+@layout MACHINEBISS_Web.Components.Layout.PineLayout
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<PageTitle>AI Asistan - Pinebi</PageTitle>
+
+<div class="ai-wrap">
+    <div class="ai-tabs">
+        <button class="at @(tab=="fatura"?"active":"")" @onclick='() => tab="fatura"'>📄 Fatura Oku</button>
+        <button class="at @(tab=="cari"?"active":"")" @onclick='() => tab="cari"'>👤 Cari 360</button>
+        <button class="at @(tab=="stok"?"active":"")" @onclick='() => tab="stok"'>📦 Stok Tahmin</button>
+        <button class="at @(tab=="belge"?"active":"")" @onclick='() => tab="belge"'>📎 Belgeler</button>
+        <button class="at @(tab=="rol"?"active":"")" @onclick='() => tab="rol"'>🔐 Roller</button>
+    </div>
+
+    @if (tab == "fatura")
+    {
+        <div class="ai-box">
+            <h3>📄 AI Fatura Okuma</h3>
+            <p class="hint">PDF, JPG veya PNG fatura/irsaliye yukle. Gemini Vision otomatik alanlari cikarir.</p>
+            <InputFile OnChange="FaturaYukle" class="file-in" accept="image/*,application/pdf" />
+            @if (faturaYukleniyor) { <div class="hint">Okunuyor... (~15 sn)</div> }
+            @if (faturaSonuc != null)
+            {
+                <h4>Cikarilan Bilgiler</h4>
+                <pre class="json">@faturaSonuc</pre>
+                <button class="btn-p" @onclick="FaturaKabulEt">Mikro'ya Kaydet (yakinda)</button>
+            }
+        </div>
+    }
+    else if (tab == "cari")
+    {
+        <div class="ai-box">
+            <h3>👤 Cari 360 AI Analiz</h3>
+            <div class="row">
+                <input @bind="cariKod" placeholder="Cari kodu girin (orn: 320.02.00091)" />
+                <button class="btn-p" @onclick="CariAnaliz" disabled="@cariYukleniyor">@(cariYukleniyor ? "Analiz ediliyor..." : "Analiz Et")</button>
+            </div>
+            @if (cariData != null)
+            {
+                <div class="cari-grid">
+                    <div class="cari-card">
+                        <b>@cariData.cari?.CarKod · @cariData.cari?.CarUnvan1</b>
+                        <div class="cari-meta">
+                            <div>Vergi: <code>@cariData.cari?.CarVergiNo</code></div>
+                            <div>Tel: @cariData.cari?.CarTel1</div>
+                            <div>Email: @cariData.cari?.CarEmail</div>
+                        </div>
+                    </div>
+                    <div class="cari-card">
+                        <b>Ozet</b>
+                        <div class="cari-meta">
+                            <div>Toplam Ciro: <b>@cariData.ozet?.toplamCiro.ToString("N0") TL</b></div>
+                            <div>Fatura Adedi: @cariData.ozet?.faturaAdedi</div>
+                            <div>Ortalama Siklik: @cariData.ozet?.ortalamaSiklikGun gun</div>
+                            <div>Son Islem: @cariData.ozet?.sonTarih?.ToString("dd.MM.yyyy")</div>
+                        </div>
+                    </div>
+                    @if (cariData.ai != null && !string.IsNullOrEmpty(cariData.ai.ozet))
+                    {
+                        <div class="cari-card ai-card">
+                            <b>✨ AI Analizi</b>
+                            <p>@cariData.ai.ozet</p>
+                            <div class="risk risk-@cariData.ai.risk">Risk: <b>@cariData.ai.risk?.ToUpper()</b></div>
+                            @if (!string.IsNullOrEmpty(cariData.ai.mailTaslak))
+                            {
+                                <h5>Onerilen Mail Taslagi</h5>
+                                <pre class="mail-taslak">@cariData.ai.mailTaslak</pre>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (tab == "stok")
+    {
+        <div class="ai-box">
+            <h3>📦 Stok Tahmin</h3>
+            <button class="btn-p" @onclick="StokHesapla" disabled="@stokYukleniyor">@(stokYukleniyor ? "Hesaplaniyor..." : "Hesapla / Yenile")</button>
+            <button class="btn-s" @onclick="StokListele">Sadece Listele</button>
+            @if (stokUyari != null && stokUyari.Count > 0)
+            {
+                <table class="t-tbl">
+                    <thead><tr><th>Kod</th><th>Gunluk</th><th>Mevcut</th><th>Kalan Gun</th><th>Oneri</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in stokUyari.OrderBy(x => x.kalanGun))
+                        {
+                            <tr class="@(s.kalanGun <= 3 ? "kritik" : s.kalanGun <= 7 ? "acil" : "")">
+                                <td><code>@s.stokKod</code></td>
+                                <td>@s.gunlukHareket.ToString("N2")</td>
+                                <td>@s.mevcutStok.ToString("N0")</td>
+                                <td><b>@s.kalanGun</b></td>
+                                <td>@s.oneri</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+    else if (tab == "belge")
+    {
+        <div class="ai-box">
+            <h3>📎 Belge Yonetimi</h3>
+            <div class="row">
+                <input @bind="belgeBagTip" placeholder="Baglanti tip (cari/fatura/stok)" />
+                <input @bind="belgeBagId" placeholder="Baglanti ID" />
+                <button class="btn-s" @onclick="BelgeYenile">Listele</button>
+            </div>
+            <InputFile OnChange="BelgeYukle" class="file-in" />
+            @if (belgeler != null)
+            {
+                <table class="t-tbl">
+                    <thead><tr><th>Ad</th><th>Boyut</th><th>Baglanti</th><th>Tarih</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var b in belgeler)
+                        {
+                            <tr>
+                                <td>@b.ad</td>
+                                <td>@((b.boyut / 1024.0).ToString("N1")) KB</td>
+                                <td>@b.baglantiTip / @b.baglantiId</td>
+                                <td>@b.olusturulma.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><a href="/api/mail-yardim/belge/@b.documentId" target="_blank">Indir</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+    else if (tab == "rol")
+    {
+        <div class="ai-box">
+            <h3>🔐 Rol & Yetki</h3>
+            <table class="t-tbl">
+                <thead><tr><th>Rol</th><th>Aciklama</th><th>Yetki JSON</th></tr></thead>
+                <tbody>
+                    @if (roller != null) { @foreach (var r in roller) {
+                        <tr>
+                            <td><b>@r.ad</b></td>
+                            <td>@r.aciklama</td>
+                            <td><code class="j">@r.yetkiJson</code></td>
+                        </tr>
+                    } }
+                </tbody>
+            </table>
+            <p class="hint">Rol atamak icin: <code>POST /api/mail-yardim/rol-atama</code> body: <code>{"KullaniciAdi":"x","RoleAdi":"muhasebeci"}</code></p>
+        </div>
+    }
+</div>
+
+<style>
+    .ai-wrap { padding:18px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f8fafc; min-height:calc(100vh - 60px); }
+    .ai-tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+    .at { background:white; border:1px solid #e2e8f0; padding:9px 16px; border-radius:10px; cursor:pointer; font-size:13px; color:#64748b; }
+    .at.active { background:#235881; color:white; border-color:#235881; }
+    .ai-box { background:white; border-radius:14px; padding:22px; box-shadow:0 2px 12px rgba(15,23,42,0.06); }
+    .ai-box h3 { margin:0 0 12px; color:#235881; }
+    .hint { color:#94a3b8; font-size:13px; margin:6px 0; }
+    .file-in { margin:12px 0; padding:10px; background:#f1f5f9; border-radius:8px; width:100%; box-sizing:border-box; }
+    .row { display:flex; gap:8px; margin:12px 0; }
+    .row input { flex:1; padding:9px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; }
+    .btn-p, .btn-s { padding:9px 18px; border-radius:8px; border:none; cursor:pointer; font-size:14px; font-weight:500; }
+    .btn-p { background:#235881; color:white; } .btn-p:hover:not(:disabled) { background:#1d486a; }
+    .btn-s { background:#f1f5f9; color:#334155; }
+    .json { background:#1e293b; color:#e2e8f0; padding:14px; border-radius:10px; font-size:11px; max-height:360px; overflow:auto; }
+    .t-tbl { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; }
+    .t-tbl th { text-align:left; padding:8px 10px; background:#f8fafc; border-bottom:2px solid #e2e8f0; color:#64748b; font-weight:500; font-size:12px; text-transform:uppercase; }
+    .t-tbl td { padding:9px 10px; border-bottom:1px solid #f1f5f9; color:#334155; }
+    .t-tbl tr.kritik { background:#fee2e2; } .t-tbl tr.acil { background:#fef3c7; }
+    .t-tbl code { background:#f1f5f9; padding:1px 6px; border-radius:4px; font-size:11px; }
+    .cari-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px; }
+    .cari-card { background:#f8fafc; border-radius:12px; padding:16px; border:1px solid #e2e8f0; }
+    .cari-card.ai-card { background:linear-gradient(135deg, #ede9fe, #ddd6fe); border-color:#a78bfa; }
+    .cari-meta { font-size:12px; color:#475569; margin-top:8px; line-height:1.8; }
+    .risk { display:inline-block; margin-top:8px; padding:3px 10px; border-radius:12px; font-size:12px; }
+    .risk.risk-dusuk { background:#dcfce7; color:#166534; }
+    .risk.risk-orta { background:#fef3c7; color:#92400e; }
+    .risk.risk-yuksek { background:#fee2e2; color:#991b1b; }
+    .mail-taslak { background:white; padding:10px; border-radius:8px; font-size:12px; color:#334155; white-space:pre-wrap; border:1px dashed #a78bfa; }
+    .j { font-size:11px; max-width:400px; display:inline-block; word-break:break-all; }
+</style>
+
+@code {
+    string tab = "fatura";
+    // Fatura
+    string? faturaSonuc;
+    bool faturaYukleniyor = false;
+    // Cari
+    string cariKod = "";
+    CariResp? cariData;
+    bool cariYukleniyor = false;
+    // Stok
+    List<StokUyari>? stokUyari;
+    bool stokYukleniyor = false;
+    // Belge
+    List<Belge>? belgeler;
+    string belgeBagTip = "", belgeBagId = "";
+    // Rol
+    List<Rol>? roller;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) { roller = await JS.InvokeAsync<List<Rol>>("pinebiFetchJson", "GET", "/api/mail-yardim/roller", null); StateHasChanged(); }
+    }
+
+    async Task FaturaYukle(InputFileChangeEventArgs e)
+    {
+        faturaSonuc = null; faturaYukleniyor = true; StateHasChanged();
+        try
+        {
+            var file = e.File;
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(30_000_000).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            var b64 = Convert.ToBase64String(bytes);
+            var res = await JS.InvokeAsync<FaturaResp>("pinebiFaturaOku", file.Name, file.ContentType, b64);
+            faturaSonuc = res?.ham ?? res?.hata ?? "Okunamadi";
+        }
+        catch (Exception ex) { faturaSonuc = "Hata: " + ex.Message; }
+        faturaYukleniyor = false; StateHasChanged();
+    }
+
+    void FaturaKabulEt() { /* TODO: Mikro'ya kaydet */ }
+
+    async Task CariAnaliz()
+    {
+        if (string.IsNullOrWhiteSpace(cariKod)) return;
+        cariYukleniyor = true; cariData = null; StateHasChanged();
+        try { cariData = await JS.InvokeAsync<CariResp>("pinebiFetchJson", "GET", $"/api/mail-yardim/cari-360/{Uri.EscapeDataString(cariKod)}", null); }
+        catch (Exception ex) { cariData = new CariResp { ai = new AiOz { ozet = "Hata: " + ex.Message } }; }
+        cariYukleniyor = false; StateHasChanged();
+    }
+
+    async Task StokHesapla()
+    {
+        stokYukleniyor = true; StateHasChanged();
+        try { var r = await JS.InvokeAsync<StokHesapResp>("pinebiFetchJson", "POST", "/api/mail-yardim/stok-tahmin/hesapla", "{}"); stokUyari = r?.uyarilar ?? new(); }
+        catch { }
+        stokYukleniyor = false; StateHasChanged();
+    }
+
+    async Task StokListele()
+    {
+        var items = await JS.InvokeAsync<List<StokTahminRow>>("pinebiFetchJson", "GET", "/api/mail-yardim/stok-tahmin", null);
+        stokUyari = items?.Select(x => new StokUyari { stokKod = x.stokKod, gunlukHareket = x.gunlukHareket, mevcutStok = 0, kalanGun = x.kalanGun, oneri = x.oneri ?? "" }).ToList() ?? new();
+        StateHasChanged();
+    }
+
+    async Task BelgeYenile()
+    {
+        var url = $"/api/mail-yardim/belgeler?baglantiTip={Uri.EscapeDataString(belgeBagTip)}&baglantiId={Uri.EscapeDataString(belgeBagId)}";
+        belgeler = await JS.InvokeAsync<List<Belge>>("pinebiFetchJson", "GET", url, null);
+        StateHasChanged();
+    }
+
+    async Task BelgeYukle(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(50_000_000).CopyToAsync(ms);
+        var b64 = Convert.ToBase64String(ms.ToArray());
+        await JS.InvokeVoidAsync("pinebiBelgeYukle", file.Name, file.ContentType, b64, belgeBagTip, belgeBagId);
+        await BelgeYenile();
+    }
+
+    public class FaturaResp { public string? ham { get; set; } public string? hata { get; set; } }
+    public class CariResp { public CariIn? cari { get; set; } public OzetIn? ozet { get; set; } public AiOz? ai { get; set; } }
+    public class CariIn { public string? CarKod { get; set; } public string? CarUnvan1 { get; set; } public string? CarVergiNo { get; set; } public string? CarTel1 { get; set; } public string? CarEmail { get; set; } }
+    public class OzetIn { public decimal toplamCiro { get; set; } public int faturaAdedi { get; set; } public DateTime? sonTarih { get; set; } public int ortalamaSiklikGun { get; set; } }
+    public class AiOz { public string? ozet { get; set; } public string? risk { get; set; } public string? riskNeden { get; set; } public string? mailTaslak { get; set; } }
+    public class StokHesapResp { public List<StokUyari>? uyarilar { get; set; } }
+    public class StokUyari { public string stokKod { get; set; } = ""; public decimal gunlukHareket { get; set; } public decimal mevcutStok { get; set; } public int kalanGun { get; set; } public string oneri { get; set; } = ""; }
+    public class StokTahminRow { public string stokKod { get; set; } = ""; public decimal gunlukHareket { get; set; } public int kalanGun { get; set; } public string? oneri { get; set; } }
+    public class Belge { public Guid documentId { get; set; } public string ad { get; set; } = ""; public long boyut { get; set; } public string? baglantiTip { get; set; } public string? baglantiId { get; set; } public DateTime olusturulma { get; set; } }
+    public class Rol { public string ad { get; set; } = ""; public string? aciklama { get; set; } public string? yetkiJson { get; set; } }
+}

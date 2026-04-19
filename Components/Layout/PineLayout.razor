@@ -139,6 +139,20 @@ else
     {
         var groups = new List<MenuGroup>
         {
+            new("panel", "Panel", "fa-chart-line", new()
+            {
+                new("pine-panel", "Dashboard", "/pine/panel", "fa-chart-line", true),
+            }),
+
+            new("ai", "AI Asistan", "fa-robot", new()
+            {
+                new("pine-ai-fatura", "Fatura Oku (AI)", "/pine/ai", "fa-file-invoice", true),
+                new("pine-ai-cari", "Cari 360 (AI)", "/pine/ai", "fa-user-chart"),
+                new("pine-ai-stok", "Stok Tahmin (AI)", "/pine/ai", "fa-chart-bar"),
+                new("pine-ai-belge", "Belge Yonetimi", "/pine/ai", "fa-folder-open"),
+                new("pine-ai-rol", "Rol/Yetki", "/pine/ai", "fa-shield-alt"),
+            }),
+
             new("takvim", "Takvim", "fa-calendar-alt", new()
             {
                 new("pine-takvim", "Takvim & Toplantilar", "/pine/takvim", "fa-calendar-alt", true),

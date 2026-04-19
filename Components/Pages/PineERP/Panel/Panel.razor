@@ -1,0 +1,148 @@
+@page "/pine/panel"
+@layout MACHINEBISS_Web.Components.Layout.PineLayout
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Panel - Pinebi</PageTitle>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<div class="pnl">
+    <div class="pnl-head">
+        <h2>Panel</h2>
+        <button class="pnl-btn" @onclick="Yenile"><i class="fa fa-redo"></i> Yenile</button>
+    </div>
+
+    @if (loading) { <div class="pnl-loading">Yukleniyor...</div> }
+    else if (hata != "") { <div class="pnl-err">@hata</div> }
+    else
+    {
+        <div class="pnl-kpi">
+            <div class="pnl-card">
+                <div class="pnl-lbl">Bugun Ciro</div>
+                <div class="pnl-val">@TLFormat(bugunCiro)</div>
+            </div>
+            <div class="pnl-card">
+                <div class="pnl-lbl">Bu Ay Ciro</div>
+                <div class="pnl-val">@TLFormat(ayCiro)</div>
+                <div class="pnl-delta @(degisimYuzde >= 0 ? "plus" : "minus")">
+                    @(degisimYuzde >= 0 ? "▲" : "▼") @degisimYuzde.ToString("F1")% gecen ay
+                </div>
+            </div>
+            <div class="pnl-card">
+                <div class="pnl-lbl">Stok Kalemi</div>
+                <div class="pnl-val">@stokSayisi.ToString("N0")</div>
+            </div>
+            <div class="pnl-card">
+                <div class="pnl-lbl">Cari Sayisi</div>
+                <div class="pnl-val">@cariSayisi.ToString("N0")</div>
+            </div>
+            <div class="pnl-card pnl-kritik">
+                <div class="pnl-lbl">Kritik Stok</div>
+                <div class="pnl-val">@kritikStok</div>
+                <div class="pnl-delta">7 gun icinde biter</div>
+            </div>
+        </div>
+
+        <div class="pnl-row">
+            <div class="pnl-box">
+                <h3>Son 30 Gun Ciro</h3>
+                <canvas id="ciroChart" style="max-height:260px;"></canvas>
+            </div>
+            <div class="pnl-box">
+                <h3>Son 3 Ay Top 10 Cari</h3>
+                <table class="pnl-tbl">
+                    <thead><tr><th>Cari</th><th>Adet</th><th>Ciro</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in topCari)
+                        {
+                            <tr>
+                                <td><code>@c.cariKod</code><br/><small>@c.unvan</small></td>
+                                <td>@c.adet</td>
+                                <td>@TLFormat(c.ciro)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .pnl { padding:18px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f8fafc; min-height:calc(100vh - 60px); }
+    .pnl-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .pnl-head h2 { margin:0; color:#235881; font-size:20px; }
+    .pnl-btn { background:white; border:1px solid #e2e8f0; padding:7px 14px; border-radius:8px; cursor:pointer; color:#235881; font-size:13px; }
+    .pnl-loading, .pnl-err { padding:30px; text-align:center; color:#94a3b8; }
+    .pnl-err { background:#fee2e2; color:#991b1b; border-radius:10px; }
+
+    .pnl-kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:18px; }
+    .pnl-card { background:white; border-radius:14px; padding:18px; box-shadow:0 2px 12px rgba(15,23,42,0.06); }
+    .pnl-lbl { font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.6px; font-weight:600; }
+    .pnl-val { font-size:24px; font-weight:700; color:#0f172a; margin-top:6px; }
+    .pnl-delta { font-size:11px; margin-top:6px; color:#94a3b8; }
+    .pnl-delta.plus { color:#16a34a; } .pnl-delta.minus { color:#dc2626; }
+    .pnl-card.pnl-kritik { background:linear-gradient(135deg, #fef3c7, #fde68a); }
+    .pnl-card.pnl-kritik .pnl-val { color:#b45309; }
+
+    .pnl-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
+    @@media (max-width: 900px) { .pnl-row { grid-template-columns:1fr; } }
+    .pnl-box { background:white; border-radius:14px; padding:18px; box-shadow:0 2px 12px rgba(15,23,42,0.06); }
+    .pnl-box h3 { margin:0 0 12px; color:#235881; font-size:14px; font-weight:600; }
+    .pnl-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+    .pnl-tbl th { text-align:left; padding:6px 8px; border-bottom:1px solid #f1f5f9; color:#64748b; font-weight:500; }
+    .pnl-tbl td { padding:8px; border-bottom:1px solid #f8fafc; color:#334155; }
+    .pnl-tbl code { background:#f1f5f9; padding:1px 6px; border-radius:4px; font-size:11px; color:#235881; }
+</style>
+
+@code {
+    bool loading = true;
+    string hata = "";
+    decimal bugunCiro = 0, ayCiro = 0;
+    double degisimYuzde = 0;
+    int stokSayisi = 0, cariSayisi = 0, kritikStok = 0;
+    List<TopCari> topCari = new();
+    List<CiroGunluk> ciroGrafik = new();
+
+    public class TopCari { public string cariKod { get; set; } = ""; public string unvan { get; set; } = ""; public decimal ciro { get; set; } public int adet { get; set; } }
+    public class CiroGunluk { public DateTime Key { get; set; } public decimal t { get; set; } }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await Yenile();
+    }
+
+    async Task Yenile()
+    {
+        loading = true; hata = ""; StateHasChanged();
+        try
+        {
+            var data = await JS.InvokeAsync<KpiResponse>("pinebiPanelKpi");
+            if (data?.ok != true) { hata = data?.hata ?? "Veri alinamadi"; loading = false; StateHasChanged(); return; }
+            bugunCiro = data.bugunCiro; ayCiro = data.ayCiro;
+            degisimYuzde = data.degisimYuzde;
+            stokSayisi = data.stokSayisi; cariSayisi = data.cariSayisi; kritikStok = data.kritikStok;
+            topCari = data.topCari ?? new();
+            ciroGrafik = data.ciroGrafik ?? new();
+            loading = false;
+            StateHasChanged();
+            await Task.Delay(100);
+            await JS.InvokeVoidAsync("pinebiPanelChart", ciroGrafik.Select(x => x.Key.ToString("dd.MM")).ToArray(), ciroGrafik.Select(x => (double)x.t).ToArray());
+        }
+        catch (Exception ex) { hata = ex.Message; loading = false; StateHasChanged(); }
+    }
+
+    public class KpiResponse
+    {
+        public bool ok { get; set; } public string? hata { get; set; }
+        public decimal bugunCiro { get; set; } public decimal ayCiro { get; set; } public decimal gecenAyCiro { get; set; }
+        public double degisimYuzde { get; set; }
+        public int stokSayisi { get; set; } public int cariSayisi { get; set; } public int kritikStok { get; set; }
+        public List<CiroGunluk>? ciroGrafik { get; set; }
+        public List<TopCari>? topCari { get; set; }
+    }
+
+    string TLFormat(decimal v) => v.ToString("N0") + " TL";
+}
