@@ -25,121 +25,92 @@
 
     @if (activeTab == 0)
     {
-        <!-- HEADER CARD -->
-        <div style="background:white; border-left:4px solid #235881; border-radius:8px; padding:16px 20px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-            <!-- Row 1 -->
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Evrak No</div>
-                    <input type="text" @bind="evrakNo" readonly
-                           style="width:100%; background:#f1f5f9; border:none; border-radius:6px; padding:8px 12px; font-weight:600; font-size:13px; color:#334155;" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Tarih</div>
-                    <input type="date" @bind="tarih"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Doviz / Kur</div>
-                    <div style="display:flex; gap:6px;">
-                        <select @bind="dovizCinsi"
-                                style="width:80px; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; font-size:13px; outline:none; background:white; cursor:pointer;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'">
-                            <option>TL</option>
-                            <option>USD</option>
-                            <option>EUR</option>
-                            <option>GBP</option>
-                        </select>
-                        <input type="number" @bind="dovizKuru" step="0.0001"
-                               style="flex:1; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; min-width:0;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Fatura Tipi</div>
-                    <select @bind="Tip"
-                            style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; background:white; cursor:pointer;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'">
-                        <option value="1">Satis</option>
-                        <option value="2">Iade</option>
-                    </select>
-                </div>
-            </div>
-            <!-- Row 2 -->
-            <div style="display:grid; grid-template-columns:1fr 2fr 1fr 1fr 1fr 1fr; gap:12px;">
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Cari Kod</div>
-                    <div style="display:flex; gap:0;">
-                        <input type="text" @bind="cariKod"
-                               style="flex:1; border:1px solid #e2e8f0; border-radius:6px 0 0 6px; padding:8px 12px; font-size:13px; outline:none; min-width:0;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                        <button @onclick="CariSecAc" title="Cari Sec"
-                                style="background:#235881; color:white; border:none; padding:0 12px; border-radius:0 6px 6px 0; cursor:pointer; font-size:13px;">
-                            <i class="fa fa-search"></i>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Unvan</div>
-                    <input type="text" @bind="cariUnvan" readonly
-                           style="width:100%; background:#f1f5f9; border:none; border-radius:6px; padding:8px 12px; font-size:13px; color:#334155;" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Belge No</div>
-                    <input type="text" @bind="belgeNo"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Vade</div>
-                    <input type="date" @bind="vadeTarihi"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Depo</div>
-                    <input type="number" @bind="depoNo"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Plasiyer</div>
-                    <input type="text" @bind="plasiyerKodu"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" onfocus="this.style.borderColor='#235881'" onblur="this.style.borderColor='#e2e8f0'" />
-                </div>
-            </div>
-            <!-- Row 3: Mikro uyumlu ek alanlar -->
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr; gap:12px; margin-top:10px;">
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Nor/Iade</div>
-                    <select @bind="norIade" style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; background:white;">
+        <!-- HEADER CARD (Mikro klasik 3 sütun layout) -->
+        <div class="mikro-header">
+            <div class="mikro-col">
+                <div class="mikro-row"><label>Evrak No</label>
+                    <input type="text" @bind="evrakNo" readonly class="mikro-input ro" /></div>
+                <div class="mikro-row"><label>Belge No</label>
+                    <input type="text" @bind="belgeNo" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Nor/Iade</label>
+                    <select @bind="norIade" class="mikro-input">
                         <option value="0">Normal</option>
                         <option value="1">Iade</option>
-                    </select>
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Tic. Turu</div>
-                    <select @bind="ticaretTuru" style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none; background:white;">
+                    </select></div>
+                <div class="mikro-row"><label>Tic. Turu</label>
+                    <select @bind="ticaretTuru" class="mikro-input">
                         <option value="0">Yurtici</option>
                         <option value="1">Yurtdisi</option>
                         <option value="2">Serbest Bolge</option>
-                    </select>
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Ith./Ihrc. Kodu</div>
-                    <input type="text" @bind="eximKodu" maxlength="25"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Kapayan Hesap</div>
-                    <input type="text" @bind="kapayanHesapKodu" maxlength="25"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Proje</div>
-                    <input type="text" @bind="projeKodu" maxlength="25"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
-                </div>
-                <div>
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.5px;">Sor. Merkezi</div>
-                    <input type="text" @bind="sorumlulukMerkezi" maxlength="25"
-                           style="width:100%; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:13px; outline:none;" />
-                </div>
+                    </select></div>
+                <div class="mikro-row"><label>C/H Kodu</label>
+                    <div style="display:flex; gap:0; flex:1;">
+                        <input type="text" @bind="cariKod" class="mikro-input" style="border-radius:4px 0 0 4px;" />
+                        <button @onclick="CariSecAc" title="Cari Sec" class="mikro-picker">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div></div>
+                <div class="mikro-row"><label>C/H Ismi</label>
+                    <input type="text" @bind="cariUnvan" readonly class="mikro-input ro" /></div>
+                <div class="mikro-row"><label>Doviz</label>
+                    <div style="display:flex; gap:4px; flex:1;">
+                        <select @bind="dovizCinsi" class="mikro-input" style="max-width:70px;">
+                            <option>TL</option><option>USD</option><option>EUR</option><option>GBP</option>
+                        </select>
+                        <input type="number" @bind="dovizKuru" step="0.0001" class="mikro-input" />
+                    </div></div>
+            </div>
+
+            <div class="mikro-col">
+                <div class="mikro-row"><label>Tarih</label>
+                    <input type="date" @bind="tarih" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Vade</label>
+                    <input type="date" @bind="vadeTarihi" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Acik/Kapali</label>
+                    <select @bind="kapali" class="mikro-input">
+                        <option value="false">Acik</option>
+                        <option value="true">Kapali</option>
+                    </select></div>
+                <div class="mikro-row"><label>Fatura Tipi</label>
+                    <select @bind="Tip" class="mikro-input">
+                        <option value="1">Satis</option>
+                        <option value="2">Satis Iade</option>
+                        <option value="3">Satinalma</option>
+                        <option value="4">Satinalma Iade</option>
+                        <option value="5">Proforma</option>
+                    </select></div>
+            </div>
+
+            <div class="mikro-col">
+                <div class="mikro-row"><label>Ith./Ihrc. Kodu</label>
+                    <input type="text" @bind="eximKodu" maxlength="25" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Odeme</label>
+                    <input type="text" @bind="odemeSekli" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Kapayan Hesap</label>
+                    <input type="text" @bind="kapayanHesapKodu" maxlength="25" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Depo</label>
+                    <input type="number" @bind="depoNo" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Plasiyer</label>
+                    <input type="text" @bind="plasiyerKodu" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Proje</label>
+                    <input type="text" @bind="projeKodu" maxlength="25" class="mikro-input" /></div>
+                <div class="mikro-row"><label>Sor. Merkezi</label>
+                    <input type="text" @bind="sorumlulukMerkezi" maxlength="25" class="mikro-input" /></div>
             </div>
         </div>
+
+        <style>
+            .mikro-header { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; background:white; border-left:4px solid #235881; border-radius:8px; padding:12px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+            .mikro-col { display:flex; flex-direction:column; }
+            .mikro-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+            .mikro-row label { flex:0 0 110px; font-size:11px; color:#475569; font-weight:600; }
+            .mikro-input { flex:1; min-width:0; border:1px solid #cbd5e1; border-radius:4px; padding:4px 8px; font-size:12px; outline:none; box-sizing:border-box; background:white; height:26px; }
+            .mikro-input:focus { border-color:#235881; box-shadow:0 0 0 2px rgba(35,88,129,0.08); }
+            .mikro-input.ro { background:#f1f5f9; border-color:#e2e8f0; color:#475569; }
+            .mikro-picker { background:#235881; color:white; border:none; width:28px; border-radius:0 4px 4px 0; cursor:pointer; font-size:11px; }
+            .mikro-picker:hover { background:#1d486a; }
+            @@media (max-width: 900px) { .mikro-header { grid-template-columns:1fr; } }
+        </style>
 
         <!-- SATIRLAR GRID -->
         <div style="background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:12px; overflow:hidden;">
