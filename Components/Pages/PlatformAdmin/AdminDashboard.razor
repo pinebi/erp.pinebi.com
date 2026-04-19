@@ -21,6 +21,7 @@
 
     <div class="admin-tabs">
         <button class="tab-btn @(aktif=="ozet"?"active":"")"   @onclick='() => aktif="ozet"'>Özet</button>
+        <button class="tab-btn @(aktif=="genel"?"active":"")"  @onclick='() => aktif="genel"'>Genel Bakis</button>
         <button class="tab-btn @(aktif=="tenant"?"active":"")" @onclick='() => aktif="tenant"'>Tenantlar (@tenantlar.Count)</button>
         <button class="tab-btn @(aktif=="api"?"active":"")"    @onclick='() => aktif="api"'>API Keyler (@apiKeyler.Count)</button>
         <button class="tab-btn @(aktif=="prov"?"active":"")"   @onclick='() => aktif="prov"'>Provisioning (@provisionJobs.Count)</button>
@@ -52,6 +53,207 @@
                 <tr><td>Encryption</td><td><span class="badge-ok">ENC: prefix</span></td></tr>
             </tbody>
         </table>
+    }
+
+    @if (aktif == "genel")
+    {
+        <h3>Pinebi ERP - Sistem Haritasi</h3>
+
+        <div class="gb-grid">
+            <div class="gb-card">
+                <h4><i class="fa fa-sign-in-alt"></i> Public Girisler</h4>
+                <ul class="gb-links">
+                    <li><a href="/signup" target="_blank"><b>/signup</b></a><span>Firma Kaydi (self-serve)</span></li>
+                    <li><a href="/platform/login" target="_blank"><b>/platform/login</b></a><span>Platform Admin Girisi</span></li>
+                    <li><a href="/davet/kabul?token=XXX" target="_blank"><b>/davet/kabul?token=...</b></a><span>Davet Kabul (tokenle)</span></li>
+                </ul>
+            </div>
+
+            <div class="gb-card">
+                <h4><i class="fa fa-user-shield"></i> Platform Admin</h4>
+                <ul class="gb-links">
+                    <li><a href="/platform/admin"><b>/platform/admin</b></a><span>Admin Dashboard (bu sayfa)</span></li>
+                    <li><code>admin@pinebi.com</code> / <code>admin</code><span>Varsayilan giris</span></li>
+                </ul>
+            </div>
+
+            <div class="gb-card">
+                <h4><i class="fa fa-building"></i> Tenant Sayfalari (her firma)</h4>
+                <ul class="gb-links">
+                    <li><a href="https://erp.pinebi.com/pine" target="_blank"><b>{tenant}.pinebi.com/pine</b></a><span>Dashboard</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/fatura/yeni" target="_blank"><b>/pine/fatura/yeni</b></a><span>Yeni Fatura (Mikro 3-sutun)</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/stok/kart" target="_blank"><b>/pine/stok/kart</b></a><span>Stok Kart</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/cari/kart" target="_blank"><b>/pine/cari/kart</b></a><span>Cari Kart</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/sistem/kullanicilar" target="_blank"><b>/pine/sistem/kullanicilar</b></a><span>Kullanici Yonetimi</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/sistem/davetler" target="_blank"><b>/pine/sistem/davetler</b></a><span>Davet Yonetimi</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/sistem/ayarlar" target="_blank"><b>/pine/sistem/ayarlar</b></a><span>Firma Ayarlari</span></li>
+                    <li><a href="https://erp.pinebi.com/pine/sistem/audit" target="_blank"><b>/pine/sistem/audit</b></a><span>Aktivite Gecmisi</span></li>
+                </ul>
+            </div>
+
+            <div class="gb-card">
+                <h4><i class="fa fa-code"></i> API Gateway</h4>
+                <ul class="gb-links">
+                    <li><code>https://erpapi.pinebi.com/api/*</code><span>Dis entegrasyonlar (X-Api-Key header)</span></li>
+                    <li><code>/api/mikro/stok/ara</code><span>Mikro stok CRUD</span></li>
+                    <li><code>/api/mikro/cari/ara</code><span>Mikro cari arama</span></li>
+                    <li><code>/api/public/signup</code><span>Public tenant olusturma (anonim)</span></li>
+                    <li><code>/api/tenant/settings</code><span>Tenant ayarlari (GET/PUT)</span></li>
+                    <li><code>/api/tenant/audit</code><span>Tenant audit log</span></li>
+                </ul>
+            </div>
+
+            <div class="gb-card">
+                <h4><i class="fa fa-database"></i> Mevcut Tenant'lar (@tenantlar.Count)</h4>
+                <ul class="gb-links">
+                    @foreach (var t in tenantlar.Where(x => x.Status != "deleted"))
+                    {
+                        <li>
+                            <a href="@($"https://{t.Subdomain}.pinebi.com")" target="_blank"><b>@($"{t.Subdomain}.pinebi.com")</b></a>
+                            <span>@t.TenantName · <span class="badge-@t.Status">@t.Status</span></span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <h3 style="margin-top:30px;">Bolum Bolum Neler Yapildi</h3>
+
+        <div class="yap-grid">
+            <div class="yap-card">
+                <div class="yap-num">1</div>
+                <h4>Multi-Tenant Altyapi</h4>
+                <ul>
+                    <li>Her firmaya ayri SQL database (Database-per-Tenant)</li>
+                    <li>Subdomain routing: acme.pinebi.com → ACME DB</li>
+                    <li>Pinebi_Master: tum firmalarin metadata'si (tenants, tier, connection)</li>
+                    <li>Tam veri izolasyonu (bir firmanin verisi digerine dokunmuyor)</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">2</div>
+                <h4>Self-Serve Signup</h4>
+                <ul>
+                    <li>/signup sayfasi - anonim herkes firma acabilir</li>
+                    <li>10 saniyede: DB olustu + admin kullanici + welcome mail</li>
+                    <li>Subdomain canli benzersizlik kontrolu</li>
+                    <li>Rezerve subdomain listesi (api, admin, erp vb)</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">3</div>
+                <h4>Provisioning + Yasam Dongusu</h4>
+                <ul>
+                    <li>Template backup/restore ile yeni tenant ~3sn</li>
+                    <li>Suspend / Reactivate / Soft-Delete / Hard-Delete</li>
+                    <li>Tier upgrade/downgrade (Free/Starter/Pro/Enterprise)</li>
+                    <li>Tum islemler audit loglaniyor</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">4</div>
+                <h4>Guvenlik</h4>
+                <ul>
+                    <li>Platform admin: cookie auth + BCrypt (DataProtection encrypted)</li>
+                    <li>API Gateway: X-Api-Key + SHA256 hash + scoped tenant</li>
+                    <li>Connection string'ler ENC: prefix ile sifreli (AES)</li>
+                    <li>Key ring: C:\ProgramData\Pinebi\dp-keys</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">5</div>
+                <h4>Kullanici + Davet</h4>
+                <ul>
+                    <li>Tenant ici kullanici CRUD (admin/yonetici/kullanici/okuyucu)</li>
+                    <li>Davet akisi: 7 gun gecerli token + email</li>
+                    <li>Yandex SMTP app password entegrasyonu</li>
+                    <li>Davetli kendi sifresini belirler, tokenla kabul eder</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">6</div>
+                <h4>Mikro V16 Gecis</h4>
+                <ul>
+                    <li>413 Mikro tablosu icin EF entity + MikroContext</li>
+                    <li>Tum tenant DB'leri hibrit: 222 Pine + 413 Mikro = 635 tablo</li>
+                    <li>Pine → Mikro veri migration (stok + cari)</li>
+                    <li>MikroStokController + MikroCariController CRUD</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">7</div>
+                <h4>Fatura Formu</h4>
+                <ul>
+                    <li>Klasik Mikro 3-sutun layout (label-left, kompakt)</li>
+                    <li>Eksik alanlar eklendi: Ith/Ihrc, Kapayan Hesap, Nor/Iade, Tic. Turu</li>
+                    <li>5 fatura tipi (Satis/Iade/Satinalma/SatinalmaIade/Proforma)</li>
+                    <li>Acik/Kapali durumu</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">8</div>
+                <h4>Admin Panel (bu sayfa)</h4>
+                <ul>
+                    <li>Tenant listele + detay modal + tier upgrade</li>
+                    <li>API key listesi + uret</li>
+                    <li>Audit events + son 30 gun trendler (sparkline)</li>
+                    <li>Kullanim/Quota + Yedekler</li>
+                    <li>Commit history + Genel Bakis (bu sekme)</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">9</div>
+                <h4>Quota + Backup</h4>
+                <ul>
+                    <li>Tier basina max user/storage/fatura limitleri</li>
+                    <li>Limit asiminda 402 Payment Required (fatura yazmada)</li>
+                    <li>Otomatik gecelik backup (03:00, 14 gun retention)</li>
+                    <li>Manuel 'Simdi Yedekle' butonu</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">10</div>
+                <h4>Audit Log</h4>
+                <ul>
+                    <li>Tum olaylar control_audit_events tablosuna</li>
+                    <li>tenant.created/suspended/reactivated/deleted</li>
+                    <li>platform.login/login_failed, apikey.created</li>
+                    <li>invite.created/accepted/revoked, migration.pine_to_mikro</li>
+                    <li>Tenant kendi olaylarini /pine/sistem/audit'tan goruntuler</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">11</div>
+                <h4>Deploy + Git</h4>
+                <ul>
+                    <li>IIS site: erp.pinebi.com (+ wildcard + api + tenant subdomain'ler)</li>
+                    <li>SQL: 185.210.92.248 - Pinebi_Master + 7+ tenant DB</li>
+                    <li>GitHub: github.com/pinebi/erp.pinebi.com (main branch)</li>
+                    <li>DB yedekleri (.bak) repo'da database/ klasorunde</li>
+                </ul>
+            </div>
+
+            <div class="yap-card">
+                <div class="yap-num">12</div>
+                <h4>Onemli Konfigurasyon</h4>
+                <ul>
+                    <li><code>appsettings.json</code>: Email (Yandex app password)</li>
+                    <li><code>C:\Pinebi\backups\</code>: gecelik yedekler</li>
+                    <li><code>C:\ProgramData\Pinebi\dp-keys\</code>: key ring</li>
+                    <li>IIS binding her tenant icin manuel eklenmeli (ileride otomasyon)</li>
+                </ul>
+            </div>
+        </div>
     }
 
     @if (aktif == "tenant")
@@ -511,6 +713,23 @@
     .trend-value { font-size:32px; font-weight:700; color:#235881; margin:4px 0; }
     .spark { display:flex; align-items:flex-end; gap:2px; height:44px; }
     .spark .bar { flex:1; background:#235881; min-height:2px; border-radius:2px 2px 0 0; }
+    .gb-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; margin-top:16px; }
+    .gb-card { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:16px; }
+    .gb-card h4 { color:#235881; margin:0 0 12px; font-size:14px; padding-bottom:8px; border-bottom:2px solid #f1f5f9; }
+    .gb-card h4 i { margin-right:6px; }
+    .gb-links { list-style:none; padding:0; margin:0; font-size:12px; }
+    .gb-links li { padding:6px 0; border-bottom:1px solid #f8fafc; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .gb-links li:last-child { border-bottom:none; }
+    .gb-links a, .gb-links code { color:#235881; text-decoration:none; font-family:'Courier New',monospace; font-size:11px; }
+    .gb-links a:hover { text-decoration:underline; }
+    .gb-links span { color:#64748b; font-size:11px; }
+    .yap-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; margin-top:16px; }
+    .yap-card { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:16px; position:relative; border-left:4px solid #235881; }
+    .yap-card h4 { color:#235881; margin:0 0 10px; font-size:14px; padding-right:40px; }
+    .yap-num { position:absolute; top:14px; right:14px; background:#235881; color:white; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+    .yap-card ul { margin:0; padding-left:18px; font-size:12px; color:#475569; }
+    .yap-card li { padding:3px 0; }
+    .yap-card code { background:#f1f5f9; padding:2px 5px; border-radius:3px; font-size:11px; color:#235881; }
 </style>
 
 @code {
