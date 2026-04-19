@@ -1,4 +1,5 @@
 @page "/platform/login"
+@layout MACHINEBISS_Web.Components.Layout.EmptyLayout
 @rendermode InteractiveServer
 @inject HttpClient Http
 @inject NavigationManager Nav
@@ -15,10 +16,10 @@
 
         <form @onsubmit="Giris" @onsubmit:preventDefault>
             <label>Email</label>
-            <input type="email" @bind="email" @bind:event="oninput" autocomplete="username" />
+            <input type="email" @bind="email" @bind:event="oninput" autocomplete="off" name="pf_email" />
 
             <label>Sifre</label>
-            <input type="password" @bind="sifre" @bind:event="oninput" autocomplete="current-password" />
+            <input type="password" @bind="sifre" @bind:event="oninput" autocomplete="new-password" name="pf_pw" />
 
             @if (hata != "")
             {
