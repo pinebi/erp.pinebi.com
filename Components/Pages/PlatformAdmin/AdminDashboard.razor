@@ -255,6 +255,179 @@
             </div>
         </div>
 
+        <h3 style="margin-top:30px;">Yapilan Isler Listesi (tum detaylar)</h3>
+        <p style="color:#64748b; font-size:12px;">Bu surecte acilan/degistirilen tum dosyalar, tablolar, endpoint'ler, sayfalar.</p>
+
+        <div class="is-grid">
+            <div class="is-card">
+                <h4>📁 Yeni DB'ler</h4>
+                <ul>
+                    <li><code>Pinebi_Master</code> — Control Plane (13 tablo)</li>
+                    <li><code>Pinebi_Template</code> — Yeni tenant kaynagi (635 tablo: Pine + Mikro)</li>
+                    <li><code>PineERP_Yeni</code> — Mikro V16 sema (413 tablo)</li>
+                    <li><code>Pinebi_Tenant_ACME</code> · <code>_BETA</code> · <code>_DELTA</code> · <code>_GAMMA</code> · <code>_ANALIZARGE</code> · <code>_TESTCO</code></li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>📊 Yeni Master DB Tablolari</h4>
+                <ul>
+                    <li><code>regions</code> — Bolgeler (tr/eu/us)</li>
+                    <li><code>subscription_tiers</code> — Plan paketleri (free/starter/pro/enterprise)</li>
+                    <li><code>tenants</code> — Firma kayitlari</li>
+                    <li><code>tenant_connections</code> — Sifreli connection stringler</li>
+                    <li><code>platform_users</code> — Platform admin kullanicilar</li>
+                    <li><code>tenant_users</code>, <code>tenant_user_memberships</code></li>
+                    <li><code>api_keys</code> — API erisim anahtarlari</li>
+                    <li><code>user_invites</code> — Davet kayitlari</li>
+                    <li><code>provisioning_jobs</code> — Tenant olusturma izlemi</li>
+                    <li><code>control_audit_events</code> — Tum audit olaylari</li>
+                    <li><code>common_countries</code> · <code>common_currencies</code> · <code>common_exchange_rates</code></li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>🌐 Yeni Sayfalar (Blazor)</h4>
+                <ul>
+                    <li><code>/signup</code> — Public firma kaydi</li>
+                    <li><code>/platform/login</code> — Admin girisi</li>
+                    <li><code>/platform/admin</code> — Admin dashboard (9 sekme)</li>
+                    <li><code>/davet/kabul?token=...</code> — Davet kabul</li>
+                    <li><code>/pine/sistem/kullanicilar</code> — Tenant kullanici CRUD</li>
+                    <li><code>/pine/sistem/davetler</code> — Davet yonetimi</li>
+                    <li><code>/pine/sistem/ayarlar</code> — Firma ayarlari</li>
+                    <li><code>/pine/sistem/audit</code> — Aktivite gecmisi</li>
+                    <li><code>/pine/fatura/yeni</code> — <small>Mikro 3-sutun redesign</small></li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>🔌 Yeni API Controller'lar</h4>
+                <ul>
+                    <li><code>PlatformAuthController</code> — login/logout/me</li>
+                    <li><code>PlatformTenantsController</code> — list/create/suspend/reactivate/delete/change-tier/api-key</li>
+                    <li><code>PlatformQuotaController</code> — all/trend</li>
+                    <li><code>PlatformBackupController</code> — list/run-now</li>
+                    <li><code>PlatformMigrationController</code> — pine-to-mikro</li>
+                    <li><code>PublicSignupController</code> — anonim kayit + subdomain check</li>
+                    <li><code>InviteController</code> — davet CRUD + kabul</li>
+                    <li><code>KullaniciController</code> — tenant ici kullanici CRUD</li>
+                    <li><code>TenantSettingsController</code> — firma ayarlari</li>
+                    <li><code>TenantAuditController</code> — tenant audit</li>
+                    <li><code>MikroStokController</code> — Mikro stoklar CRUD</li>
+                    <li><code>MikroCariController</code> — Mikro cari CRUD</li>
+                    <li><code>MikroTestController</code> — Mikro smoke test</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>⚙ Yeni Servisler (MultiTenant/)</h4>
+                <ul>
+                    <li><code>TenantContext</code> + <code>TenantAccessor</code></li>
+                    <li><code>SubdomainTenantResolver</code> — subdomain → tenant</li>
+                    <li><code>TenantMiddleware</code> — istek pipeline'i</li>
+                    <li><code>TenantAwareDbContextFactory&lt;T&gt;</code> — dinamik DB</li>
+                    <li><code>ApiKeyValidator</code> — SHA256 + cache</li>
+                    <li><code>ConnectionStringProtector</code> — AES sifreleme</li>
+                    <li><code>ConnectionStringEncryptionStartupService</code></li>
+                    <li><code>PlatformAuthService</code> — BCrypt + cookie</li>
+                    <li><code>PlatformAuthMiddleware</code></li>
+                    <li><code>AuditLogger</code></li>
+                    <li><code>EmailService</code> — MailKit + Yandex SMTP</li>
+                    <li><code>QuotaService</code> + <code>QuotaEnforcementMiddleware</code></li>
+                    <li><code>TenantBackupService</code> — gecelik hosted service</li>
+                    <li><code>Roles</code> — hiyerarsi helper</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>📦 Yeni Model Klasoru</h4>
+                <ul>
+                    <li><code>Models/Mikro/*.cs</code> — <b>413 EF entity</b> (Mikro V16 semasi)</li>
+                    <li><code>Db/MikroContext.cs</code> — 413 DbSet</li>
+                    <li><code>Db/MikroContext.KeyConvention.cs</code> — PK konvansiyon</li>
+                    <li><code>Models/PineERP/Fatura/PineFaturalar.cs</code> — <small>4 yeni alan (fat_exim_kodu, fat_kapayan_hesap_kodu, fat_nor_iade, fat_ticaret_turu)</small></li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>🗃 SQL Script'leri</h4>
+                <ul>
+                    <li><code>docs/multi-tenant/02-control-plane-schema.sql</code></li>
+                    <li><code>database/migrate-to-hybrid.sql</code> — Mikro tablolari ekle</li>
+                    <li><code>database/migrate-data-pine-to-mikro.sql</code> — veri kopyalama</li>
+                    <li><code>database/README.md</code> + 4 .bak dosyasi</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>📚 Dokumantasyon</h4>
+                <ul>
+                    <li><code>docs/multi-tenant/README.md</code> — giris</li>
+                    <li><code>01-mimari.md</code> — mimari + diyagram</li>
+                    <li><code>02-control-plane-schema.sql</code></li>
+                    <li><code>03-tenant-yasam-dongusu.md</code></li>
+                    <li><code>04-provisioning-api.md</code> — REST sozlesme</li>
+                    <li><code>05-kod-iskelet.md</code> — C# ornekleri</li>
+                    <li><code>agents/*.md</code> — 4 AI rolu tanimi</li>
+                    <li><code>n8n/pinebi-erp-ekibi.json</code> — workflow</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>🛡 Guvenlik Onlemleri</h4>
+                <ul>
+                    <li>Platform admin cookie (HttpOnly, 12sa, DataProtection)</li>
+                    <li>API key SHA256 hash + prefix cache</li>
+                    <li>Connection string AES sifreli (ENC: prefix)</li>
+                    <li>DataProtection key ring: <code>C:\ProgramData\Pinebi\dp-keys</code></li>
+                    <li>Rezerve subdomain listesi (41 kelime)</li>
+                    <li>Platform endpoint'leri sadece root domain'den</li>
+                    <li>Subdomain re-write koruma (tenant DB izolasyonu)</li>
+                    <li>BCrypt password hash (legacy migration destegi)</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>⏰ Otomasyon</h4>
+                <ul>
+                    <li>Gecelik backup 03:00 (14 gun retention)</li>
+                    <li>Provisioning template backup/restore (~3sn)</li>
+                    <li>Audit event insert her onemli olayda</li>
+                    <li>Quota kontrol her fatura yazimında</li>
+                    <li>Connection string encryption startup migration</li>
+                    <li>Welcome email self-signup'ta</li>
+                    <li>Davet email oluşturmada</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>🔧 IIS Konfigurasyonu</h4>
+                <ul>
+                    <li>Site: <code>erp.pinebi.com</code></li>
+                    <li>Binding: <code>erp.pinebi.com</code></li>
+                    <li>Binding: <code>*.erp.pinebi.com</code> (wildcard)</li>
+                    <li>Binding: <code>erpapi.pinebi.com</code> (API gateway)</li>
+                    <li>Binding: acme/beta/delta/testco/gamma/analizarge <code>.pinebi.com</code></li>
+                    <li>App pool: x64, .NET 10 runtime</li>
+                </ul>
+            </div>
+
+            <div class="is-card">
+                <h4>📈 Rakamlar</h4>
+                <ul>
+                    <li><b>33 commit</b> dun 18:00'den bu yana</li>
+                    <li><b>413 Mikro entity</b> (21,475 kolon)</li>
+                    <li><b>635 tablo/tenant DB</b> (hibrit)</li>
+                    <li><b>9 aktif tenant</b> (erp/acme/beta/delta/gamma/testco/analizarge + 2)</li>
+                    <li><b>7 sekme</b> admin panelinde</li>
+                    <li><b>13 yeni API controller</b></li>
+                    <li><b>9 yeni Blazor sayfa</b></li>
+                    <li><b>14 yeni servis sinifi</b></li>
+                </ul>
+            </div>
+        </div>
+
         <h3 style="margin-top:30px;">Zaman Cizelgesi (dun aksamdan beri)</h3>
         <p style="color:#64748b; font-size:12px;">Commit tarihine gore tum gelismeler (gun+saat).</p>
 
@@ -770,6 +943,12 @@
     .tl-hash { color:#94a3b8; font-size:10px; }
     .tl-hash code { background:none; padding:0; color:#94a3b8; }
     .tl-msg { color:#1e293b; margin-top:2px; }
+    .is-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; margin-top:14px; }
+    .is-card { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:14px 16px; }
+    .is-card h4 { color:#235881; margin:0 0 10px; font-size:13px; padding-bottom:6px; border-bottom:1px solid #f1f5f9; }
+    .is-card ul { margin:0; padding-left:18px; font-size:12px; color:#334155; }
+    .is-card li { padding:2px 0; line-height:1.5; }
+    .is-card code { background:#f1f5f9; padding:1px 5px; border-radius:3px; font-size:11px; color:#235881; font-family:'Courier New',monospace; }
 </style>
 
 @code {
