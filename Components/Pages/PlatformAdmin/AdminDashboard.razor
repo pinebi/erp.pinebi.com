@@ -100,6 +100,7 @@
                         </td>
                         <td>@t.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
+                            <button class="btn-mini" @onclick="() => DetayAc(t.TenantId)">Detay</button>
                             <a href="@($"https://{t.Subdomain}.pinebi.com")" target="_blank" class="btn-mini">Aç</a>
                             <button class="btn-mini" @onclick="() => ApiKeyUret(t.TenantId, t.Subdomain)">Key Uret</button>
                             @if (t.Status == "active")
@@ -127,6 +128,81 @@
                 <br/><small>Bu anahtari simdi kaydedin, tekrar gosterilmez.</small>
             </div>
         }
+    }
+
+    @if (detayData != null)
+    {
+        <div class="modal-ov" @onclick="() => detayData = null">
+            <div class="modal-dt" @onclick:stopPropagation="true">
+                <div class="modal-hdr">
+                    <h3>@detayData.TenantName <small>(@($"{detayData.Subdomain}.pinebi.com"))</small></h3>
+                    <button class="btn-mini" @onclick="() => detayData = null">X</button>
+                </div>
+                <div class="modal-bd">
+                    <div class="dt-grid">
+                        <div><b>Kod:</b> @detayData.TenantCode</div>
+                        <div><b>DB:</b> <code>@detayData.DbName</code></div>
+                        <div><b>Region:</b> @detayData.RegionId</div>
+                        <div><b>Status:</b> <span class="badge-@detayData.Status">@detayData.Status</span></div>
+                        <div><b>Email:</b> @detayData.ContactEmail</div>
+                        <div><b>Vergi No:</b> @(detayData.VergiNo ?? "-")</div>
+                        <div><b>Olusturma:</b> @detayData.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+                        <div><b>Aktiflestirme:</b> @(detayData.ActivatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</div>
+                    </div>
+
+                    <h4>Tier: <span class="tier-badge">@detayData.TierCode</span> ($@detayData.MonthlyPriceUsd/ay)</h4>
+                    <div class="dt-grid">
+                        <div>Max user: @detayData.MaxUsers</div>
+                        <div>Max storage: @detayData.MaxStorageGb GB</div>
+                        <div>Max fatura/ay: @detayData.MaxInvoicesMonth</div>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <select @bind="yeniTier">
+                            <option value="free">Free</option>
+                            <option value="starter">Starter</option>
+                            <option value="pro">Pro</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                        <button class="btn-primary" style="padding:4px 12px;" @onclick="TierDegistir">Tier Degistir</button>
+                    </div>
+
+                    <h4>API Keyler (@detayApiKeys.Count)</h4>
+                    @if (detayApiKeys.Count == 0) { <p style="color:#64748b;">Henuz yok.</p> }
+                    else
+                    {
+                        <table class="admin-table"><thead><tr><th>Prefix</th><th>Desc</th><th>Scopes</th><th>Son Kullanim</th></tr></thead><tbody>
+                        @foreach (var k in detayApiKeys)
+                        {
+                            <tr><td><code>@k.Prefix</code></td><td>@k.Description</td><td>@k.Scopes</td><td>@(k.LastUsedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td></tr>
+                        }
+                        </tbody></table>
+                    }
+
+                    <h4>Davetler (@detayInvites.Count)</h4>
+                    @if (detayInvites.Count == 0) { <p style="color:#64748b;">Henuz davet yok.</p> }
+                    else
+                    {
+                        <table class="admin-table"><thead><tr><th>Email</th><th>Kullanici</th><th>Rol</th><th>Durum</th></tr></thead><tbody>
+                        @foreach (var i in detayInvites)
+                        {
+                            var durum = i.RevokedAt.HasValue ? "iptal"
+                                      : i.AcceptedAt.HasValue ? "kabul"
+                                      : i.ExpiresAt < DateTime.UtcNow ? "suresi_doldu" : "beklemede";
+                            <tr><td>@i.Email</td><td>@i.KullaniciAdi</td><td>@i.Rol</td><td><span class="badge-@durum">@durum</span></td></tr>
+                        }
+                        </tbody></table>
+                    }
+
+                    <h4>Son Olaylar (@detayEvents.Count)</h4>
+                    <table class="admin-table"><thead><tr><th>Zaman</th><th>Olay</th><th>Aktor</th></tr></thead><tbody>
+                    @foreach (var e in detayEvents)
+                    {
+                        <tr><td>@e.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss")</td><td>@e.EventType</td><td>@e.ActorType</td></tr>
+                    }
+                    </tbody></table>
+                </div>
+            </div>
+        </div>
     }
 
     @if (aktif == "api")
@@ -326,6 +402,17 @@
     .changelog { list-style:none; padding:0; }
     .changelog li { padding:10px 14px; background:#f8fafc; border-left:3px solid #235881; margin-bottom:8px; border-radius:4px; }
     .changelog code { color:#235881; font-weight:600; }
+    .modal-ov { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:999; }
+    .modal-dt { background:white; border-radius:10px; width:90%; max-width:800px; max-height:90vh; overflow:auto; }
+    .modal-hdr { padding:14px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; }
+    .modal-hdr h3 { margin:0; color:#235881; }
+    .modal-hdr small { color:#64748b; font-weight:normal; }
+    .modal-bd { padding:20px; }
+    .modal-bd h4 { color:#235881; margin:20px 0 10px; font-size:14px; }
+    .dt-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px; padding:10px; background:#f8fafc; border-radius:6px; }
+    .badge-beklemede { background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-kabul { background:#dcfce7; color:#166534; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-iptal, .badge-suresi_doldu { background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; }
     .tier-badge { background:#f1f5f9; color:#235881; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:600; text-transform:uppercase; }
     .admin-table td.over { color:#991b1b; font-weight:700; }
 </style>
@@ -341,6 +428,14 @@
     List<BackupFolder>? backupFolders = null;
     bool backupCalisiyor = false;
     BackupSonucu? backupSonucu = null;
+
+    // Tenant detay modal
+    TenantDetay? detayData = null;
+    List<ApiKeyDetay> detayApiKeys = new();
+    List<InviteDetay> detayInvites = new();
+    List<AuditRow> detayEvents = new();
+    string yeniTier = "starter";
+    Guid detayTenantId;
 
     bool yeniTenantAcik = false;
     bool olusturuluyor = false;
@@ -564,6 +659,93 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
     record BackupFolder { public string Date { get; init; } = ""; public string Path { get; init; } = ""; public List<BackupFile> Files { get; init; } = new(); }
     record BackupFile { public string File { get; init; } = ""; public long SizeMb { get; init; } }
     record BackupSonucu { public string Folder { get; init; } = ""; public int TotalTenants { get; init; } public int Success { get; init; } public int Failed { get; init; } public double DurationSeconds { get; init; } }
+
+    record TenantDetay
+    {
+        public string TenantCode { get; init; } = "";
+        public string TenantName { get; init; } = "";
+        public string Subdomain { get; init; } = "";
+        public string DbName { get; init; } = "";
+        public string RegionId { get; init; } = "";
+        public string Status { get; init; } = "";
+        public string ContactEmail { get; init; } = "";
+        public string? VergiNo { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? ActivatedAt { get; init; }
+        public string TierCode { get; init; } = "";
+        public int MaxUsers { get; init; }
+        public int MaxStorageGb { get; init; }
+        public int MaxInvoicesMonth { get; init; }
+        public decimal MonthlyPriceUsd { get; init; }
+    }
+    record ApiKeyDetay { public string Prefix { get; init; } = ""; public string? Description { get; init; } public string Scopes { get; init; } = ""; public DateTime? LastUsedAt { get; init; } }
+    record InviteDetay { public string Email { get; init; } = ""; public string KullaniciAdi { get; init; } = ""; public string Rol { get; init; } = ""; public DateTime ExpiresAt { get; init; } public DateTime? AcceptedAt { get; init; } public DateTime? RevokedAt { get; init; } }
+
+    async Task DetayAc(Guid tenantId)
+    {
+        detayTenantId = tenantId;
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var j = await http.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/platform/tenants/{tenantId}/detail");
+
+            var t = j.GetProperty("tenant");
+            var tier = t.GetProperty("tier");
+            detayData = new TenantDetay {
+                TenantCode = t.GetProperty("tenantCode").GetString() ?? "",
+                TenantName = t.GetProperty("tenantName").GetString() ?? "",
+                Subdomain = t.GetProperty("subdomain").GetString() ?? "",
+                DbName = t.GetProperty("dbName").GetString() ?? "",
+                RegionId = t.GetProperty("regionId").GetString() ?? "",
+                Status = t.GetProperty("status").GetString() ?? "",
+                ContactEmail = t.GetProperty("contactEmail").GetString() ?? "",
+                VergiNo = t.TryGetProperty("vergiNo", out var v) && v.ValueKind != System.Text.Json.JsonValueKind.Null ? v.GetString() : null,
+                CreatedAt = t.GetProperty("createdAt").GetDateTime(),
+                ActivatedAt = t.TryGetProperty("activatedAt", out var a) && a.ValueKind != System.Text.Json.JsonValueKind.Null ? a.GetDateTime() : null,
+                TierCode = tier.GetProperty("code").GetString() ?? "",
+                MaxUsers = tier.GetProperty("maxUsers").GetInt32(),
+                MaxStorageGb = tier.GetProperty("maxStorageGb").GetInt32(),
+                MaxInvoicesMonth = tier.GetProperty("maxInvoicesMonth").GetInt32(),
+                MonthlyPriceUsd = tier.GetProperty("monthlyPriceUsd").GetDecimal()
+            };
+            yeniTier = detayData.TierCode;
+
+            detayApiKeys = j.GetProperty("apiKeys").EnumerateArray().Select(k => new ApiKeyDetay {
+                Prefix = k.GetProperty("prefix").GetString() ?? "",
+                Description = k.TryGetProperty("description", out var d) && d.ValueKind != System.Text.Json.JsonValueKind.Null ? d.GetString() : null,
+                Scopes = k.GetProperty("scopes").GetString() ?? "",
+                LastUsedAt = k.TryGetProperty("lastUsedAt", out var l) && l.ValueKind != System.Text.Json.JsonValueKind.Null ? l.GetDateTime() : null
+            }).ToList();
+
+            detayInvites = j.GetProperty("invites").EnumerateArray().Select(i => new InviteDetay {
+                Email = i.GetProperty("email").GetString() ?? "",
+                KullaniciAdi = i.GetProperty("kullaniciAdi").GetString() ?? "",
+                Rol = i.GetProperty("rol").GetString() ?? "",
+                ExpiresAt = i.GetProperty("expiresAt").GetDateTime(),
+                AcceptedAt = i.TryGetProperty("acceptedAt", out var a2) && a2.ValueKind != System.Text.Json.JsonValueKind.Null ? a2.GetDateTime() : null,
+                RevokedAt = i.TryGetProperty("revokedAt", out var r) && r.ValueKind != System.Text.Json.JsonValueKind.Null ? r.GetDateTime() : null
+            }).ToList();
+
+            detayEvents = j.GetProperty("events").EnumerateArray().Select(e => new AuditRow {
+                OccurredAt = e.GetProperty("occurredAt").GetDateTime(),
+                EventType = e.GetProperty("eventType").GetString() ?? "",
+                ActorType = e.GetProperty("actorType").GetString() ?? "",
+                Details = e.GetProperty("details").GetString() ?? ""
+            }).ToList();
+        }
+        catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
+    }
+
+    async Task TierDegistir()
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        var resp = await http.PostAsJsonAsync($"api/platform/tenants/{detayTenantId}/change-tier", new { newTier = yeniTier });
+        if (resp.IsSuccessStatusCode)
+        {
+            await DetayAc(detayTenantId);
+            await VerileriYukle();
+        }
+    }
 
     async Task Cikis()
     {

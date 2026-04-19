@@ -146,6 +146,145 @@ VALUES (@id, @code, @name, @sub, @reg, @db, @tier, 'provisioning', @email, NULL)
         });
     }
 
+    [HttpGet("{id:guid}/detail")]
+    public async Task<IActionResult> Detail(Guid id)
+    {
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+
+        // Tenant + tier bilgisi
+        object? tenant = null;
+        await using (var t = new SqlCommand(@"
+SELECT t.tenant_code, t.tenant_name, t.subdomain, t.db_name, t.region_id, t.status, t.contact_email,
+       t.created_at, t.activated_at, t.suspended_at, t.vergi_no, st.tier_code, st.tier_name,
+       st.max_users, st.max_storage_gb, st.max_invoices_month, st.monthly_price_usd
+FROM tenants t JOIN subscription_tiers st ON t.tier_id = st.tier_id
+WHERE t.tenant_id = @id", conn))
+        {
+            t.Parameters.AddWithValue("@id", id);
+            await using var rdr = await t.ExecuteReaderAsync();
+            if (!await rdr.ReadAsync()) return NotFound();
+            tenant = new
+            {
+                tenantCode = rdr.GetString(0),
+                tenantName = rdr.GetString(1),
+                subdomain = rdr.GetString(2),
+                dbName = rdr.GetString(3),
+                regionId = rdr.GetString(4),
+                status = rdr.GetString(5),
+                contactEmail = rdr.GetString(6),
+                createdAt = rdr.GetDateTime(7),
+                activatedAt = rdr.IsDBNull(8) ? (DateTime?)null : rdr.GetDateTime(8),
+                suspendedAt = rdr.IsDBNull(9) ? (DateTime?)null : rdr.GetDateTime(9),
+                vergiNo = rdr.IsDBNull(10) ? null : rdr.GetString(10),
+                tier = new
+                {
+                    code = rdr.GetString(11),
+                    name = rdr.GetString(12),
+                    maxUsers = rdr.GetInt32(13),
+                    maxStorageGb = rdr.GetInt32(14),
+                    maxInvoicesMonth = rdr.GetInt32(15),
+                    monthlyPriceUsd = rdr.GetDecimal(16)
+                }
+            };
+        }
+
+        // API keyleri
+        var apiKeys = new List<object>();
+        await using (var k = new SqlCommand(@"
+SELECT api_key_id, key_prefix, description, scopes, active, created_at, last_used_at
+FROM api_keys WHERE tenant_id=@id ORDER BY created_at DESC", conn))
+        {
+            k.Parameters.AddWithValue("@id", id);
+            await using var rdr = await k.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+                apiKeys.Add(new
+                {
+                    keyId = rdr.GetGuid(0),
+                    prefix = rdr.GetString(1),
+                    description = rdr.IsDBNull(2) ? null : rdr.GetString(2),
+                    scopes = rdr.GetString(3),
+                    active = rdr.GetBoolean(4),
+                    createdAt = rdr.GetDateTime(5),
+                    lastUsedAt = rdr.IsDBNull(6) ? (DateTime?)null : rdr.GetDateTime(6)
+                });
+        }
+
+        // Son audit olaylari
+        var events = new List<object>();
+        await using (var e = new SqlCommand(@"
+SELECT TOP 20 occurred_at, event_type, actor_type, details_json
+FROM control_audit_events WHERE tenant_id=@id ORDER BY event_id DESC", conn))
+        {
+            e.Parameters.AddWithValue("@id", id);
+            await using var rdr = await e.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+                events.Add(new
+                {
+                    occurredAt = rdr.GetDateTime(0),
+                    eventType = rdr.GetString(1),
+                    actorType = rdr.GetString(2),
+                    details = rdr.GetString(3).Length > 120 ? rdr.GetString(3).Substring(0, 120) + "..." : rdr.GetString(3)
+                });
+        }
+
+        // Davetler
+        var invites = new List<object>();
+        await using (var i = new SqlCommand(@"
+SELECT invite_id, email, kullanici_adi, rol, expires_at, accepted_at, revoked_at, created_at
+FROM user_invites WHERE tenant_id=@id ORDER BY created_at DESC", conn))
+        {
+            i.Parameters.AddWithValue("@id", id);
+            await using var rdr = await i.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+                invites.Add(new
+                {
+                    inviteId = rdr.GetGuid(0),
+                    email = rdr.GetString(1),
+                    kullaniciAdi = rdr.GetString(2),
+                    rol = rdr.GetString(3),
+                    expiresAt = rdr.GetDateTime(4),
+                    acceptedAt = rdr.IsDBNull(5) ? (DateTime?)null : rdr.GetDateTime(5),
+                    revokedAt = rdr.IsDBNull(6) ? (DateTime?)null : rdr.GetDateTime(6),
+                    createdAt = rdr.GetDateTime(7)
+                });
+        }
+
+        return Ok(new { tenant, apiKeys, events, invites });
+    }
+
+    [HttpPost("{id:guid}/change-tier")]
+    public async Task<IActionResult> ChangeTier(Guid id, [FromBody] ChangeTierDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.NewTier)) return BadRequest(new { error = "NEW_TIER_REQUIRED" });
+
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+
+        int newTierId;
+        await using (var q = new SqlCommand("SELECT tier_id FROM subscription_tiers WHERE tier_code=@t AND active=1", conn))
+        {
+            q.Parameters.AddWithValue("@t", dto.NewTier.ToLowerInvariant());
+            var r = await q.ExecuteScalarAsync();
+            if (r == null) return BadRequest(new { error = "TIER_INVALID" });
+            newTierId = (int)r;
+        }
+
+        await using (var upd = new SqlCommand(
+            "UPDATE tenants SET tier_id=@t WHERE tenant_id=@id", conn))
+        {
+            upd.Parameters.AddWithValue("@t", newTierId);
+            upd.Parameters.AddWithValue("@id", id);
+            var n = await upd.ExecuteNonQueryAsync();
+            if (n == 0) return NotFound();
+        }
+
+        await _audit.LogAsync("tenant.tier_changed", new { tenantId = id, newTier = dto.NewTier },
+            tenantId: id, ipAddress: ClientIp);
+
+        return Ok(new { tenantId = id, newTier = dto.NewTier });
+    }
+
     [HttpGet("{id:guid}/status")]
     public async Task<IActionResult> Status(Guid id)
     {
@@ -465,4 +604,9 @@ public sealed class CreateApiKeyDto
 public sealed class TenantActionDto
 {
     public string? Reason { get; set; }
+}
+
+public sealed class ChangeTierDto
+{
+    public string NewTier { get; set; } = "";
 }
