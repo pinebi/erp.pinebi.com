@@ -11,12 +11,26 @@ using MACHINEBISS_Web.Models.PineERP.Arac;
 using MACHINEBISS_Web.Models.PineERP.EFatura;
 using MACHINEBISS_Web.Models.PineERP.Tanimlar;
 using MACHINEBISS_Web.Models.PineERP.Sistem;
+using MACHINEBISS_Web.Models.PineERP.Takvim;
+using MACHINEBISS_Web.Models.PineERP.Mail;
 
 namespace MACHINEBISS_Web.Db;
 
 public class PineErpContext : DbContext
 {
     public PineErpContext(DbContextOptions<PineErpContext> options) : base(options) { }
+
+    // ===== TAKVIM (6) =====
+    public DbSet<PineCalendar> Calendars { get; set; } = null!;
+    public DbSet<PineCalendarShare> CalendarShares { get; set; } = null!;
+    public DbSet<PineRoom> Rooms { get; set; } = null!;
+    public DbSet<PineEvent> Events { get; set; } = null!;
+    public DbSet<PineEventParticipant> EventParticipants { get; set; } = null!;
+    public DbSet<PineEventReminder> EventReminders { get; set; } = null!;
+
+    // ===== MAIL (2) =====
+    public DbSet<PineMailAccount> MailAccounts { get; set; } = null!;
+    public DbSet<PineMailDraft> MailDrafts { get; set; } = null!;
 
     // ===== STOK (14) =====
     public DbSet<PineStoklar> Stoklar { get; set; }

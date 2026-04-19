@@ -139,6 +139,16 @@ else
     {
         var groups = new List<MenuGroup>
         {
+            new("takvim", "Takvim", "fa-calendar-alt", new()
+            {
+                new("pine-takvim", "Takvim & Toplantilar", "/pine/takvim", "fa-calendar-alt", true),
+            }),
+
+            new("mail", "Mail", "fa-envelope", new()
+            {
+                new("pine-mail", "Gelen Kutusu", "/pine/mail", "fa-envelope", true),
+            }),
+
             new("stok", "Stok", "fa-boxes", new()
             {
                 new("pine-stok-yeni", "Yeni Stok", "/pine/stok/kart", "fa-plus-circle", true),

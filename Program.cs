@@ -16,6 +16,7 @@ var connStr = "Server=185.210.92.248;Database=PineERP;User Id=EDonusum;Password=
 
 // Multi-Tenant Infrastructure
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 
 // DataProtection - connection string sifreleme
 // Key ring sunucu disk'inde saklanir, IIS process'leri paylasir

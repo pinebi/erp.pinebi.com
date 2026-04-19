@@ -17,6 +17,25 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="PineERP" />
     <link rel="apple-touch-icon" href="/images/pinebi_logo.png" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script src="/js/pinebi-takvim.js?v=4"></script>
+    <script>
+        window.pinebiMailAI = async function (metin, konu, aksiyon) {
+            try {
+                var r = await fetch('/api/mail-yardim/metin-iyilestir', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Metin: metin, Konu: konu, Aksiyon: aksiyon })
+                });
+                var text = await r.text();
+                if (!r.ok) return { ok: false, hata: 'HTTP ' + r.status + ': ' + text.substring(0, 200) };
+                try { var j = JSON.parse(text); return { ok: true, metin: j.metin }; }
+                catch (e) { return { ok: false, hata: 'Gecersiz cevap: ' + text.substring(0, 200) }; }
+            } catch (e) { return { ok: false, hata: e.message }; }
+        };
+    </script>
     <title>PineERP - Pinebi</title>
     <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
 </head>

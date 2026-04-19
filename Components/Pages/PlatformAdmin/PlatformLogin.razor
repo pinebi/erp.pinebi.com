@@ -45,6 +45,23 @@
     .err { background:#fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-size:13px; margin-top:14px; }
 </style>
 
+<script>
+    window.pinebiPlatformLogin = async function (email, sifre) {
+        try {
+            const r = await fetch('/api/platform/auth/login', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: sifre })
+            });
+            const body = await r.text();
+            return { ok: r.ok, status: r.status, body: body };
+        } catch (e) {
+            return { ok: false, status: 0, body: e.message };
+        }
+    };
+</script>
+
 @code {
     string email = "";
     string sifre = "";
@@ -64,19 +81,18 @@
         yukleniyor = true;
         try
         {
-            var resp = await Http.PostAsJsonAsync("api/platform/auth/login", new { email, password = sifre });
-            if (resp.IsSuccessStatusCode)
+            // Tarayici uzerinden fetch: Set-Cookie tarayiciya dusmeli (server-side HttpClient olmaz)
+            var result = await JS.InvokeAsync<LoginSonuc>("pinebiPlatformLogin", email, sifre);
+            if (result.ok)
             {
-                // Cookie set edildi - force reload ile admin panele yonlendir
                 Nav.NavigateTo(returnUrl ?? "/platform/admin", forceLoad: true);
                 return;
             }
-            var body = await resp.Content.ReadAsStringAsync();
-            hata = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                ? "Email veya sifre hatali"
-                : $"Hata: {body}";
+            hata = result.status == 401 ? "Email veya sifre hatali" : $"Hata ({result.status}): {result.body}";
         }
         catch (Exception ex) { hata = ex.Message; }
         yukleniyor = false;
     }
+
+    public class LoginSonuc { public bool ok { get; set; } public int status { get; set; } public string? body { get; set; } }
 }

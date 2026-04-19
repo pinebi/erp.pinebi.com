@@ -1,0 +1,581 @@
+@page "/pine/takvim"
+@layout MACHINEBISS_Web.Components.Layout.PineLayout
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject Microsoft.EntityFrameworkCore.IDbContextFactory<MACHINEBISS_Web.Db.PineErpContext> PineDb
+@using Microsoft.EntityFrameworkCore
+@using MACHINEBISS_Web.Models.PineERP.Takvim
+
+<PageTitle>Takvim - Pinebi</PageTitle>
+
+<div class="takvim-wrap">
+    <div class="takvim-sidebar">
+        <div class="t-card">
+            <h4><i class="fa fa-calendar"></i> Takvimler</h4>
+            @if (takvimler == null) { <div class="t-loading">Yukleniyor...</div> }
+            else if (takvimler.Count == 0) { <div class="t-empty">Takvim yok</div> }
+            else
+            {
+                @foreach (var t in takvimler)
+                {
+                    <label class="t-takvim-row">
+                        <input type="checkbox" checked="@(secili.Contains(t.CalendarId))"
+                               @onchange="@(e => Toggle(t.CalendarId, (bool)(e.Value ?? false)))" />
+                        <span class="t-dot" style="background:@t.Renk"></span>
+                        <span class="t-name">@t.Ad</span>
+                    </label>
+                }
+            }
+            <button class="t-btn-add" @onclick="YeniTakvim">+ Yeni Takvim</button>
+        </div>
+
+        <div class="t-card">
+            <h4><i class="fa fa-door-open"></i> Odalar</h4>
+            @if (odalar == null || odalar.Count == 0) { <div class="t-empty">Oda yok</div> }
+            else
+            {
+                @foreach (var o in odalar)
+                {
+                    <div class="t-oda-row">
+                        <span class="t-dot" style="background:@o.Renk"></span>
+                        <span class="t-name">@o.Ad</span>
+                        @if (o.Kapasite.HasValue) { <span class="t-kapasite">@o.Kapasite kisi</span> }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="takvim-main">
+        <div class="takvim-toolbar">
+            <button class="t-btn-primary" @onclick="YeniToplanti"><i class="fa fa-users"></i> Yeni Toplanti</button>
+            <button class="t-btn-secondary" @onclick="YeniNot"><i class="fa fa-sticky-note"></i> Yeni Not</button>
+        </div>
+        <div id="pinebi-fc"></div>
+    </div>
+</div>
+
+@if (formAcik)
+{
+    <div class="t-modal-overlay" @onclick="ModalKapat">
+        <div class="t-modal" @onclick:stopPropagation="true">
+            <h3>
+                @if (formu.EventId == Guid.Empty)
+                {
+                    @(formu.Tip == "not" ? "Yeni Not" : "Yeni Toplanti")
+                }
+                else
+                {
+                    <text>Duzenle</text>
+                }
+            </h3>
+
+            <div class="t-field">
+                <label>
+                    <input type="checkbox" @bind="tumGun" style="width:auto; margin-right:6px;" />
+                    Tum gun / Not (saat onemsiz)
+                </label>
+            </div>
+
+            <div class="t-field">
+                <label>Baslik</label>
+                <input @bind="formu.Baslik" placeholder="Toplanti adi" />
+            </div>
+
+            <div class="t-row">
+                <div class="t-field">
+                    <label>Baslangic</label>
+                    <input type="datetime-local" @bind="formBaslangic" />
+                </div>
+                <div class="t-field">
+                    <label>Bitis</label>
+                    <input type="datetime-local" @bind="formBitis" />
+                </div>
+            </div>
+
+            <div class="t-row">
+                <div class="t-field">
+                    <label>Takvim</label>
+                    <select @bind="formu.CalendarId">
+                        @foreach (var t in (takvimler ?? new())) { <option value="@t.CalendarId">@t.Ad</option> }
+                    </select>
+                </div>
+                @if (formu.Tip == "toplanti")
+                {
+                    <div class="t-field">
+                        <label>Oda</label>
+                        <select @bind="formu.RoomId">
+                            <option value="">(yok)</option>
+                            @foreach (var o in (odalar ?? new())) { <option value="@o.RoomId">@o.Ad</option> }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            @if (formu.Tip == "toplanti")
+            {
+                <div class="t-field">
+                    <label>Konum</label>
+                    <input @bind="formu.Konum" placeholder="Online / Ofis / ..." />
+                </div>
+            }
+
+            <div class="t-field t-cari-field">
+                <label>Cari (opsiyonel)</label>
+                <input value="@cariArama" @oninput="OnCariInput" @onfocus="CariAra"
+                       placeholder="Kod, isim veya vergi no ile ara..."
+                       autocomplete="off" />
+                @if (!string.IsNullOrWhiteSpace(formu.CariKod))
+                {
+                    <div class="t-cari-sec">
+                        <span><b>@formu.CariKod</b> @formu.CariUnvan</span>
+                        <button type="button" class="t-cari-clear" @onclick="CariTemizle">X</button>
+                    </div>
+                }
+                @if (cariSonuclari != null && cariSonuclari.Count > 0 && string.IsNullOrEmpty(formu.CariKod))
+                {
+                    <div class="t-cari-liste">
+                        @foreach (var c in cariSonuclari)
+                        {
+                            <div class="t-cari-row" @onclick="() => CariSec(c.Kod, c.Unvan)">
+                                <span class="t-cari-kod">@c.Kod</span>
+                                <span class="t-cari-unvan">@c.Unvan</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="t-field">
+                <label>Aciklama</label>
+                <textarea @bind="formu.Aciklama" rows="3"></textarea>
+            </div>
+
+            @if (formu.Tip == "toplanti")
+            {
+                <div class="t-field">
+                    <label>Katilimci Email (virgulle ayirin)</label>
+                    <input @bind="katilimciEmails" placeholder="ahmet@x.com, mehmet@y.com" />
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(hata)) { <div class="t-err">@hata</div> }
+
+            <div class="t-modal-actions">
+                @if (formu.EventId != Guid.Empty)
+                {
+                    <button class="t-btn-sil" @onclick="Sil">Sil</button>
+                }
+                <button class="t-btn-secondary" @onclick="ModalKapat">Iptal</button>
+                <button class="t-btn-primary" @onclick="Kaydet" disabled="@kaydediyor">
+                    @(kaydediyor ? "Kaydediliyor..." : "Kaydet")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .takvim-wrap { display:flex; gap:18px; padding:18px; background:#f8fafc; min-height:calc(100vh - 60px); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    .takvim-sidebar { width:280px; flex-shrink:0; }
+    .takvim-main { flex:1; background:white; border-radius:14px; box-shadow:0 2px 12px rgba(15,23,42,0.06); padding:20px; }
+    .takvim-toolbar { display:flex; gap:10px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #f1f5f9; }
+
+    .t-card { background:white; border-radius:14px; box-shadow:0 2px 12px rgba(15,23,42,0.06); padding:16px; margin-bottom:14px; }
+    .t-card h4 { margin:0 0 12px; color:#235881; font-size:13px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; }
+    .t-loading, .t-empty { font-size:13px; color:#94a3b8; padding:8px 0; }
+
+    .t-takvim-row { display:flex; align-items:center; gap:8px; padding:6px 0; cursor:pointer; font-size:14px; color:#334155; }
+    .t-takvim-row input[type=checkbox] { margin:0; }
+    .t-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .t-name { flex:1; }
+    .t-oda-row { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:14px; color:#334155; }
+    .t-kapasite { font-size:11px; color:#94a3b8; background:#f1f5f9; padding:2px 6px; border-radius:10px; }
+
+    .t-btn-add { width:100%; margin-top:10px; background:#f1f5f9; border:none; padding:8px; border-radius:8px; cursor:pointer; font-size:13px; color:#235881; font-weight:500; }
+    .t-btn-add:hover { background:#e2e8f0; }
+
+    .t-modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.45); display:flex; align-items:center; justify-content:center; z-index:9999; backdrop-filter:blur(4px); }
+    .t-modal { background:white; border-radius:18px; padding:28px; width:92%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .t-modal h3 { margin:0 0 18px; color:#235881; }
+    .t-field { margin-bottom:14px; }
+    .t-field label { display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600; }
+    .t-field input, .t-field select, .t-field textarea { width:100%; padding:9px 11px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box; background:#f8fafc; }
+    .t-field input:focus, .t-field select:focus, .t-field textarea:focus { outline:none; border-color:#235881; background:white; }
+    .t-row { display:flex; gap:12px; }
+    .t-row > * { flex:1; }
+    .t-err { background:#fee2e2; color:#991b1b; padding:9px 12px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+    .t-cari-field { position:relative; }
+    .t-cari-liste { position:absolute; top:100%; left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 8px 24px rgba(15,23,42,0.12); max-height:260px; overflow-y:auto; z-index:100; margin-top:4px; }
+    .t-cari-row { padding:9px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center; font-size:13px; }
+    .t-cari-row:hover { background:#f8fafc; }
+    .t-cari-row:last-child { border-bottom:none; }
+    .t-cari-kod { color:#235881; font-weight:600; min-width:90px; font-family:monospace; }
+    .t-cari-unvan { color:#334155; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .t-cari-sec { display:flex; align-items:center; justify-content:space-between; background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:8px; margin-top:6px; font-size:13px; }
+    .t-cari-clear { background:none; border:none; color:#991b1b; cursor:pointer; font-weight:600; padding:2px 8px; }
+
+    .t-modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+    .t-btn-primary, .t-btn-secondary, .t-btn-sil { padding:9px 18px; border-radius:8px; border:none; cursor:pointer; font-size:14px; font-weight:500; }
+    .t-btn-primary { background:#235881; color:white; }
+    .t-btn-primary:hover { background:#1d486a; }
+    .t-btn-secondary { background:#f1f5f9; color:#334155; }
+    .t-btn-sil { background:#fee2e2; color:#991b1b; margin-right:auto; }
+
+    .fc-event { border-radius:6px !important; border:none !important; padding:2px 4px !important; font-size:12px !important; }
+    .fc { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    .fc-button-primary { background:#235881 !important; border-color:#235881 !important; }
+    .fc-button-primary:hover { background:#1d486a !important; }
+</style>
+
+@code {
+    List<MACHINEBISS_Web.Models.PineERP.Takvim.PineCalendar>? takvimler;
+    List<MACHINEBISS_Web.Models.PineERP.Takvim.PineRoom>? odalar;
+    HashSet<Guid> secili = new();
+
+    bool formAcik = false;
+    bool kaydediyor = false;
+    string hata = "";
+    string katilimciEmails = "";
+    DateTime formBaslangic = DateTime.Now;
+    DateTime formBitis = DateTime.Now.AddHours(1);
+
+    public class Formu
+    {
+        public Guid EventId { get; set; }
+        public Guid CalendarId { get; set; }
+        public string Baslik { get; set; } = "";
+        public string? Aciklama { get; set; }
+        public string? Konum { get; set; }
+        public string? CariKod { get; set; }
+        public Guid? RoomId { get; set; }
+        public string Tip { get; set; } = "toplanti"; // toplanti | not
+        public string? Renk { get; set; }
+        public string? CariUnvan { get; set; }
+    }
+    Formu formu = new();
+    bool tumGun = false;
+
+    DotNetObjectReference<Takvim>? _ref;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _ref = DotNetObjectReference.Create(this);
+            await Yukle();
+            // Script yuklenene kadar bekle (head'de var ama FullCalendar asenkron yuklenebilir)
+            for (int i = 0; i < 30; i++)
+            {
+                var ok = await JS.InvokeAsync<bool>("eval", "typeof window.pinebiTakvim !== 'undefined' && typeof FullCalendar !== 'undefined'");
+                if (ok) break;
+                await Task.Delay(150);
+            }
+            var evs = await EventleriAl();
+            await JS.InvokeVoidAsync("pinebiTakvim.init", _ref, evs);
+        }
+        catch (Exception ex)
+        {
+            hata = "Takvim yuklenirken hata: " + ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    void YeniToplanti()
+    {
+        formu = new Formu { EventId = Guid.Empty, CalendarId = secili.FirstOrDefault(), Tip = "toplanti" };
+        if (formu.CalendarId == Guid.Empty && takvimler != null && takvimler.Count > 0) formu.CalendarId = takvimler[0].CalendarId;
+        formBaslangic = DateTime.Now.Date.AddHours(DateTime.Now.Hour + 1);
+        formBitis = formBaslangic.AddHours(1);
+        katilimciEmails = ""; hata = ""; tumGun = false;
+        cariArama = ""; cariSonuclari = null;
+        formAcik = true;
+    }
+
+    void YeniNot()
+    {
+        // Saat bazli not: "simdi" uzerine 30 dakikalik bir blok olusturur
+        formu = new Formu { EventId = Guid.Empty, CalendarId = secili.FirstOrDefault(), Tip = "not", Renk = "#fbbf24" };
+        if (formu.CalendarId == Guid.Empty && takvimler != null && takvimler.Count > 0) formu.CalendarId = takvimler[0].CalendarId;
+        var simdi = DateTime.Now;
+        formBaslangic = new DateTime(simdi.Year, simdi.Month, simdi.Day, simdi.Hour, 0, 0);
+        formBitis = formBaslangic.AddMinutes(30);
+        katilimciEmails = ""; hata = ""; tumGun = false;
+        cariArama = ""; cariSonuclari = null;
+        formAcik = true;
+    }
+
+    // ===== CARI SECICI =====
+    string cariArama = "";
+    List<CariOzet>? cariSonuclari;
+    System.Threading.CancellationTokenSource? _cariCts;
+
+    public class CariOzet { public string Kod { get; set; } = ""; public string Unvan { get; set; } = ""; }
+
+    Task OnCariInput(ChangeEventArgs e) { cariArama = e.Value?.ToString() ?? ""; return CariAra(); }
+
+    async Task CariAra()
+    {
+        _cariCts?.Cancel();
+        _cariCts = new System.Threading.CancellationTokenSource();
+        var ct = _cariCts.Token;
+        try
+        {
+            await Task.Delay(200, ct); // debounce
+            using var db = await PineDb.CreateDbContextAsync();
+            var q = db.CariHesaplar.AsNoTracking().Where(c => !c.RecGizli && !c.RecIptal);
+            if (!string.IsNullOrWhiteSpace(cariArama))
+            {
+                var s = cariArama.Trim();
+                q = q.Where(c =>
+                    Microsoft.EntityFrameworkCore.EF.Functions.Collate(c.CarKod, "Latin1_General_CI_AI").Contains(s) ||
+                    (c.CarUnvan1 != null && Microsoft.EntityFrameworkCore.EF.Functions.Collate(c.CarUnvan1, "Latin1_General_CI_AI").Contains(s)));
+            }
+            cariSonuclari = await q.OrderBy(c => c.CarKod).Take(15)
+                .Select(c => new CariOzet { Kod = c.CarKod, Unvan = c.CarUnvan1 ?? "" })
+                .ToListAsync(ct);
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+        catch (Exception ex) { hata = ex.Message; StateHasChanged(); }
+    }
+
+    void CariSec(string kod, string unvan)
+    {
+        formu.CariKod = kod;
+        formu.CariUnvan = unvan;
+        cariArama = "";
+        cariSonuclari = null;
+    }
+
+    void CariTemizle()
+    {
+        formu.CariKod = null;
+        formu.CariUnvan = null;
+        cariArama = "";
+    }
+
+    async Task Yukle()
+    {
+        using var db = await PineDb.CreateDbContextAsync();
+        takvimler = await db.Calendars.AsNoTracking().Where(c => c.Aktif).OrderBy(c => c.Ad).ToListAsync();
+        odalar = await db.Rooms.AsNoTracking().Where(r => r.Aktif).OrderBy(r => r.Ad).ToListAsync();
+        foreach (var t in takvimler) secili.Add(t.CalendarId);
+        if (takvimler.Count > 0) formu.CalendarId = takvimler[0].CalendarId;
+        StateHasChanged();
+    }
+
+    async Task<object[]> EventleriAl()
+    {
+        if (takvimler == null || secili.Count == 0) return Array.Empty<object>();
+        var start = DateTime.Now.AddMonths(-2);
+        var end = DateTime.Now.AddMonths(4);
+        var ids = secili.ToArray();
+        using var db = await PineDb.CreateDbContextAsync();
+
+        var raw = await db.Events.AsNoTracking()
+            .Where(e => !e.Iptal && ids.Contains(e.CalendarId) && e.Bitis > start && e.Baslangic < end)
+            .Join(db.Calendars.AsNoTracking(), e => e.CalendarId, c => c.CalendarId,
+                (e, c) => new { e, calRenk = c.Renk })
+            .Select(x => new {
+                x.e.EventId, x.e.CalendarId, x.e.Baslik, x.e.Baslangic, x.e.Bitis, x.e.TumGun,
+                x.e.Renk, x.calRenk, x.e.Konum, x.e.CariKod, x.e.RoomId, x.e.Aciklama
+            }).ToListAsync();
+
+        // Cari unvan + oda adi tek seferde cek
+        var cariKodlar = raw.Where(x => !string.IsNullOrEmpty(x.CariKod)).Select(x => x.CariKod!).Distinct().ToArray();
+        var cariMap = cariKodlar.Length == 0 ? new Dictionary<string, string?>()
+            : await db.CariHesaplar.AsNoTracking()
+                .Where(c => cariKodlar.Contains(c.CarKod))
+                .ToDictionaryAsync(c => c.CarKod, c => c.CarUnvan1);
+        var roomIds = raw.Where(x => x.RoomId.HasValue).Select(x => x.RoomId!.Value).Distinct().ToArray();
+        var roomMap = roomIds.Length == 0 ? new Dictionary<Guid, string>()
+            : await db.Rooms.AsNoTracking().Where(r => roomIds.Contains(r.RoomId))
+                .ToDictionaryAsync(r => r.RoomId, r => r.Ad);
+
+        return raw.Select(x => (object)new {
+            id = x.EventId.ToString(),
+            calendarId = x.CalendarId,
+            title = x.Baslik,
+            start = x.Baslangic,
+            end = x.Bitis,
+            allDay = x.TumGun,
+            color = x.Renk ?? x.calRenk ?? (x.TumGun ? "#fbbf24" : "#235881"),
+            extendedProps = new {
+                location = x.Konum,
+                cariKod = x.CariKod,
+                cariUnvan = x.CariKod != null && cariMap.TryGetValue(x.CariKod, out var cu) ? cu : null,
+                roomAd = x.RoomId.HasValue && roomMap.TryGetValue(x.RoomId.Value, out var ra) ? ra : null,
+                aciklama = x.Aciklama
+            }
+        }).ToArray();
+    }
+
+    async Task Toggle(Guid id, bool aktif)
+    {
+        if (aktif) secili.Add(id); else secili.Remove(id);
+        var evs = await EventleriAl();
+        await JS.InvokeVoidAsync("pinebiTakvim.setEvents", evs);
+    }
+
+    [JSInvokable]
+    public Task YeniEtkinlik(string startStr, string endStr, bool allDay)
+    {
+        formu = new Formu { EventId = Guid.Empty, CalendarId = secili.FirstOrDefault(),
+            Tip = allDay ? "not" : "toplanti", Renk = allDay ? "#fbbf24" : null };
+        if (formu.CalendarId == Guid.Empty && takvimler != null && takvimler.Count > 0) formu.CalendarId = takvimler[0].CalendarId;
+        formBaslangic = DateTime.Parse(startStr);
+        formBitis = DateTime.Parse(endStr);
+        tumGun = allDay;
+        katilimciEmails = "";
+        hata = "";
+        formAcik = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public async Task EtkinligiAc(string eventId)
+    {
+        try
+        {
+            var gid = Guid.Parse(eventId);
+            using var db = await PineDb.CreateDbContextAsync();
+            var ev = await db.Events.AsNoTracking().FirstOrDefaultAsync(e => e.EventId == gid);
+            if (ev == null) return;
+            var katilimcilar = await db.EventParticipants.AsNoTracking()
+                .Where(p => p.EventId == gid).ToListAsync();
+            string? cariUnvan = null;
+            if (!string.IsNullOrEmpty(ev.CariKod))
+            {
+                cariUnvan = await db.CariHesaplar.AsNoTracking()
+                    .Where(c => c.CarKod == ev.CariKod).Select(c => c.CarUnvan1).FirstOrDefaultAsync();
+            }
+            formu = new Formu {
+                EventId = ev.EventId, CalendarId = ev.CalendarId,
+                Baslik = ev.Baslik, Aciklama = ev.Aciklama,
+                Konum = ev.Konum, CariKod = ev.CariKod, CariUnvan = cariUnvan, RoomId = ev.RoomId,
+                Renk = ev.Renk, Tip = ev.TumGun ? "not" : "toplanti"
+            };
+            cariArama = ""; cariSonuclari = null;
+            formBaslangic = ev.Baslangic;
+            formBitis = ev.Bitis;
+            tumGun = ev.TumGun;
+            katilimciEmails = string.Join(", ", katilimcilar.Select(k => k.Email ?? "").Where(e => !string.IsNullOrEmpty(e)));
+            hata = "";
+            formAcik = true;
+            StateHasChanged();
+        }
+        catch (Exception ex) { hata = ex.Message; StateHasChanged(); }
+    }
+
+    [JSInvokable]
+    public async Task EtkinligiTasi(string eventId, string startStr, string endStr)
+    {
+        try
+        {
+            var gid = Guid.Parse(eventId);
+            using var db = await PineDb.CreateDbContextAsync();
+            var ev = await db.Events.FirstOrDefaultAsync(e => e.EventId == gid);
+            if (ev == null) return;
+            ev.Baslangic = DateTime.Parse(startStr);
+            ev.Bitis = DateTime.Parse(endStr);
+            ev.Guncellenme = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            await JS.InvokeVoidAsync("pinebiTakvim.setEvents", await EventleriAl());
+        }
+        catch (Exception ex) { hata = ex.Message; StateHasChanged(); }
+    }
+
+    void ModalKapat() { formAcik = false; hata = ""; }
+
+    void YeniTakvim()
+    {
+        // Quick inline: prompt + create via JS could come later. Simple skip for MVP.
+        hata = "Takvim olusturmak icin bir sonraki surumde menu gelecek.";
+    }
+
+    async Task Kaydet()
+    {
+        hata = "";
+        if (string.IsNullOrWhiteSpace(formu.Baslik)) { hata = "Baslik zorunlu"; return; }
+        if (formBitis <= formBaslangic) { hata = "Bitis baslangictan sonra olmali"; return; }
+        kaydediyor = true;
+        try
+        {
+            using var db = await PineDb.CreateDbContextAsync();
+
+            // Oda cakisma kontrolu
+            if (formu.RoomId.HasValue)
+            {
+                var cakisma = await db.Events.AnyAsync(e => !e.Iptal && e.RoomId == formu.RoomId &&
+                    (formu.EventId == Guid.Empty || e.EventId != formu.EventId) &&
+                    e.Bitis > formBaslangic && e.Baslangic < formBitis);
+                if (cakisma) { hata = "Oda bu saatte dolu"; kaydediyor = false; return; }
+            }
+
+            PineEvent ev;
+            if (formu.EventId == Guid.Empty)
+            {
+                ev = new PineEvent { EventId = Guid.NewGuid(), Olusturulma = DateTime.UtcNow };
+                db.Events.Add(ev);
+            }
+            else
+            {
+                ev = await db.Events.FirstOrDefaultAsync(e => e.EventId == formu.EventId) ?? new PineEvent();
+                if (ev.EventId == Guid.Empty) { hata = "Etkinlik bulunamadi"; kaydediyor = false; return; }
+                ev.Guncellenme = DateTime.UtcNow;
+            }
+            ev.CalendarId = formu.CalendarId;
+            ev.Baslik = formu.Baslik;
+            ev.Aciklama = formu.Aciklama;
+            ev.Baslangic = formBaslangic;
+            ev.Bitis = formBitis;
+            ev.TumGun = tumGun;
+            ev.Konum = formu.Konum;
+            ev.CariKod = formu.CariKod;
+            ev.RoomId = formu.RoomId;
+            ev.Renk = formu.Renk ?? (tumGun ? "#fbbf24" : null);
+
+            // Katilimcilar
+            var eskiler = db.EventParticipants.Where(p => p.EventId == ev.EventId);
+            db.EventParticipants.RemoveRange(eskiler);
+            foreach (var email in katilimciEmails.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                db.EventParticipants.Add(new PineEventParticipant {
+                    ParticipantId = Guid.NewGuid(), EventId = ev.EventId,
+                    UserId = Guid.Empty, Email = email.Trim(), Zorunlu = true, Yanit = "beklemede"
+                });
+            }
+            await db.SaveChangesAsync();
+
+            formAcik = false;
+            await JS.InvokeVoidAsync("pinebiTakvim.setEvents", await EventleriAl());
+        }
+        catch (Exception ex) { hata = ex.Message; }
+        kaydediyor = false;
+    }
+
+    async Task Sil()
+    {
+        if (formu.EventId == Guid.Empty) return;
+        try
+        {
+            using var db = await PineDb.CreateDbContextAsync();
+            var ev = await db.Events.FirstOrDefaultAsync(e => e.EventId == formu.EventId);
+            if (ev != null) { ev.Iptal = true; ev.Guncellenme = DateTime.UtcNow; await db.SaveChangesAsync(); }
+            formAcik = false;
+            await JS.InvokeVoidAsync("pinebiTakvim.setEvents", await EventleriAl());
+        }
+        catch (Exception ex) { hata = ex.Message; }
+    }
+
+    public class EtkinlikDetay
+    {
+        public MACHINEBISS_Web.Models.PineERP.Takvim.PineEvent Ev { get; set; } = null!;
+        public List<MACHINEBISS_Web.Models.PineERP.Takvim.PineEventParticipant>? Katilimcilar { get; set; }
+    }
+
+    public void Dispose() => _ref?.Dispose();
+}
