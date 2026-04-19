@@ -254,6 +254,37 @@
                 </ul>
             </div>
         </div>
+
+        <h3 style="margin-top:30px;">Zaman Cizelgesi (dun aksamdan beri)</h3>
+        <p style="color:#64748b; font-size:12px;">Commit tarihine gore tum gelismeler (gun+saat).</p>
+
+        @if (timeline == null)
+        {
+            <button class="btn-primary" @onclick="TimelineYukle">Yukle</button>
+        }
+        else
+        {
+            <div class="tl-wrap">
+                @{ string? lastDay = null; }
+                @foreach (var c in timeline)
+                {
+                    var day = c.Date.Substring(0, 10);
+                    if (day != lastDay)
+                    {
+                        <div class="tl-day">@DayLabel(c.Date)</div>
+                        lastDay = day;
+                    }
+                    <div class="tl-row">
+                        <div class="tl-time">@c.Date.Substring(11, 5)</div>
+                        <div class="tl-dot"></div>
+                        <div class="tl-body">
+                            <div class="tl-hash"><code>@c.Hash</code></div>
+                            <div class="tl-msg">@c.Subject</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
     }
 
     @if (aktif == "tenant")
@@ -730,6 +761,15 @@
     .yap-card ul { margin:0; padding-left:18px; font-size:12px; color:#475569; }
     .yap-card li { padding:3px 0; }
     .yap-card code { background:#f1f5f9; padding:2px 5px; border-radius:3px; font-size:11px; color:#235881; }
+    .tl-wrap { margin-top:14px; padding-left:20px; border-left:2px solid #e2e8f0; }
+    .tl-day { font-weight:700; color:#235881; margin:20px 0 10px -24px; padding:6px 14px; background:#f1f5f9; border-radius:4px; display:inline-block; font-size:13px; }
+    .tl-row { display:flex; align-items:flex-start; gap:12px; padding:8px 0; position:relative; }
+    .tl-dot { width:10px; height:10px; background:#235881; border-radius:50%; margin-left:-25px; margin-top:4px; flex:0 0 auto; border:2px solid white; box-shadow:0 0 0 2px #235881; }
+    .tl-time { flex:0 0 48px; font-size:11px; color:#64748b; font-weight:600; margin-top:2px; }
+    .tl-body { flex:1; font-size:12px; }
+    .tl-hash { color:#94a3b8; font-size:10px; }
+    .tl-hash code { background:none; padding:0; color:#94a3b8; }
+    .tl-msg { color:#1e293b; margin-top:2px; }
 </style>
 
 @code {
@@ -744,6 +784,7 @@
     List<BackupFolder>? backupFolders = null;
     bool backupCalisiyor = false;
     BackupSonucu? backupSonucu = null;
+    List<CommitRow>? timeline = null;
 
     // Tenant detay modal
     TenantDetay? detayData = null;
@@ -1260,6 +1301,57 @@ VALUES (SYSUTCDATETIME(), 'admin_ui', @tid, 'migration.pine_to_mikro', @d)", m2)
             };
         }
         catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
+    }
+
+    async Task TimelineYukle()
+    {
+        var list = new List<CommitRow>();
+        try
+        {
+            var gitLog = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "log --pretty=format:%h|%s|%ai --since=\"2026-04-18 18:00\"",
+                WorkingDirectory = @"C:\inetpub\wwwroot\erp.pinebi.com",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            if (gitLog != null)
+            {
+                var output = await gitLog.StandardOutput.ReadToEndAsync();
+                await gitLog.WaitForExitAsync();
+                foreach (var line in output.Split('\n'))
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split('|', 3);
+                    if (parts.Length < 3) continue;
+                    list.Add(new CommitRow { Hash = parts[0], Subject = parts[1], Date = parts[2].Substring(0, 16) });
+                }
+            }
+        }
+        catch { }
+        timeline = list.OrderBy(c => c.Date).ToList();
+    }
+
+    string DayLabel(string dateStr)
+    {
+        if (DateTime.TryParse(dateStr, out var dt))
+        {
+            var gun = dt.DayOfWeek switch
+            {
+                DayOfWeek.Monday => "Pzt",
+                DayOfWeek.Tuesday => "Sal",
+                DayOfWeek.Wednesday => "Car",
+                DayOfWeek.Thursday => "Per",
+                DayOfWeek.Friday => "Cum",
+                DayOfWeek.Saturday => "Cmt",
+                DayOfWeek.Sunday => "Paz",
+                _ => ""
+            };
+            return $"{dt:dd MMM yyyy} ({gun})";
+        }
+        return dateStr;
     }
 
     async Task BackupYukle()
