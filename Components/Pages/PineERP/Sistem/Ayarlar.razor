@@ -1,0 +1,155 @@
+@page "/pine/sistem/ayarlar"
+@rendermode InteractiveServer
+@inject HttpClient Http
+
+<PageTitle>Firma Ayarlari - PineERP</PageTitle>
+
+<div style="padding:16px; max-width:900px;">
+    <h3 style="color:#235881;">
+        <i class="fa fa-cog"></i> Firma Ayarlari
+    </h3>
+
+    @if (mesaj != "")
+    {
+        <div class="alert @(mesajTip)">@mesaj</div>
+    }
+
+    @if (m != null)
+    {
+        <div class="ayar-grid">
+            <div class="col">
+                <h4>Firma Bilgileri</h4>
+                <label>Firma Adi</label>
+                <input @bind="m.TenantName" />
+
+                <label>Vergi Numarasi</label>
+                <input @bind="m.VergiNo" />
+
+                <label>Ulke Kodu</label>
+                <input @bind="m.UlkeKodu" maxlength="5" placeholder="TR" />
+
+                <label>Iletisim Email</label>
+                <input @bind="m.ContactEmail" type="email" />
+
+                <label>Iletisim Telefon</label>
+                <input @bind="m.ContactPhone" placeholder="+90..." />
+            </div>
+
+            <div class="col">
+                <h4>Yerel Ayarlar</h4>
+                <label>Saat Dilimi</label>
+                <select @bind="m.Timezone">
+                    <option value="Europe/Istanbul">Europe/Istanbul</option>
+                    <option value="Europe/Berlin">Europe/Berlin</option>
+                    <option value="Europe/London">Europe/London</option>
+                    <option value="America/New_York">America/New_York</option>
+                </select>
+
+                <label>Dil</label>
+                <select @bind="m.Locale">
+                    <option value="tr-TR">Turkce (tr-TR)</option>
+                    <option value="en-US">English (en-US)</option>
+                    <option value="de-DE">Deutsch (de-DE)</option>
+                </select>
+
+                <label>Para Birimi</label>
+                <select @bind="m.Currency">
+                    <option value="TRY">TRY (₺)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                </select>
+
+                <h4 style="margin-top:20px;">Gorunum</h4>
+                <label>Logo URL</label>
+                <input @bind="m.LogoUrl" placeholder="https://..." />
+
+                <label>Birincil Renk</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="color" @bind="m.PrimaryColor" style="width:60px; padding:2px; height:40px;" />
+                    <input @bind="m.PrimaryColor" style="flex:1;" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(m.LogoUrl))
+                {
+                    <div style="margin-top:10px; padding:10px; background:#f8fafc; border-radius:6px; text-align:center;">
+                        <img src="@m.LogoUrl" alt="Logo" style="max-height:60px;" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0; display:flex; gap:8px;">
+            <button class="btn-primary" @onclick="Kaydet" disabled="@kaydediliyor">
+                @(kaydediliyor ? "Kaydediliyor..." : "Kaydet")
+            </button>
+            <button class="btn-outline" @onclick="Yukle">Iptal / Yenile</button>
+        </div>
+
+        <div style="margin-top:20px; padding:12px; background:#f1f5f9; border-radius:6px; font-size:12px; color:#64748b;">
+            <b>Subdomain:</b> @($"{m.Subdomain}.pinebi.com") · Tenant ID readonly. Subdomain degisikligi icin platform admin ile iletisime gec.
+        </div>
+    }
+</div>
+
+<style>
+    .ayar-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:16px; }
+    .col { padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+    .col h4 { color:#235881; margin:0 0 12px; font-size:14px; }
+    .col label { display:block; font-size:12px; color:#64748b; font-weight:600; margin:10px 0 3px; text-transform:uppercase; letter-spacing:0.3px; }
+    .col input, .col select { width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; box-sizing:border-box; }
+    .btn-primary { background:#235881; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-size:14px; font-weight:600; }
+    .btn-outline { background:white; color:#235881; border:1px solid #235881; padding:10px 20px; border-radius:4px; cursor:pointer; font-size:14px; }
+    .alert { padding:10px 14px; border-radius:4px; margin:10px 0; font-size:13px; }
+    .alert-ok { background:#dcfce7; color:#166534; }
+    .alert-err { background:#fee2e2; color:#991b1b; }
+</style>
+
+@code {
+    Model? m = null;
+    bool kaydediliyor = false;
+    string mesaj = "", mesajTip = "";
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    async Task Yukle()
+    {
+        try
+        {
+            m = await Http.GetFromJsonAsync<Model>("api/tenant/settings");
+        }
+        catch (Exception ex) { Hata(ex.Message); }
+    }
+
+    async Task Kaydet()
+    {
+        if (m == null) return;
+        kaydediliyor = true;
+        try
+        {
+            var resp = await Http.PutAsJsonAsync("api/tenant/settings", m);
+            if (resp.IsSuccessStatusCode) Basari("Kaydedildi");
+            else Hata($"Hata: {resp.StatusCode}");
+        }
+        catch (Exception ex) { Hata(ex.Message); }
+        kaydediliyor = false;
+    }
+
+    void Basari(string s) { mesaj = s; mesajTip = "alert-ok"; }
+    void Hata(string s) { mesaj = s; mesajTip = "alert-err"; }
+
+    class Model
+    {
+        public string TenantName { get; set; } = "";
+        public string Subdomain { get; set; } = "";
+        public string? VergiNo { get; set; }
+        public string? UlkeKodu { get; set; }
+        public string Timezone { get; set; } = "Europe/Istanbul";
+        public string Locale { get; set; } = "tr-TR";
+        public string Currency { get; set; } = "TRY";
+        public string? LogoUrl { get; set; }
+        public string PrimaryColor { get; set; } = "#235881";
+        public string ContactEmail { get; set; } = "";
+        public string? ContactPhone { get; set; }
+    }
+}
