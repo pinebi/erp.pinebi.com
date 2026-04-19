@@ -50,6 +50,11 @@ builder.Services.AddScoped<IDbContextFactory<PineErpContext>>(sp =>
         sp.GetRequiredService<TenantAccessor>(), connStr,
         opts => new PineErpContext(opts)));
 
+builder.Services.AddScoped<IDbContextFactory<MikroContext>>(sp =>
+    new TenantAwareDbContextFactory<MikroContext>(
+        sp.GetRequiredService<TenantAccessor>(), connStr,
+        opts => new MikroContext(opts)));
+
 builder.Services.AddScoped<ITenantFirmaContextFactory, TenantFirmaContextFactory>();
 
 // API Controllers
