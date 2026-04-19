@@ -1,0 +1,232 @@
+@page "/pine/sistem/davetler"
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Davetler - PineERP</PageTitle>
+
+<div style="padding:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="color:#235881; margin:0;">
+            <i class="fa fa-envelope"></i> Kullanici Davetleri
+        </h3>
+        <button class="btn-primary" @onclick="YeniAc"><i class="fa fa-plus"></i> Yeni Davet</button>
+    </div>
+
+    @if (mesaj != "")
+    {
+        <div class="alert @(mesajTip)">@mesaj</div>
+    }
+
+    @if (formAcik)
+    {
+        <div class="form-box">
+            <h4>Kullanici Davet Et</h4>
+            <div class="form-grid">
+                <div>
+                    <label>Email</label>
+                    <input @bind="formEmail" type="email" placeholder="user@firma.com" />
+                </div>
+                <div>
+                    <label>Kullanici Adi</label>
+                    <input @bind="formKul" placeholder="ahmet.yilmaz" maxlength="50" />
+                </div>
+                <div>
+                    <label>Ad Soyad</label>
+                    <input @bind="formAd" placeholder="Ahmet Yilmaz" />
+                </div>
+                <div>
+                    <label>Rol</label>
+                    <select @bind="formRol">
+                        <option value="Admin">Admin</option>
+                        <option value="Yonetici">Yonetici</option>
+                        <option value="Kullanici">Kullanici</option>
+                        <option value="Okuyucu">Okuyucu</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button class="btn-primary" @onclick="Gonder" disabled="@gonderiliyor">
+                    @(gonderiliyor ? "Gonderiliyor..." : "Davet Gonder")
+                </button>
+                <button class="btn-outline" @onclick="() => formAcik = false">Iptal</button>
+            </div>
+            @if (sonLink != "")
+            {
+                <div class="alert alert-ok" style="margin-top:12px;">
+                    <b>Davet linki:</b>
+                    <code style="word-break:break-all;">@sonLink</code>
+                    @if (sonEmailSent)
+                    {
+                        <br/><small>✓ Email @formEmailSonuc gonderildi.</small>
+                    }
+                    else
+                    {
+                        <br/><small>⚠ Email gonderilemedi; linki manuel paylasin.</small>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <table class="kul-table">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Kullanici</th>
+                <th>Rol</th>
+                <th>Durum</th>
+                <th>Olusturma</th>
+                <th>Gecerlilik</th>
+                <th>Aksiyon</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (davetler.Count == 0)
+            {
+                <tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">Henuz davet yok.</td></tr>
+            }
+            @foreach (var d in davetler)
+            {
+                <tr>
+                    <td>@d.Email</td>
+                    <td><b>@d.KullaniciAdi</b></td>
+                    <td><span class="rol">@d.Rol</span></td>
+                    <td><span class="badge-@d.Durum">@DurumTR(d.Durum)</span></td>
+                    <td>@d.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@d.ExpiresAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        @if (d.Durum == "beklemede")
+                        {
+                            <button class="btn-mini danger" @onclick="() => Iptal(d.InviteId)">Iptal</button>
+                        }
+                        else if (d.Durum == "kabul")
+                        {
+                            <span style="color:#166534; font-size:11px;">✓ Kabul: @d.AcceptedAt?.ToString("yyyy-MM-dd")</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .btn-primary { background:#235881; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+    .btn-outline { background:white; color:#235881; border:1px solid #235881; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; margin-left:6px; }
+    .btn-mini { background:#f1f5f9; color:#235881; border:1px solid #cbd5e1; padding:3px 8px; border-radius:3px; cursor:pointer; font-size:11px; margin-right:4px; }
+    .btn-mini.danger { color:#991b1b; border-color:#fecaca; }
+    .form-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:16px; margin-bottom:20px; }
+    .form-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+    .form-grid label { display:block; font-size:12px; color:#64748b; margin-bottom:3px; font-weight:600; }
+    .form-grid input, .form-grid select { width:100%; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; }
+    .kul-table { width:100%; border-collapse:collapse; font-size:13px; background:white; }
+    .kul-table th { background:#235881; color:white; padding:8px 10px; text-align:left; }
+    .kul-table td { padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+    .kul-table tr:hover { background:#f8fafc; }
+    .rol { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-beklemede { background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-kabul { background:#dcfce7; color:#166534; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .badge-iptal, .badge-suresi_doldu { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .alert { padding:10px 14px; border-radius:4px; margin:10px 0; font-size:13px; }
+    .alert-ok { background:#dcfce7; color:#166534; }
+    .alert-err { background:#fee2e2; color:#991b1b; }
+</style>
+
+@code {
+    List<DavetRow> davetler = new();
+    bool formAcik = false;
+    bool gonderiliyor = false;
+    string formEmail = "", formKul = "", formAd = "", formRol = "Kullanici";
+    string mesaj = "", mesajTip = "";
+    string sonLink = "", formEmailSonuc = "";
+    bool sonEmailSent = false;
+
+    protected override async Task OnInitializedAsync() => await Yukle();
+
+    async Task Yukle()
+    {
+        try
+        {
+            davetler = await Http.GetFromJsonAsync<List<DavetRow>>("api/invites") ?? new();
+        }
+        catch (Exception ex) { Hata(ex.Message); }
+    }
+
+    void YeniAc()
+    {
+        formAcik = true;
+        formEmail = formKul = formAd = "";
+        formRol = "Kullanici";
+        sonLink = "";
+        mesaj = "";
+    }
+
+    async Task Gonder()
+    {
+        if (string.IsNullOrWhiteSpace(formEmail) || string.IsNullOrWhiteSpace(formKul))
+        {
+            Hata("Email ve kullanici adi zorunlu");
+            return;
+        }
+        gonderiliyor = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("api/invites",
+                new { email = formEmail, kullaniciAdi = formKul, adSoyad = formAd, rol = formRol });
+            if (resp.IsSuccessStatusCode)
+            {
+                var j = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                sonLink = j.GetProperty("inviteUrl").GetString() ?? "";
+                sonEmailSent = j.GetProperty("emailSent").GetBoolean();
+                formEmailSonuc = formEmail;
+                await Yukle();
+                Basari("Davet olusturuldu");
+            }
+            else
+            {
+                var b = await resp.Content.ReadAsStringAsync();
+                Hata($"{resp.StatusCode}: {b}");
+            }
+        }
+        catch (Exception ex) { Hata(ex.Message); }
+        finally { gonderiliyor = false; }
+    }
+
+    async Task Iptal(Guid id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Daveti iptal etmek istediginden emin misin?")) return;
+        var resp = await Http.DeleteAsync($"api/invites/{id}");
+        if (resp.IsSuccessStatusCode)
+        {
+            Basari("Davet iptal edildi");
+            await Yukle();
+        }
+    }
+
+    static string DurumTR(string d) => d switch
+    {
+        "beklemede" => "Beklemede",
+        "kabul" => "Kabul Edildi",
+        "iptal" => "Iptal",
+        "suresi_doldu" => "Suresi Doldu",
+        _ => d
+    };
+
+    void Basari(string m) { mesaj = m; mesajTip = "alert-ok"; }
+    void Hata(string m) { mesaj = m; mesajTip = "alert-err"; }
+
+    record DavetRow
+    {
+        public Guid InviteId { get; init; }
+        public string Email { get; init; } = "";
+        public string KullaniciAdi { get; init; } = "";
+        public string? AdSoyad { get; init; }
+        public string Rol { get; init; } = "";
+        public DateTime ExpiresAt { get; init; }
+        public DateTime? AcceptedAt { get; init; }
+        public DateTime? RevokedAt { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public string Durum { get; init; } = "";
+    }
+}
