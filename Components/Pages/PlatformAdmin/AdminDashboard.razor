@@ -3,7 +3,9 @@
 @rendermode InteractiveServer
 @inject IConfiguration Config
 @inject NavigationManager Nav
+@inject IServiceProvider ScopedServices
 @using Microsoft.Data.SqlClient
+@using MACHINEBISS_Web.MultiTenant
 
 <PageTitle>Platform Admin - Pinebi</PageTitle>
 
@@ -157,14 +159,25 @@
                         <div>Max storage: @detayData.MaxStorageGb GB</div>
                         <div>Max fatura/ay: @detayData.MaxInvoicesMonth</div>
                     </div>
-                    <div style="margin-top:8px;">
-                        <select @bind="yeniTier">
-                            <option value="free">Free</option>
-                            <option value="starter">Starter</option>
-                            <option value="pro">Pro</option>
-                            <option value="enterprise">Enterprise</option>
-                        </select>
-                        <button class="btn-primary" style="padding:4px 12px;" @onclick="TierDegistir">Tier Degistir</button>
+                    <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <div>
+                            <select @bind="yeniTier">
+                                <option value="free">Free</option>
+                                <option value="starter">Starter</option>
+                                <option value="pro">Pro</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                            <button class="btn-primary" style="padding:4px 12px;" @onclick="TierDegistir">Tier Degistir</button>
+                        </div>
+                        <div>
+                            <button class="btn-mini" @onclick="() => MigrationCalistir(detayTenantId)" disabled="@migrationCalisiyor">
+                                @(migrationCalisiyor ? "Calisiyor..." : "Pine -> Mikro Migrate")
+                            </button>
+                            @if (migrationSonuc != "")
+                            {
+                                <small style="color:#166534; margin-left:8px;">@migrationSonuc</small>
+                            }
+                        </div>
                     </div>
 
                     <h4>API Keyler (@detayApiKeys.Count)</h4>
@@ -520,6 +533,8 @@
     List<AuditRow> detayEvents = new();
     string yeniTier = "starter";
     Guid detayTenantId;
+    bool migrationCalisiyor = false;
+    string migrationSonuc = "";
 
     bool yeniTenantAcik = false;
     bool olusturuluyor = false;
@@ -678,23 +693,31 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
 
     async Task Suspend(Guid tenantId)
     {
-        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-        await http.PostAsync($"api/platform/tenants/{tenantId}/suspend", null);
+        await using var c = new SqlConnection(MasterConn); await c.OpenAsync();
+        await using (var u = new SqlCommand("UPDATE tenants SET status='suspended', suspended_at=SYSUTCDATETIME() WHERE tenant_id=@id AND status<>'deleted'", c))
+        { u.Parameters.AddWithValue("@id", tenantId); await u.ExecuteNonQueryAsync(); }
+        await using (var a = new SqlCommand("INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json) VALUES (SYSUTCDATETIME(),'admin_ui',@id,'tenant.suspended','{}')", c))
+        { a.Parameters.AddWithValue("@id", tenantId); await a.ExecuteNonQueryAsync(); }
         await VerileriYukle();
     }
 
     async Task Reactivate(Guid tenantId)
     {
-        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-        await http.PostAsync($"api/platform/tenants/{tenantId}/reactivate", null);
+        await using var c = new SqlConnection(MasterConn); await c.OpenAsync();
+        await using (var u = new SqlCommand("UPDATE tenants SET status='active', suspended_at=NULL WHERE tenant_id=@id AND status='suspended'", c))
+        { u.Parameters.AddWithValue("@id", tenantId); await u.ExecuteNonQueryAsync(); }
+        await using (var a = new SqlCommand("INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json) VALUES (SYSUTCDATETIME(),'admin_ui',@id,'tenant.reactivated','{}')", c))
+        { a.Parameters.AddWithValue("@id", tenantId); await a.ExecuteNonQueryAsync(); }
         await VerileriYukle();
     }
 
     async Task Sil(Guid tenantId, string subdomain)
     {
-        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-        // Soft delete - hard delete icin ?hard=true eklenebilir
-        await http.DeleteAsync($"api/platform/tenants/{tenantId}");
+        await using var c = new SqlConnection(MasterConn); await c.OpenAsync();
+        await using (var u = new SqlCommand("UPDATE tenants SET status='deleted', deleted_at=SYSUTCDATETIME() WHERE tenant_id=@id", c))
+        { u.Parameters.AddWithValue("@id", tenantId); await u.ExecuteNonQueryAsync(); }
+        await using (var a = new SqlCommand("INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json) VALUES (SYSUTCDATETIME(),'admin_ui',@id,'tenant.soft_deleted','{}')", c))
+        { a.Parameters.AddWithValue("@id", tenantId); await a.ExecuteNonQueryAsync(); }
         await VerileriYukle();
     }
 
@@ -702,14 +725,32 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
     {
         try
         {
-            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-            var resp = await http.PostAsJsonAsync($"api/platform/tenants/{tenantId}/api-key", new { description = $"Admin UI @ {DateTime.Now:HH:mm}" });
-            if (resp.IsSuccessStatusCode)
+            var rnd = new Random();
+            const string alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
+            var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(24);
+            var sb = new System.Text.StringBuilder(24);
+            foreach (var b in bytes) sb.Append(alphabet[b % alphabet.Length]);
+            var fullKey = $"pbk_{subdomain}_{sb}";
+            var prefix = fullKey.Length >= 9 ? fullKey.Substring(0, 9) : fullKey;
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.Unicode.GetBytes(fullKey)));
+
+            await using var c = new SqlConnection(MasterConn); await c.OpenAsync();
+            await using (var ins = new SqlCommand("INSERT INTO api_keys (tenant_id, key_prefix, key_hash, description, scopes) VALUES (@id, @p, @h, @d, 'read,write')", c))
             {
-                var obj = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-                yeniKey = obj.GetProperty("apiKey").GetString();
-                await VerileriYukle();
+                ins.Parameters.AddWithValue("@id", tenantId);
+                ins.Parameters.AddWithValue("@p", prefix);
+                ins.Parameters.AddWithValue("@h", hash);
+                ins.Parameters.AddWithValue("@d", $"Admin UI @ {DateTime.Now:HH:mm}");
+                await ins.ExecuteNonQueryAsync();
             }
+            await using (var a = new SqlCommand("INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json) VALUES (SYSUTCDATETIME(),'admin_ui',@id,'apikey.created',@d)", c))
+            {
+                a.Parameters.AddWithValue("@id", tenantId);
+                a.Parameters.AddWithValue("@d", $"{{\"prefix\":\"{prefix}\"}}");
+                await a.ExecuteNonQueryAsync();
+            }
+            yeniKey = fullKey;
+            await VerileriYukle();
         }
         catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
     }
@@ -770,65 +811,202 @@ FROM api_keys k JOIN tenants t ON k.tenant_id = t.tenant_id ORDER BY k.created_a
         detayTenantId = tenantId;
         try
         {
-            using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-            var j = await http.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/platform/tenants/{tenantId}/detail");
+            // HttpClient cookie olmadan 401 dondurur. Direkt DB.
+            await using var conn = new SqlConnection(MasterConn);
+            await conn.OpenAsync();
 
-            var t = j.GetProperty("tenant");
-            var tier = t.GetProperty("tier");
-            detayData = new TenantDetay {
-                TenantCode = t.GetProperty("tenantCode").GetString() ?? "",
-                TenantName = t.GetProperty("tenantName").GetString() ?? "",
-                Subdomain = t.GetProperty("subdomain").GetString() ?? "",
-                DbName = t.GetProperty("dbName").GetString() ?? "",
-                RegionId = t.GetProperty("regionId").GetString() ?? "",
-                Status = t.GetProperty("status").GetString() ?? "",
-                ContactEmail = t.GetProperty("contactEmail").GetString() ?? "",
-                VergiNo = t.TryGetProperty("vergiNo", out var v) && v.ValueKind != System.Text.Json.JsonValueKind.Null ? v.GetString() : null,
-                CreatedAt = t.GetProperty("createdAt").GetDateTime(),
-                ActivatedAt = t.TryGetProperty("activatedAt", out var a) && a.ValueKind != System.Text.Json.JsonValueKind.Null ? a.GetDateTime() : null,
-                TierCode = tier.GetProperty("code").GetString() ?? "",
-                MaxUsers = tier.GetProperty("maxUsers").GetInt32(),
-                MaxStorageGb = tier.GetProperty("maxStorageGb").GetInt32(),
-                MaxInvoicesMonth = tier.GetProperty("maxInvoicesMonth").GetInt32(),
-                MonthlyPriceUsd = tier.GetProperty("monthlyPriceUsd").GetDecimal()
+            await using var cmd = new SqlCommand(@"
+SELECT t.tenant_code, t.tenant_name, t.subdomain, t.db_name, t.region_id, t.status, t.contact_email,
+       t.created_at, t.activated_at, t.vergi_no, st.tier_code, st.tier_name,
+       st.max_users, st.max_storage_gb, st.max_invoices_month, st.monthly_price_usd
+FROM tenants t JOIN subscription_tiers st ON t.tier_id = st.tier_id
+WHERE t.tenant_id = @id", conn);
+            cmd.Parameters.AddWithValue("@id", tenantId);
+
+            using var rdr = await cmd.ExecuteReaderAsync();
+            if (!await rdr.ReadAsync()) return;
+
+            detayData = new TenantDetay
+            {
+                TenantCode = rdr.GetString(0),
+                TenantName = rdr.GetString(1),
+                Subdomain = rdr.GetString(2),
+                DbName = rdr.GetString(3),
+                RegionId = rdr.GetString(4),
+                Status = rdr.GetString(5),
+                ContactEmail = rdr.GetString(6),
+                CreatedAt = rdr.GetDateTime(7),
+                ActivatedAt = rdr.IsDBNull(8) ? null : rdr.GetDateTime(8),
+                VergiNo = rdr.IsDBNull(9) ? null : rdr.GetString(9),
+                TierCode = rdr.GetString(10),
+                MaxUsers = rdr.GetInt32(12),
+                MaxStorageGb = rdr.GetInt32(13),
+                MaxInvoicesMonth = rdr.GetInt32(14),
+                MonthlyPriceUsd = rdr.GetDecimal(15)
             };
+            await rdr.CloseAsync();
             yeniTier = detayData.TierCode;
 
-            detayApiKeys = j.GetProperty("apiKeys").EnumerateArray().Select(k => new ApiKeyDetay {
-                Prefix = k.GetProperty("prefix").GetString() ?? "",
-                Description = k.TryGetProperty("description", out var d) && d.ValueKind != System.Text.Json.JsonValueKind.Null ? d.GetString() : null,
-                Scopes = k.GetProperty("scopes").GetString() ?? "",
-                LastUsedAt = k.TryGetProperty("lastUsedAt", out var l) && l.ValueKind != System.Text.Json.JsonValueKind.Null ? l.GetDateTime() : null
-            }).ToList();
+            // API Keyler
+            detayApiKeys.Clear();
+            await using (var k = new SqlCommand(@"
+SELECT key_prefix, ISNULL(description,''), scopes, last_used_at
+FROM api_keys WHERE tenant_id=@id ORDER BY created_at DESC", conn))
+            {
+                k.Parameters.AddWithValue("@id", tenantId);
+                await using var r = await k.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    detayApiKeys.Add(new ApiKeyDetay {
+                        Prefix = r.GetString(0),
+                        Description = r.GetString(1),
+                        Scopes = r.GetString(2),
+                        LastUsedAt = r.IsDBNull(3) ? null : r.GetDateTime(3)
+                    });
+            }
 
-            detayInvites = j.GetProperty("invites").EnumerateArray().Select(i => new InviteDetay {
-                Email = i.GetProperty("email").GetString() ?? "",
-                KullaniciAdi = i.GetProperty("kullaniciAdi").GetString() ?? "",
-                Rol = i.GetProperty("rol").GetString() ?? "",
-                ExpiresAt = i.GetProperty("expiresAt").GetDateTime(),
-                AcceptedAt = i.TryGetProperty("acceptedAt", out var a2) && a2.ValueKind != System.Text.Json.JsonValueKind.Null ? a2.GetDateTime() : null,
-                RevokedAt = i.TryGetProperty("revokedAt", out var r) && r.ValueKind != System.Text.Json.JsonValueKind.Null ? r.GetDateTime() : null
-            }).ToList();
+            // Davetler
+            detayInvites.Clear();
+            await using (var i = new SqlCommand(@"
+SELECT email, kullanici_adi, rol, expires_at, accepted_at, revoked_at
+FROM user_invites WHERE tenant_id=@id ORDER BY created_at DESC", conn))
+            {
+                i.Parameters.AddWithValue("@id", tenantId);
+                await using var r = await i.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    detayInvites.Add(new InviteDetay {
+                        Email = r.GetString(0),
+                        KullaniciAdi = r.GetString(1),
+                        Rol = r.GetString(2),
+                        ExpiresAt = r.GetDateTime(3),
+                        AcceptedAt = r.IsDBNull(4) ? null : r.GetDateTime(4),
+                        RevokedAt = r.IsDBNull(5) ? null : r.GetDateTime(5)
+                    });
+            }
 
-            detayEvents = j.GetProperty("events").EnumerateArray().Select(e => new AuditRow {
-                OccurredAt = e.GetProperty("occurredAt").GetDateTime(),
-                EventType = e.GetProperty("eventType").GetString() ?? "",
-                ActorType = e.GetProperty("actorType").GetString() ?? "",
-                Details = e.GetProperty("details").GetString() ?? ""
-            }).ToList();
+            // Events
+            detayEvents.Clear();
+            await using (var e = new SqlCommand(@"
+SELECT TOP 20 occurred_at, event_type, actor_type, details_json
+FROM control_audit_events WHERE tenant_id=@id ORDER BY event_id DESC", conn))
+            {
+                e.Parameters.AddWithValue("@id", tenantId);
+                await using var r = await e.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    detayEvents.Add(new AuditRow {
+                        OccurredAt = r.GetDateTime(0),
+                        EventType = r.GetString(1),
+                        ActorType = r.GetString(2),
+                        Details = r.GetString(3).Length > 120 ? r.GetString(3).Substring(0, 120) + "..." : r.GetString(3)
+                    });
+            }
+
+            StateHasChanged();
         }
         catch (Exception ex) { formMesaj = ex.Message; formMesajTip = "alert-err"; }
     }
 
     async Task TierDegistir()
     {
-        using var http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
-        var resp = await http.PostAsJsonAsync($"api/platform/tenants/{detayTenantId}/change-tier", new { newTier = yeniTier });
-        if (resp.IsSuccessStatusCode)
+        await using var conn = new SqlConnection(MasterConn);
+        await conn.OpenAsync();
+        int newTierId;
+        await using (var q = new SqlCommand("SELECT tier_id FROM subscription_tiers WHERE tier_code=@t", conn))
         {
-            await DetayAc(detayTenantId);
-            await VerileriYukle();
+            q.Parameters.AddWithValue("@t", yeniTier);
+            newTierId = (int)(await q.ExecuteScalarAsync() ?? 0);
         }
+        if (newTierId == 0) return;
+        await using (var upd = new SqlCommand("UPDATE tenants SET tier_id=@t WHERE tenant_id=@id", conn))
+        {
+            upd.Parameters.AddWithValue("@t", newTierId);
+            upd.Parameters.AddWithValue("@id", detayTenantId);
+            await upd.ExecuteNonQueryAsync();
+        }
+        await using (var a = new SqlCommand("INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json) VALUES (SYSUTCDATETIME(), 'admin_ui', @tid, 'tenant.tier_changed', @d)", conn))
+        {
+            a.Parameters.AddWithValue("@tid", detayTenantId);
+            a.Parameters.AddWithValue("@d", $"{{\"newTier\":\"{yeniTier}\"}}");
+            await a.ExecuteNonQueryAsync();
+        }
+        await DetayAc(detayTenantId);
+        await VerileriYukle();
+    }
+
+    async Task MigrationCalistir(Guid tenantId)
+    {
+        migrationCalisiyor = true;
+        migrationSonuc = "";
+        StateHasChanged();
+        try
+        {
+            // Tenant DB connection string al
+            string? encCs = null;
+            await using (var m = new SqlConnection(MasterConn))
+            {
+                await m.OpenAsync();
+                await using var q = new SqlCommand("SELECT connection_string_encrypted FROM tenant_connections WHERE tenant_id=@id", m);
+                q.Parameters.AddWithValue("@id", tenantId);
+                encCs = (string?)await q.ExecuteScalarAsync();
+            }
+            if (encCs == null) { migrationSonuc = "Connection yok"; migrationCalisiyor = false; return; }
+            var protector = (IConnectionStringProtector)ScopedServices.GetRequiredService(typeof(IConnectionStringProtector));
+            var cs = protector.Unprotect(encCs);
+
+            int sBefore=0, cBefore=0, sAfter=0, cAfter=0;
+            await using (var tc = new SqlConnection(cs))
+            {
+                await tc.OpenAsync();
+                await using (var cc = new SqlCommand("SELECT COUNT(*) FROM stoklar", tc))
+                    sBefore = (int)(await cc.ExecuteScalarAsync() ?? 0);
+                await using (var cc = new SqlCommand("SELECT COUNT(*) FROM cari_hesaplar", tc))
+                    cBefore = (int)(await cc.ExecuteScalarAsync() ?? 0);
+
+                await using (var cmd = new SqlCommand(@"
+MERGE INTO stoklar AS tgt
+USING (SELECT sto_kod, LEFT(sto_isim,50) AS sto_isim, LEFT(sto_kisa_isim,25) AS sto_kisa_ismi,
+              LEFT(sto_yabanci_isim,50) AS sto_yabanci_isim, LEFT(sto_birim1_ad,10) AS sto_birim1_ad,
+              sto_perakende_vergi, NEWID() AS sto_Guid
+       FROM pine_stoklar WHERE rec_iptal=0 AND rec_gizli=0 AND sto_kod IS NOT NULL) src
+ON tgt.sto_kod=src.sto_kod
+WHEN MATCHED THEN UPDATE SET sto_isim=src.sto_isim, sto_kisa_ismi=src.sto_kisa_ismi, sto_yabanci_isim=src.sto_yabanci_isim, sto_birim1_ad=src.sto_birim1_ad, sto_perakende_vergi=src.sto_perakende_vergi
+WHEN NOT MATCHED THEN INSERT (sto_kod, sto_isim, sto_kisa_ismi, sto_yabanci_isim, sto_birim1_ad, sto_perakende_vergi, sto_Guid, sto_iptal, sto_hidden, sto_kilitli, sto_degisti)
+VALUES (src.sto_kod, src.sto_isim, src.sto_kisa_ismi, src.sto_yabanci_isim, src.sto_birim1_ad, src.sto_perakende_vergi, src.sto_Guid, 0, 0, 0, 0);", tc))
+                {
+                    cmd.CommandTimeout = 300;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                await using (var cmd = new SqlCommand(@"
+MERGE INTO cari_hesaplar AS tgt
+USING (SELECT car_kod AS cari_kod, car_unvan1 AS cari_unvan1, car_unvan2 AS cari_unvan2, NEWID() AS cari_Guid
+       FROM pine_cari_hesaplar WHERE rec_iptal=0 AND rec_gizli=0 AND car_kod IS NOT NULL) src
+ON tgt.cari_kod=src.cari_kod
+WHEN MATCHED THEN UPDATE SET cari_unvan1=src.cari_unvan1, cari_unvan2=src.cari_unvan2
+WHEN NOT MATCHED THEN INSERT (cari_kod, cari_unvan1, cari_unvan2, cari_Guid, cari_iptal, cari_hidden, cari_kilitli, cari_degisti)
+VALUES (src.cari_kod, src.cari_unvan1, src.cari_unvan2, src.cari_Guid, 0, 0, 0, 0);", tc))
+                {
+                    cmd.CommandTimeout = 300;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await using (var cc = new SqlCommand("SELECT COUNT(*) FROM stoklar", tc))
+                    sAfter = (int)(await cc.ExecuteScalarAsync() ?? 0);
+                await using (var cc = new SqlCommand("SELECT COUNT(*) FROM cari_hesaplar", tc))
+                    cAfter = (int)(await cc.ExecuteScalarAsync() ?? 0);
+            }
+            migrationSonuc = $"✓ Stok: {sAfter} (+{sAfter-sBefore}), Cari: {cAfter} (+{cAfter-cBefore})";
+
+            // Audit
+            await using var m2 = new SqlConnection(MasterConn);
+            await m2.OpenAsync();
+            await using var aud = new SqlCommand(@"
+INSERT INTO control_audit_events (occurred_at, actor_type, tenant_id, event_type, details_json)
+VALUES (SYSUTCDATETIME(), 'admin_ui', @tid, 'migration.pine_to_mikro', @d)", m2);
+            aud.Parameters.AddWithValue("@tid", tenantId);
+            aud.Parameters.AddWithValue("@d", $"{{\"sto\":{sAfter},\"cari\":{cAfter}}}");
+            await aud.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex) { migrationSonuc = ex.Message; }
+        migrationCalisiyor = false;
     }
 
     async Task Cikis()
